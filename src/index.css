@@ -1,0 +1,163 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Chiva Computer & Service Design System - Based on brand colors
+All colors MUST be HSL. Azul turquesa principal, preto/cinza secundário
+*/
+
+@layer base {
+  :root {
+    /* Base colors */
+    --background: 0 0% 100%;
+    --foreground: 220 13% 13%;
+
+    /* Card system */
+    --card: 0 0% 100%;
+    --card-foreground: 220 13% 13%;
+
+    /* Popover system */
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 13% 13%;
+
+    /* Chiva brand colors - Turquoise blue primary */
+    --primary: 188 100% 42%;
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 188 100% 35%;
+    --primary-light: 188 100% 85%;
+
+    /* Secondary - Professional grays */
+    --secondary: 220 9% 46%;
+    --secondary-foreground: 0 0% 100%;
+    --secondary-light: 220 14% 96%;
+
+    /* Muted colors */
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 8.9% 46.1%;
+
+    /* Accent colors */
+    --accent: 188 100% 95%;
+    --accent-foreground: 188 100% 25%;
+
+    /* Status colors */
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    /* Border and input */
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 188 100% 42%;
+
+    /* Chiva specific gradients */
+    --gradient-hero: linear-gradient(135deg, hsl(188 100% 42%), hsl(188 100% 35%));
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(220 14% 98%));
+    --gradient-accent: linear-gradient(90deg, hsl(188 100% 95%), hsl(188 100% 90%));
+
+    /* Professional shadows */
+    --shadow-card: 0 2px 8px hsl(220 13% 13% / 0.08);
+    --shadow-hover: 0 4px 16px hsl(220 13% 13% / 0.12);
+    --shadow-focus: 0 0 0 3px hsl(188 100% 42% / 0.2);
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    /* Dark mode with Chiva branding */
+    --background: 220 13% 9%;
+    --foreground: 0 0% 98%;
+
+    --card: 220 13% 11%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 220 13% 11%;
+    --popover-foreground: 0 0% 98%;
+
+    /* Chiva turquoise remains vibrant in dark mode */
+    --primary: 188 100% 45%;
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 188 100% 40%;
+    --primary-light: 188 100% 15%;
+
+    --secondary: 220 13% 20%;
+    --secondary-foreground: 0 0% 98%;
+    --secondary-light: 220 13% 15%;
+
+    --muted: 220 13% 15%;
+    --muted-foreground: 220 8.9% 63.9%;
+
+    --accent: 188 100% 15%;
+    --accent-foreground: 188 100% 80%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 220 13% 20%;
+    --input: 220 13% 20%;
+    --ring: 188 100% 45%;
+
+    /* Dark mode gradients */
+    --gradient-hero: linear-gradient(135deg, hsl(188 100% 45%), hsl(188 100% 35%));
+    --gradient-card: linear-gradient(145deg, hsl(220 13% 11%), hsl(220 13% 13%));
+    --shadow-card: 0 2px 8px hsl(0 0% 0% / 0.3);
+    --shadow-hover: 0 4px 16px hsl(0 0% 0% / 0.4);
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  /* Chiva custom utilities */
+  .gradient-hero {
+    background: var(--gradient-hero);
+  }
+  
+  .gradient-card {
+    background: var(--gradient-card);
+  }
+  
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+  
+  .shadow-hover {
+    box-shadow: var(--shadow-hover);
+  }
+  
+  .shadow-focus {
+    box-shadow: var(--shadow-focus);
+  }
+}
