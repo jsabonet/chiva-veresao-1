@@ -3,20 +3,20 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Chiva Computer & Service - Máquinas Industriais e Informática</title>
-    <meta name="description" content="Líder em equipamentos industriais e produtos de informática em Moçambique. Máquinas de sorvete, corte a laser, laptops, monitores e muito mais com 15 anos de experiência." />
-    <meta name="keywords" content="máquinas industriais, informática, equipamentos, Moçambique, sorvete, laser, laptops, monitores, Chiva Computer" />
+    <title>Chiva Computer & Service - Loja de Computadores em Moçambique</title>
+    <meta name="description" content="Líder em produtos de informática em Moçambique. Laptops, desktops, monitores, periféricos e acessórios das melhores marcas com 15 anos de experiência." />
+    <meta name="keywords" content="computadores, informática, laptops, desktops, monitores, Moçambique, periféricos, acessórios, Chiva Computer" />
     <meta name="author" content="Chiva Computer & Service Lda" />
 
-    <meta property="og:title" content="Chiva Computer & Service - Máquinas Industriais e Informática" />
-    <meta property="og:description" content="Líder em equipamentos industriais e produtos de informática em Moçambique. 15 anos de experiência, produtos de qualidade e preços competitivos." />
+    <meta property="og:title" content="Chiva Computer & Service - Loja de Computadores em Moçambique" />
+    <meta property="og:description" content="Líder em produtos de informática em Moçambique. 15 anos de experiência, produtos de qualidade e preços competitivos." />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://chivacomputer.co.mz" />
     <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
 
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Chiva Computer & Service - Máquinas Industriais e Informática" />
-    <meta name="twitter:description" content="Equipamentos industriais e informática de qualidade em Moçambique" />
+    <meta name="twitter:title" content="Chiva Computer & Service - Loja de Computadores em Moçambique" />
+    <meta name="twitter:description" content="Produtos de informática de qualidade em Moçambique" />
     <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
     
     <link rel="canonical" href="https://chivacomputer.co.mz" />
@@ -25,5 +25,18 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    
+    <!-- Unregister any existing service workers -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+          for(let registration of registrations) {
+            registration.unregister().then(function(boolean) {
+              console.log('Service worker unregistered:', boolean);
+            });
+          }
+        });
+      }
+    </script>
   </body>
 </html>

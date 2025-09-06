@@ -1,0 +1,9 @@
+{
+  "name": "Teste Produto Novo",
+  "description": "Produto para teste da API",
+  "short_description": "Teste API",
+  "category": 1,
+  "sku": "TEST999",
+  "price": "200.00",
+  "stock_quantity": 5
+}

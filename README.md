@@ -1,73 +1,138 @@
-# Welcome to your Lovable project
+# Chiva Computer & Service - Loja de Computadores
 
-## Project info
+## 🖥️ Sobre o Projeto
 
-**URL**: https://lovable.dev/projects/b29832e5-8a8e-46ac-82f1-4c163ff348f5
+Site da **Chiva Computer & Service**, loja especializada em produtos de informática em Moçambique. O site apresenta um catálogo completo de computadores, laptops, periféricos e acessórios das melhores marcas do mercado.
 
-## How can I edit this code?
+## 🎯 Características Principais
 
-There are several ways of editing your application.
+### 💻 Produtos em Destaque
+- **Laptops & Notebooks**: Desde ultrabooks executivos até laptops gaming
+- **Desktops**: PCs personalizados para trabalho e gaming  
+- **Monitores**: Telas de alta qualidade para todas as necessidades
+- **Periféricos**: Teclados, mouses, webcams e acessórios
+- **Componentes**: SSDs, memórias RAM e componentes para upgrade
 
-**Use Lovable**
+### ✨ Funcionalidades
+- **Páginas individuais** para cada produto com especificações completas
+- **Sistema de avaliações** com ratings e comentários
+- **Carrinho de compras** integrado
+- **Design responsivo** para mobile e desktop
+- **Galeria de imagens** para cada produto
+- **Sistema de orçamentos** para produtos personalizados
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/b29832e5-8a8e-46ac-82f1-4c163ff348f5) and start prompting.
+### 🛠️ Tecnologias Utilizadas
+- **Frontend**: React 18 + TypeScript
+- **Styling**: Tailwind CSS + shadcn/ui
+- **Roteamento**: React Router
+- **Icons**: Lucide React
+- **Build Tool**: Vite
+- **Package Manager**: Bun
 
-Changes made via Lovable will be committed automatically to this repo.
+## 🚀 Como Executar
 
-**Use your preferred IDE**
+### Pré-requisitos
+- Node.js 18+ ou Bun
+- Git
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Instalação e Execução
+```bash
+# Clonar o repositório
+git clone [repository-url]
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+# Navegar para o diretório
+cd versao_1_chiva
 
-Follow these steps:
+# Instalar dependências
+bun install
+# ou
+npm install
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Executar em desenvolvimento
+bun run dev
+# ou 
 npm run dev
+
+# Acessar o site
+http://localhost:8083
 ```
 
-**Edit a file directly in GitHub**
+## 🏗️ Estrutura do Projeto
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```
+src/
+├── components/          # Componentes reutilizáveis
+│   ├── layout/         # Header, Footer
+│   ├── sections/       # Seções da página (Hero, Products, etc.)
+│   └── ui/            # Componentes base (Button, Card, etc.)
+├── data/              # Dados dos produtos
+├── lib/               # Utilitários (formatPrice, etc.)
+├── pages/             # Páginas principais
+└── assets/            # Imagens e arquivos estáticos
+```
 
-**Use GitHub Codespaces**
+## 📱 Páginas Disponíveis
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+- **`/`** - Página inicial com produtos em destaque
+- **`/produto/:id`** - Página individual de cada produto
+- **`/carrinho`** - Carrinho de compras
+- **`/admin`** - Painel administrativo
+- **`/404`** - Página de erro personalizada
 
-## What technologies are used for this project?
+## 🛍️ Produtos Disponíveis
 
-This project is built with:
+### Laptops (IDs 1, 5)
+- ASUS VivoBook 15 - Intel i7, 16GB RAM, 512GB SSD
+- HP Pavilion 14 - AMD Ryzen 5, 12GB, 1TB
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### Desktops (ID 2)
+- Desktop Gaming Intel i5 + GTX 1660 Super
 
-## How can I deploy this project?
+### Monitores (ID 3)
+- Monitor Samsung 24'' Full HD VA Gaming
 
-Simply open [Lovable](https://lovable.dev/projects/b29832e5-8a8e-46ac-82f1-4c163ff348f5) and click on Share -> Publish.
+### Acessórios (IDs 4, 7)
+- Kit Gaming Teclado + Mouse RGB Mecânico
+- Webcam Logitech C920 Full HD 1080p
 
-## Can I connect a custom domain to my Lovable project?
+### Outros (IDs 6, 8)
+- Impressora 3D Creality Ender 3 V2
+- SSD Kingston NV2 500GB NVMe
 
-Yes, you can!
+## 📞 Contato da Empresa
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+- **Telefone**: +258 87 849 4330
+- **Email**: chivacomputer@gmail.com
+- **WhatsApp**: +258 87 849 4330
+- **Localização**: Moçambique
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+## 🔧 Funcionalidades Técnicas
+
+### Sistema de Produtos
+- Dados centralizados em `src/data/products.ts`
+- Interface TypeScript para consistência
+- Funções helper para busca e filtragem
+
+### Roteamento Dinâmico
+- Páginas individuais baseadas em ID do produto
+- Redirecionamento automático para 404 em produtos inexistentes
+- Navegação com breadcrumbs
+
+### Design Responsivo
+- Mobile-first approach
+- Breakpoints otimizados para tablets e desktops
+- Componentes adaptativos
+
+## 📈 Próximas Melhorias
+
+- [ ] Sistema de busca e filtros
+- [ ] Integração com sistema de pagamento
+- [ ] Painel administrativo completo
+- [ ] Sistema de usuários e login
+- [ ] Wishlist de produtos
+- [ ] Comparação de produtos
+- [ ] Sistema de cupons e descontos
+
+---
+
+**Chiva Computer & Service** - 15 anos oferecendo tecnologia de qualidade em Moçambique 🇲🇿

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, ShoppingCart, User, Menu, X } from 'lucide-react';
+import { Search, ShoppingCart, User, Menu, X, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NavigationMenu, NavigationMenuContent, NavigationMenuItem, NavigationMenuList, NavigationMenuTrigger } from '@/components/ui/navigation-menu';
@@ -10,16 +10,16 @@ const Header = () => {
 
   const categories = [
     {
-      name: 'Máquinas Industriais',
-      subcategories: ['Máquinas de Sorvete', 'Máquinas de Talho', 'Corte a Laser', 'Máquinas de Ração', 'Máquinas de Costura', 'Perfuração de Água']
+      name: 'Laptops & Notebooks',
+      subcategories: ['Laptops Gaming', 'Notebooks Executivos', 'Ultrabooks', 'Workstations']
     },
     {
-      name: 'Informática e Acessórios', 
-      subcategories: ['Laptops', 'Monitores', 'Teclados e Mouses', 'Impressoras', 'Acessórios', 'Periféricos']
+      name: 'Desktops & Componentes', 
+      subcategories: ['PCs Gaming', 'PCs Executivos', 'Placas de Vídeo', 'Processadores', 'Memórias RAM', 'Armazenamento']
     },
     {
-      name: 'Importados & Diversos',
-      subcategories: ['Ferramentas', 'Peças de Reposição', 'Equipamentos Especiais', 'Produtos Importados']
+      name: 'Periféricos & Acessórios',
+      subcategories: ['Monitores', 'Teclados e Mouses', 'Webcams', 'Impressoras 3D', 'Headsets', 'Speakers']
     }
   ];
 
@@ -31,7 +31,7 @@ const Header = () => {
           <div className="flex flex-col md:flex-row justify-center md:justify-between items-center text-sm gap-2 md:gap-0">
             <div className="flex flex-col md:flex-row items-center md:space-x-4 gap-1 md:gap-0">
               <span>📞 +258 87 849 4330</span>
-              <span>📧 chivaimportacoes@gmail.com</span>
+              <span>📧 chivacomputer@gmail.com</span>
             </div>
             <div className="flex md:flex space-x-2">
               <span className="md:block">WhatsApp: +258 87 849 4330</span>
@@ -82,6 +82,11 @@ const Header = () => {
             </Button>
             <Button variant="ghost" size="icon">
               <User className="h-5 w-5" />
+            </Button>
+            <Button variant="ghost" size="icon" asChild>
+              <Link to="/admin">
+                <Settings className="h-5 w-5" />
+              </Link>
             </Button>
             <Button
               variant="ghost"

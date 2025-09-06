@@ -1,161 +1,168 @@
-import { ShoppingCart, Heart, Eye } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Link } from 'react-router-dom';
-import { formatPrice } from '@/lib/formatPrice';
+import { Button } from '@/components/ui/button';
+import { ShoppingCart, Heart, Eye } from 'lucide-react';
+import { formatPrice, getImageUrl, type Product, type ProductListItem } from '@/lib/api';
 
 interface ProductCardProps {
-  id: number;
-  name: string;
-  price?: number;
-  originalPrice?: number;
-  image: string;
-  category: string;
-  isNew?: boolean;
-  isPromotion?: boolean;
-  hasQuote?: boolean;
-  rating?: number;
-  reviews?: number;
+  product: Product | ProductListItem;
 }
 
-const ProductCard = ({ 
-  id, 
-  name, 
-  price, 
-  originalPrice, 
-  image, 
-  category, 
-  isNew, 
-  isPromotion, 
-  hasQuote,
-  rating = 4.5,
-  reviews = 0 
-}: ProductCardProps) => {
+const ProductCard = ({ product }: ProductCardProps) => {
+  // Type guard to check if product is ProductListItem
+  const isProductListItem = (prod: Product | ProductListItem): prod is ProductListItem => {
+    return 'main_image_url' in prod || 'category_name' in prod;
+  };
+
+  // Helper functions to handle differences between Product and ProductListItem
+  const getMainImage = () => {
+    return isProductListItem(product) ? product.main_image_url : product.main_image;
+  };
+
+  const getCategoryName = () => {
+    return isProductListItem(product) ? product.category_name : product.category?.name;
+  };
+
+  const getProductSlug = () => {
+    return isProductListItem(product) ? product.slug : product.slug || product.id.toString();
+  };
+
+  const isLowStock = () => {
+    if (isProductListItem(product)) {
+      return product.is_low_stock;
+    }
+    return (product as Product).stock_quantity <= (product as Product).min_stock_level && (product as Product).stock_quantity > 0;
+  };
+
+  const handleAddToCart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // TODO: Implement add to cart functionality
+    console.log('Add to cart:', product.id);
+  };
+
+  const handleToggleFavorite = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // TODO: Implement favorite functionality
+    console.log('Toggle favorite:', product.id);
+  };
+
+  const discountPercentage = () => {
+    if ('discount_percentage' in product) {
+      return product.discount_percentage;
+    }
+    if (product.original_price && product.price) {
+      const original = parseFloat(product.original_price);
+      const current = parseFloat(product.price);
+      return Math.round(((original - current) / original) * 100);
+    }
+    return 0;
+  };
 
   return (
-    <Link to={`/produto/${id}`}>
-      <Card className="group relative overflow-hidden shadow-card hover:shadow-hover transition-all duration-300 transform hover:scale-[1.02]">
-      {/* Badges */}
-      <div className="absolute top-3 left-3 z-10 flex flex-col gap-1">
-        {isNew && (
-          <Badge className="bg-success text-success-foreground">
-            Novo
-          </Badge>
-        )}
-        {isPromotion && (
-          <Badge className="bg-destructive text-destructive-foreground">
-            Promoção
-          </Badge>
-        )}
-      </div>
-
-      {/* Favorite Button */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="absolute top-3 right-3 z-10 bg-white/80 hover:bg-white text-gray-600 hover:text-destructive rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200"
-      >
-        <Heart className="h-4 w-4" />
-      </Button>
-
-      {/* Product Image */}
-      <div className="relative aspect-square overflow-hidden bg-accent/50">
-        <img
-          src={image || "https://via.placeholder.com/400x300/e5e7eb/6b7280?text=Sem+Imagem"}
-          alt={name}
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-          onError={(e) => {
-            const target = e.target as HTMLImageElement;
-            target.src = "https://via.placeholder.com/400x300/e5e7eb/6b7280?text=Produto+Chiva";
-          }}
-        />
-        
-        {/* Overlay Actions */}
-        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="bg-white/90 hover:bg-white text-gray-700 rounded-full mx-1"
-          >
-            <Eye className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-
-      <CardContent className="p-4">
-        {/* Category */}
-        <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">
-          {category}
-        </p>
-
-        {/* Product Name */}
-        <h3 className="font-semibold text-sm mb-3 line-clamp-2 leading-tight min-h-[2.5rem]">
-          {name}
-        </h3>
-
-        {/* Rating */}
-        {reviews > 0 && (
-          <div className="flex items-center gap-1 mb-3">
-            <div className="flex items-center">
-              {[...Array(5)].map((_, i) => (
-                <span
-                  key={i}
-                  className={`text-xs ${
-                    i < Math.floor(rating) 
-                      ? 'text-warning' 
-                      : 'text-gray-300'
-                  }`}
-                >
-                  ★
-                </span>
-              ))}
+    <Link 
+      to={`/produto/${getProductSlug()}`} 
+      className="group block"
+    >
+      <Card className="h-full transition-all duration-300 hover:shadow-lg border-0 bg-white">
+        <div className="relative overflow-hidden rounded-lg bg-gray-100 aspect-square">
+          <img
+            src={getImageUrl(getMainImage())}
+            alt={product.name}
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.src = '/placeholder.svg';
+            }}
+          />
+          
+          {/* Discount badge */}
+          {discountPercentage() > 0 && (
+            <div className="absolute top-2 left-2">
+              <Badge variant="destructive" className="text-xs font-bold">
+                -{discountPercentage()}%
+              </Badge>
             </div>
-            <span className="text-xs text-muted-foreground">
-              ({reviews})
-            </span>
-          </div>
-        )}
-
-        {/* Price */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex flex-col">
-            {hasQuote ? (
-              <span className="text-sm font-medium text-muted-foreground">
-                Consultar preço
-              </span>
-            ) : (
-              <>
-                {price && (
-                  <span className="text-lg font-bold text-foreground">
-                    {formatPrice(price)}
-                  </span>
-                )}
-                {originalPrice && originalPrice > (price || 0) && (
-                  <span className="text-xs text-muted-foreground line-through">
-                    {formatPrice(originalPrice)}
-                  </span>
-                )}
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="flex gap-2">
-          {hasQuote ? (
-            <Button variant="quote" size="sm" className="flex-1">
-              Solicitar Orçamento
-            </Button>
-          ) : (
-            <Button variant="shop" size="sm" className="flex-1">
-              <ShoppingCart className="h-4 w-4 mr-1" />
-              Comprar
-            </Button>
           )}
+          
+          {/* Action buttons */}
+          <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            <Button
+              size="icon"
+              variant="secondary"
+              className="h-8 w-8 bg-white/90 hover:bg-white"
+              onClick={handleToggleFavorite}
+            >
+              <Heart className="h-4 w-4" />
+            </Button>
+            <Button
+              size="icon"
+              variant="secondary"
+              className="h-8 w-8 bg-white/90 hover:bg-white"
+            >
+              <Eye className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
-      </CardContent>
-    </Card>
+
+        <CardContent className="p-4">
+          <div className="space-y-2">
+            {/* Category */}
+            <Badge variant="outline" className="text-xs">
+              {getCategoryName()}
+            </Badge>
+
+            {/* Product name */}
+            <h3 className="font-semibold text-sm line-clamp-2 group-hover:text-primary transition-colors">
+              {product.name}
+            </h3>
+
+            {/* Price */}
+            <div className="flex items-center gap-2">
+              <span className="text-lg font-bold text-primary">
+                {formatPrice(product.price)}
+              </span>
+              {product.original_price && product.original_price !== product.price && (
+                <span className="text-sm text-gray-500 line-through">
+                  {formatPrice(product.original_price)}
+                </span>
+              )}
+            </div>
+
+            {/* Stock status */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {product.stock_quantity === 0 ? (
+                  <Badge variant="destructive" className="text-xs">
+                    Esgotado
+                  </Badge>
+                ) : isLowStock() ? (
+                  <Badge variant="secondary" className="text-xs">
+                    Estoque baixo
+                  </Badge>
+                ) : (
+                  <Badge variant="default" className="text-xs bg-green-100 text-green-800">
+                    Em estoque
+                  </Badge>
+                )}
+              </div>
+              
+              {/* Add to cart button */}
+              <Button
+                size="sm"
+                onClick={handleAddToCart}
+                disabled={product.stock_quantity === 0}
+                className="flex items-center gap-1"
+              >
+                <ShoppingCart className="h-3 w-3" />
+                <span className="hidden sm:inline">Adicionar</span>
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </Link>
   );
 };

@@ -15,12 +15,12 @@ const Footer = () => {
   ];
 
   const categories = [
-    { name: 'Máquinas de Sorvete', href: '#' },
-    { name: 'Máquinas de Talho', href: '#' },
-    { name: 'Corte a Laser', href: '#' },
-    { name: 'Laptops', href: '#' },
+    { name: 'Laptops & Notebooks', href: '#' },
+    { name: 'Desktops Gaming', href: '#' },
     { name: 'Monitores', href: '#' },
-    { name: 'Acessórios', href: '#' }
+    { name: 'Periféricos', href: '#' },
+    { name: 'Acessórios', href: '#' },
+    { name: 'Componentes', href: '#' }
   ];
 
   const paymentMethods = [
@@ -45,7 +45,7 @@ const Footer = () => {
                 className="h-12 w-auto mb-4"
               />
               <p className="text-sm text-muted-foreground">
-                Há mais de 15 anos oferecendo soluções completas em equipamentos industriais 
+                Há mais de 15 anos oferecendo soluções completas em computadores 
                 e produtos de informática para todo Moçambique.
               </p>
             </div> */}

@@ -1,0 +1,359 @@
+from rest_framework import generics, status, filters, serializers
+from rest_framework.decorators import api_view, action
+from rest_framework.response import Response
+from rest_framework.viewsets import ModelViewSet
+from rest_framework.parsers import MultiPartParser, FormParser
+from django_filters.rest_framework import DjangoFilterBackend
+from django.db.models import Q, F, Count, Avg, Sum
+from .models import Product, Category, Color, ProductImage
+from .serializers import (
+    ProductListSerializer, 
+    ProductDetailSerializer, 
+    ProductCreateUpdateSerializer,
+    CategorySerializer,
+    ColorSerializer,
+    ProductImageSerializer
+)
+
+class ColorListCreateView(generics.ListCreateAPIView):
+    """
+    List all colors or create a new color
+    """
+    queryset = Color.objects.filter(is_active=True)
+    serializer_class = ColorSerializer
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['name']
+    ordering_fields = ['name', 'created_at']
+    ordering = ['name']
+
+class ColorDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    Retrieve, update or delete a color
+    """
+    queryset = Color.objects.all()
+    serializer_class = ColorSerializer
+
+class CategoryListCreateView(generics.ListCreateAPIView):
+    """
+    List all categories or create a new category
+    """
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['name', 'description']
+    ordering_fields = ['name', 'created_at']
+    ordering = ['name']
+
+class CategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    Retrieve, update or delete a category
+    """
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+
+class ProductListCreateView(generics.ListCreateAPIView):
+    """
+    List all products or create a new product
+    """
+    queryset = Product.objects.select_related('category').all()
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['name', 'description', 'brand', 'sku']
+    filterset_fields = ['category', 'status', 'is_featured', 'is_bestseller', 'is_on_sale']
+    ordering_fields = ['name', 'price', 'created_at', 'stock_quantity', 'view_count', 'sales_count']
+    ordering = ['-created_at']
+    
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return ProductCreateUpdateSerializer
+        return ProductListSerializer
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        
+        # Filter by price range
+        min_price = self.request.query_params.get('min_price')
+        max_price = self.request.query_params.get('max_price')
+        
+        if min_price:
+            queryset = queryset.filter(price__gte=min_price)
+        if max_price:
+            queryset = queryset.filter(price__lte=max_price)
+        
+        # Filter by stock status
+        in_stock = self.request.query_params.get('in_stock')
+        if in_stock == 'true':
+            queryset = queryset.filter(stock_quantity__gt=0)
+        elif in_stock == 'false':
+            queryset = queryset.filter(stock_quantity=0)
+        
+        # Filter by low stock
+        low_stock = self.request.query_params.get('low_stock')
+        if low_stock == 'true':
+            queryset = queryset.filter(stock_quantity__lte=F('min_stock_level'))
+        
+        return queryset
+
+class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    Retrieve, update or delete a product
+    """
+    queryset = Product.objects.select_related('category').all()
+    lookup_field = 'slug'
+    
+    def get_serializer_class(self):
+        if self.request.method in ['PUT', 'PATCH']:
+            return ProductCreateUpdateSerializer
+        return ProductDetailSerializer
+    
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        # Increment view count
+        instance.increment_view_count()
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
+class ProductByIdDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    Retrieve, update or delete a product by ID (for admin use)
+    """
+    queryset = Product.objects.select_related('category').all()
+    
+    def get_serializer_class(self):
+        if self.request.method in ['PUT', 'PATCH']:
+            return ProductCreateUpdateSerializer
+        return ProductDetailSerializer
+
+@api_view(['GET'])
+def featured_products(request):
+    """
+    Get featured products
+    """
+    products = Product.objects.filter(
+        is_featured=True, 
+        status='active'
+    ).select_related('category')[:8]
+    
+    serializer = ProductListSerializer(products, many=True, context={'request': request})
+    return Response(serializer.data)
+
+@api_view(['GET'])
+def bestseller_products(request):
+    """
+    Get bestseller products
+    """
+    products = Product.objects.filter(
+        is_bestseller=True, 
+        status='active'
+    ).select_related('category').order_by('-sales_count')[:8]
+    
+    serializer = ProductListSerializer(products, many=True, context={'request': request})
+    return Response(serializer.data)
+
+@api_view(['GET'])
+def sale_products(request):
+    """
+    Get products on sale
+    """
+    products = Product.objects.filter(
+        is_on_sale=True, 
+        status='active'
+    ).select_related('category').order_by('-created_at')[:8]
+    
+    serializer = ProductListSerializer(products, many=True, context={'request': request})
+    return Response(serializer.data)
+
+@api_view(['GET'])
+def products_by_category(request, category_id):
+    """
+    Get products by category
+    """
+    try:
+        category = Category.objects.get(id=category_id)
+    except Category.DoesNotExist:
+        return Response(
+            {'error': 'Categoria não encontrada'}, 
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    products = Product.objects.filter(
+        category=category, 
+        status='active'
+    ).select_related('category')
+    
+    # Apply ordering
+    ordering = request.query_params.get('ordering', '-created_at')
+    products = products.order_by(ordering)
+    
+    serializer = ProductListSerializer(products, many=True, context={'request': request})
+    return Response({
+        'category': CategorySerializer(category).data,
+        'products': serializer.data
+    })
+
+@api_view(['GET'])
+def search_products(request):
+    """
+    Advanced product search
+    """
+    query = request.query_params.get('q', '')
+    category_id = request.query_params.get('category')
+    min_price = request.query_params.get('min_price')
+    max_price = request.query_params.get('max_price')
+    
+    products = Product.objects.filter(status='active').select_related('category')
+    
+    if query:
+        products = products.filter(
+            Q(name__icontains=query) |
+            Q(description__icontains=query) |
+            Q(brand__icontains=query) |
+            Q(category__name__icontains=query)
+        )
+    
+    if category_id:
+        products = products.filter(category_id=category_id)
+    
+    if min_price:
+        products = products.filter(price__gte=min_price)
+    
+    if max_price:
+        products = products.filter(price__lte=max_price)
+    
+    # Order by relevance (products with query in name first)
+    if query:
+        products = products.extra(
+            select={
+                'name_match': f"CASE WHEN name ILIKE '%%{query}%%' THEN 1 ELSE 0 END"
+            }
+        ).order_by('-name_match', '-created_at')
+    else:
+        products = products.order_by('-created_at')
+    
+    serializer = ProductListSerializer(products, many=True, context={'request': request})
+    return Response(serializer.data)
+
+@api_view(['GET'])
+def product_stats(request):
+    """
+    Get product statistics for admin dashboard
+    """
+    stats = {
+        'total_products': Product.objects.count(),
+        'active_products': Product.objects.filter(status='active').count(),
+        'inactive_products': Product.objects.filter(status='inactive').count(),
+        'out_of_stock_products': Product.objects.filter(stock_quantity=0).count(),
+        'low_stock_products': Product.objects.filter(
+            stock_quantity__lte=F('min_stock_level'),
+            stock_quantity__gt=0
+        ).count(),
+        'featured_products': Product.objects.filter(is_featured=True).count(),
+        'bestsellers': Product.objects.filter(is_bestseller=True).count(),
+        'products_on_sale': Product.objects.filter(is_on_sale=True).count(),
+        'average_price': Product.objects.filter(status='active').aggregate(
+            avg_price=Avg('price')
+        )['avg_price'] or 0,
+        'total_stock_value': Product.objects.filter(status='active').aggregate(
+            total_value=Sum(F('price') * F('stock_quantity'))
+        )['total_value'] or 0,
+        'categories_count': Category.objects.count(),
+    }
+    
+    return Response(stats)
+
+
+class ProductImageViewSet(ModelViewSet):
+    """
+    ViewSet for managing product images
+    """
+    serializer_class = ProductImageSerializer
+    parser_classes = [MultiPartParser, FormParser]
+    
+    def get_queryset(self):
+        """Filter images by product if product_id is provided"""
+        queryset = ProductImage.objects.all()
+        product_id = self.request.query_params.get('product_id')
+        if product_id:
+            queryset = queryset.filter(product_id=product_id)
+        return queryset.order_by('order', 'created_at')
+    
+    def perform_create(self, serializer):
+        """Set the product when creating an image"""
+        
+        # Try both 'product' and 'product_id' for compatibility
+        product_id = self.request.data.get('product') or self.request.data.get('product_id')
+        print(f"DEBUG: perform_create - product_id: {product_id}, request.data: {dict(self.request.data)}")
+        
+        if product_id:
+            try:
+                from .models import Product
+                product = Product.objects.get(id=product_id)
+                serializer.save(product=product)
+            except Product.DoesNotExist:
+                raise serializers.ValidationError({'product': 'Product not found'})
+        else:
+            raise serializers.ValidationError({'product': 'Product ID is required'})
+    
+    @action(detail=False, methods=['post'])
+    def bulk_upload(self, request):
+        """
+        Bulk upload multiple images for a product
+        Expects: product_id and multiple image files
+        """
+        product_id = request.data.get('product_id')
+        if not product_id:
+            return Response(
+                {'error': 'product_id is required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            product = Product.objects.get(id=product_id)
+        except Product.DoesNotExist:
+            return Response(
+                {'error': 'Product not found'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Get all uploaded files
+        uploaded_images = []
+        errors = []
+        
+        # Handle multiple files
+        files = request.FILES.getlist('images')
+        if not files:
+            return Response(
+                {'error': 'No images provided'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        for index, image_file in enumerate(files):
+            # Prepare data for each image
+            image_data = {
+                'product': product.id,
+                'image': image_file,
+                'alt_text': request.data.get(f'alt_text_{index}', ''),
+                'is_main': request.data.get(f'is_main_{index}', 'false').lower() == 'true',
+                'order': request.data.get(f'order_{index}', index + 1)
+            }
+            
+            serializer = ProductImageSerializer(data=image_data)
+            if serializer.is_valid():
+                image_instance = serializer.save()
+                uploaded_images.append(ProductImageSerializer(image_instance).data)
+            else:
+                errors.append({
+                    'file_index': index,
+                    'filename': image_file.name,
+                    'errors': serializer.errors
+                })
+        
+        response_data = {
+            'uploaded_images': uploaded_images,
+            'total_uploaded': len(uploaded_images),
+            'errors': errors
+        }
+        
+        if errors and not uploaded_images:
+            return Response(response_data, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response(response_data, status=status.HTTP_201_CREATED)

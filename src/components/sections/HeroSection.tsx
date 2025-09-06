@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Wrench, Monitor } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Monitor, Cpu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import industrialHero from '@/assets/industrial-machines-hero.jpg';
 import computersHero from '@/assets/computers-hero.jpg';
+import laptop from '@/assets/laptop.jpg';
 
 const HeroSection = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -10,25 +10,25 @@ const HeroSection = () => {
   const slides = [
     {
       id: 1,
-      image: industrialHero,
-      title: "Soluções Industriais de Qualidade",
-      subtitle: "Máquinas industriais para impulsionar seu negócio",
-      description: "Equipamentos profissionais para sorvetes, talho, corte a laser e muito mais",
-      cta: "Ver Máquinas Industriais",
-      ctaSecondary: "Solicitar Orçamento",
-      icon: <Wrench className="h-8 w-8" />,
-      category: "industrial"
+      image: computersHero,
+      title: "Tecnologia de Ponta em Moçambique",
+      subtitle: "Computadores e acessórios de alta qualidade",
+      description: "Laptops, desktops, monitores e periféricos das melhores marcas do mercado",
+      cta: "Ver Produtos",
+      ctaSecondary: "Ofertas Especiais",
+      icon: <Monitor className="h-8 w-8" />,
+      category: "computers"
     },
     {
       id: 2,
-      image: computersHero,
-      title: "Tecnologia e Computadores",
-      subtitle: "As melhores marcas em informática",
-      description: "Laptops, monitores, periféricos e acessórios de alta qualidade",
-      cta: "Ver Produtos de Informática",
-      ctaSecondary: "Ofertas Especiais",
-      icon: <Monitor className="h-8 w-8" />,
-      category: "tech"
+      image: laptop,
+      title: "Laptops & Notebooks",
+      subtitle: "Performance e portabilidade",
+      description: "Desde ultrabooks executivos até laptops gaming de alta performance",
+      cta: "Ver Laptops",
+      ctaSecondary: "Configurar PC",
+      icon: <Cpu className="h-8 w-8" />,
+      category: "laptops"
     }
   ];
 

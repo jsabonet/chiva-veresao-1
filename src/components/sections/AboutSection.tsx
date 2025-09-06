@@ -1,13 +1,13 @@
-import { Award, Globe, Shield, Truck, Users, Wrench } from 'lucide-react';
+import { Award, Monitor, Shield, Truck, Users, Cpu } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
 const AboutSection = () => {
   const features = [
     {
-      icon: <Globe className="h-6 w-6" />,
-      title: "Importação Direta",
-      description: "Produtos importados diretamente dos fabricantes com qualidade garantida"
+      icon: <Monitor className="h-6 w-6" />,
+      title: "Especialistas em Computadores",
+      description: "Focamos exclusivamente em tecnologia e informática com expertise comprovada"
     },
     {
       icon: <Award className="h-6 w-6" />,
@@ -17,7 +17,7 @@ const AboutSection = () => {
     {
       icon: <Truck className="h-6 w-6" />,
       title: "Entrega Nacional",
-      description: "Entregamos em todo o país com segurança e agilidade"
+      description: "Entregamos em todo Moçambique com segurança e agilidade"
     },
     {
       icon: <Shield className="h-6 w-6" />,
@@ -25,14 +25,14 @@ const AboutSection = () => {
       description: "Todos os produtos com garantia oficial do fabricante"
     },
     {
-      icon: <Wrench className="h-6 w-6" />,
-      title: "Assistência Técnica",
-      description: "Suporte técnico especializado para máquinas industriais"
+      icon: <Cpu className="h-6 w-6" />,
+      title: "Suporte Técnico",
+      description: "Assistência técnica especializada em hardware e software"
     },
     {
       icon: <Users className="h-6 w-6" />,
       title: "Atendimento Personalizado",
-      description: "Consultoria especializada para escolher o produto ideal"
+      description: "Consultoria especializada para escolher o computador ideal"
     }
   ];
 
@@ -46,8 +46,8 @@ const AboutSection = () => {
           </h2>
           <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
             Há mais de 15 anos no mercado moçambicano, a Chiva Computer & Service é referência 
-            em equipamentos industriais e produtos de informática. Oferecemos soluções completas 
-            para empresas e profissionais que buscam qualidade, tecnologia e confiabilidade.
+            em produtos de informática e tecnologia. Oferecemos soluções completas em computadores, 
+            laptops, periféricos e acessórios para empresas e pessoas que buscam qualidade e performance.
           </p>
         </div>
 
