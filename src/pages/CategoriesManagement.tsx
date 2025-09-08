@@ -34,8 +34,9 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { useCategories, useProducts } from '@/hooks/useApi';
-import { categoryApi, type Category } from '@/lib/api';
+import { useCategories, useProducts, useSubcategoriesByCategory, useSubcategories } from '@/hooks/useApi';
+import { categoryApi, subcategoryApi, type Category, type Subcategory } from '@/lib/api';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 const CategoriesManagement = () => {
   const navigate = useNavigate();
@@ -48,6 +49,11 @@ const CategoriesManagement = () => {
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+  const [isCreateSubDialogOpen, setIsCreateSubDialogOpen] = useState(false);
+  const [isEditSubDialogOpen, setIsEditSubDialogOpen] = useState(false);
+  const [editingSub, setEditingSub] = useState<any | null>(null);
+  const [subForm, setSubForm] = useState({ name: '', description: '' });
 
   // Form state
   const [formData, setFormData] = useState({
@@ -58,6 +64,8 @@ const CategoriesManagement = () => {
   // API hooks
   const { categories, loading: categoriesLoading, refresh: refreshCategories } = useCategories();
   const { products, loading: productsLoading } = useProducts();
+  const { subcategories, loading: subsLoading, refresh: refreshSubs } = useSubcategoriesByCategory(selectedCategoryId || undefined);
+  const { subcategories: allSubcategories, loading: allSubsLoading, refresh: refreshAllSubs } = useSubcategories();
 
   // Get categories with product count calculated locally
   const categoriesWithCount: Category[] = categories.map(category => ({
@@ -89,6 +97,11 @@ const CategoriesManagement = () => {
       description: ''
     });
     setEditingCategory(null);
+  };
+
+  const resetSubForm = () => {
+    setSubForm({ name: '', description: '' });
+    setEditingSub(null);
   };
 
   // Handle create category
@@ -174,6 +187,70 @@ const CategoriesManagement = () => {
       description: category.description || ''
     });
     setIsEditDialogOpen(true);
+    setSelectedCategoryId(category.id);
+  };
+
+  const openSubCreate = (categoryId: number) => {
+    setSelectedCategoryId(categoryId);
+    resetSubForm();
+    setIsCreateSubDialogOpen(true);
+  };
+
+  const openSubEdit = (sub: any) => {
+    setEditingSub(sub);
+    setSubForm({ name: sub.name, description: sub.description || '' });
+    setIsEditSubDialogOpen(true);
+  };
+
+  const handleCreateSub = async () => {
+    if (!selectedCategoryId) { setErrorMessage('Selecione uma categoria'); return; }
+    if (!subForm.name.trim()) { setErrorMessage('Nome da subcategoria é obrigatório'); return; }
+    setLoading(true);
+    try {
+      await subcategoryApi.create({ name: subForm.name.trim(), description: subForm.description.trim(), category: selectedCategoryId });
+  setSuccessMessage('Subcategoria criada com sucesso!');
+  setIsCreateSubDialogOpen(false);
+      resetSubForm();
+  refreshSubs();
+  refreshAllSubs();
+    } catch (error: any) {
+      setErrorMessage(error.message || 'Erro ao criar subcategoria');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateSub = async () => {
+    if (!editingSub) return;
+    if (!subForm.name.trim()) { setErrorMessage('Nome da subcategoria é obrigatório'); return; }
+    setLoading(true);
+    try {
+      await subcategoryApi.update(editingSub.id, { name: subForm.name.trim(), description: subForm.description.trim() });
+  setSuccessMessage('Subcategoria atualizada com sucesso!');
+  setIsEditSubDialogOpen(false);
+      resetSubForm();
+  refreshSubs();
+  refreshAllSubs();
+    } catch (error: any) {
+      setErrorMessage(error.message || 'Erro ao atualizar subcategoria');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteSub = async (sub: any) => {
+    if (!confirm(`Tem certeza que deseja deletar a subcategoria "${sub.name}"?`)) return;
+    setLoading(true);
+    try {
+  await subcategoryApi.delete(sub.id);
+  setSuccessMessage('Subcategoria deletada com sucesso!');
+  refreshSubs();
+  refreshAllSubs();
+    } catch (error: any) {
+      setErrorMessage(error.message || 'Erro ao deletar subcategoria');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -347,7 +424,7 @@ const CategoriesManagement = () => {
           </CardContent>
         </Card>
 
-        {/* Categories List */}
+        {/* Categories Tree (Accordion) */}
         <Card>
           <CardHeader>
             <CardTitle>Lista de Categorias</CardTitle>
@@ -366,65 +443,98 @@ const CategoriesManagement = () => {
                 </p>
               </div>
             ) : (
-              <div className="space-y-4">
-                {filteredCategories.map((category) => (
-                  <div key={category.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
-                        <h3 className="font-medium">{category.name}</h3>
-                        <Badge variant={(category.product_count || 0) > 0 ? "default" : "secondary"}>
-                          {category.product_count || 0} produto(s)
-                        </Badge>
-                      </div>
-                      {category.description && (
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {category.description}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          Criada em {formatDate(category.created_at)}
+              <Accordion type="multiple" className="w-full">
+                {filteredCategories.map((category) => {
+                  const subs: Subcategory[] = (allSubcategories || []).filter(s => s.category === category.id);
+                  return (
+                    <AccordionItem key={category.id} value={`cat-${category.id}`}>
+                      <div className="flex items-start justify-between gap-3 py-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <AccordionTrigger className="py-0 px-0 hover:no-underline text-left">
+                                <div className="flex items-center gap-2">
+                                  <h3 className="font-medium truncate">{category.name}</h3>
+                                  <Badge variant={(category.product_count || 0) > 0 ? 'default' : 'secondary'}>
+                                    {category.product_count || 0} produto(s)
+                                  </Badge>
+                                  <Badge variant="outline">{subs.length} sub</Badge>
+                                </div>
+                              </AccordionTrigger>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <Button variant="outline" size="sm" onClick={() => openSubCreate(category.id)}>
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                              <Button variant="outline" size="sm" onClick={() => openEditDialog(category)}>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="outline" size="sm">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                  <DropdownMenuItem onClick={() => openEditDialog(category)}>
+                                    <Edit className="h-4 w-4 mr-2" />
+                                    Editar Categoria
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem 
+                                    onClick={() => handleDeleteCategory(category)}
+                                    disabled={(category.product_count || 0) > 0}
+                                    className="text-red-600"
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Deletar Categoria
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </div>
+                          {category.description && (
+                            <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{category.description}</p>
+                          )}
+                          <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
+                            <div className="flex items-center gap-1"><Calendar className="h-3 w-3"/>Criada em {formatDate(category.created_at)}</div>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openEditDialog(category)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" size="sm">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                          <DropdownMenuItem 
-                            onClick={() => openEditDialog(category)}
-                          >
-                            <Edit className="h-4 w-4 mr-2" />
-                            Editar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={() => handleDeleteCategory(category)}
-                            disabled={(category.product_count || 0) > 0}
-                            className="text-red-600"
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Deletar
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                      <AccordionContent>
+                        {allSubsLoading ? (
+                          <div className="flex items-center gap-2 text-sm py-2"><Loader2 className="h-4 w-4 animate-spin"/> Carregando subcategorias...</div>
+                        ) : subs.length === 0 ? (
+                          <div className="flex items-center justify-between p-3 border rounded-md bg-muted/30">
+                            <div className="text-sm text-muted-foreground">Sem subcategorias</div>
+                            <Button size="sm" variant="outline" onClick={() => openSubCreate(category.id)}>
+                              <Plus className="h-4 w-4 mr-1"/> Adicionar
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="space-y-2 border-l pl-4">
+                            {subs.map((sub) => (
+                              <div key={sub.id} className="flex items-center justify-between p-3 border rounded-md bg-background hover:bg-accent/40 transition-colors">
+                                <div className="min-w-0">
+                                  <div className="font-medium truncate">{sub.name}</div>
+                                  {sub.description && <div className="text-xs text-muted-foreground line-clamp-2">{sub.description}</div>}
+                                </div>
+                                <div className="flex gap-2">
+                                  <Button variant="outline" size="sm" onClick={() => openSubEdit(sub)}>
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button variant="outline" size="sm" onClick={() => handleDeleteSub(sub)}>
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </AccordionContent>
+                    </AccordionItem>
+                  );
+                })}
+              </Accordion>
             )}
           </CardContent>
         </Card>
@@ -439,7 +549,7 @@ const CategoriesManagement = () => {
               </DialogDescription>
             </DialogHeader>
             
-            <div className="space-y-4">
+              <div className="space-y-4">
               <div>
                 <Label htmlFor="edit-name">Nome da Categoria *</Label>
                 <Input
@@ -478,6 +588,110 @@ const CategoriesManagement = () => {
                   {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                   Salvar Alterações
                 </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Subcategories Management Section */}
+        {/* <Card>
+          <CardHeader>
+            <CardTitle>Subcategorias</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-3">
+                <Label>Selecione uma categoria</Label>
+                <select
+                  className="border rounded-md p-2 w-full"
+                  value={selectedCategoryId ?? ''}
+                  onChange={(e) => setSelectedCategoryId(e.target.value ? parseInt(e.target.value) : null)}
+                >
+                  <option value="">-- Escolha --</option>
+                  {categories.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+
+                <div className="flex justify-between items-center mt-2">
+                  <p className="text-sm text-muted-foreground">Gerencie subcategorias da categoria selecionada</p>
+                  <Button size="sm" onClick={() => selectedCategoryId && openSubCreate(selectedCategoryId)} disabled={!selectedCategoryId}>
+                    <Plus className="h-4 w-4 mr-1" /> Nova Subcategoria
+                  </Button>
+                </div>
+
+                {subsLoading ? (
+                  <div className="flex items-center gap-2 text-sm py-4"><Loader2 className="h-4 w-4 animate-spin"/> Carregando subcategorias...</div>
+                ) : !selectedCategoryId ? (
+                  <div className="text-sm text-muted-foreground py-4">Selecione uma categoria para ver as subcategorias.</div>
+                ) : (subcategories?.length ?? 0) === 0 ? (
+                  <div className="text-sm text-muted-foreground py-4">Nenhuma subcategoria cadastrada.</div>
+                ) : (
+                  <div className="space-y-2 mt-2">
+                    {subcategories!.map((sub) => (
+                      <div key={sub.id} className="flex items-center justify-between p-3 border rounded-md">
+                        <div>
+                          <div className="font-medium">{sub.name}</div>
+                          {sub.description && <div className="text-xs text-muted-foreground">{sub.description}</div>}
+                        </div>
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="sm" onClick={() => openSubEdit(sub)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => handleDeleteSub(sub)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+ */}
+        {/* Create Subcategory Dialog */}
+        <Dialog open={isCreateSubDialogOpen} onOpenChange={setIsCreateSubDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Criar Subcategoria</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label>Nome *</Label>
+                <Input value={subForm.name} onChange={(e) => setSubForm(prev => ({ ...prev, name: e.target.value }))} />
+              </div>
+              <div>
+                <Label>Descrição</Label>
+                <Textarea value={subForm.description} onChange={(e) => setSubForm(prev => ({ ...prev, description: e.target.value }))} rows={3} />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => { setIsCreateSubDialogOpen(false); resetSubForm(); }}>Cancelar</Button>
+                <Button onClick={handleCreateSub} disabled={loading}>{loading && <Loader2 className="h-4 w-4 mr-2 animate-spin"/>} Criar</Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Subcategory Dialog */}
+        <Dialog open={isEditSubDialogOpen} onOpenChange={setIsEditSubDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Editar Subcategoria</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label>Nome *</Label>
+                <Input value={subForm.name} onChange={(e) => setSubForm(prev => ({ ...prev, name: e.target.value }))} />
+              </div>
+              <div>
+                <Label>Descrição</Label>
+                <Textarea value={subForm.description} onChange={(e) => setSubForm(prev => ({ ...prev, description: e.target.value }))} rows={3} />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => { setIsEditSubDialogOpen(false); resetSubForm(); }}>Cancelar</Button>
+                <Button onClick={handleUpdateSub} disabled={loading}>{loading && <Loader2 className="h-4 w-4 mr-2 animate-spin"/>} Salvar</Button>
               </div>
             </div>
           </DialogContent>

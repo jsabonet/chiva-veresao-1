@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
@@ -25,6 +25,7 @@ import { formatPrice, getImageUrl, type Product } from '@/lib/api';
 
 const ProductDetails = () => {
   const { id } = useParams<{ id: string }>();
+  const location = useLocation();
   const navigate = useNavigate();
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState<string>('');
@@ -40,6 +41,10 @@ const ProductDetails = () => {
   const product = productBySlug || productById;
   const loading = loadingBySlug || loadingById;
   const error = productBySlug ? errorBySlug : (productById ? errorById : 'Produto não encontrado');
+
+  // Preview mode from query string
+  const searchParams = new URLSearchParams(location.search);
+  const isPreview = ['1', 'true'].includes((searchParams.get('preview') || '').toLowerCase());
 
   // Navigation functions for image gallery
   const navigateImage = (direction: 'prev' | 'next') => {
@@ -177,6 +182,11 @@ const ProductDetails = () => {
     <div className="min-h-screen bg-background">
       <Header />
       <main className="container mx-auto px-4 py-8">
+        {isPreview && (
+          <div className="mb-4 rounded-md border border-yellow-300 bg-yellow-50 px-4 py-2 text-sm text-yellow-800">
+            Pré-visualização do produto (não incrementa visualizações). Alguns botões podem estar desativados.
+          </div>
+        )}
         {/* Breadcrumb */}
         <nav className="flex items-center space-x-2 text-sm text-muted-foreground mb-6">
           <button onClick={() => navigate('/')} className="hover:text-foreground">
@@ -354,14 +364,14 @@ const ProductDetails = () => {
                 </div>
 
                 <div className="flex gap-3">
-                  <Button size="lg" className="flex-1" onClick={handleAddToCart}>
+                  <Button size="lg" className="flex-1" onClick={handleAddToCart} disabled={isPreview}>
                     <ShoppingCart className="w-4 h-4 mr-2" />
                     Adicionar ao Carrinho
                   </Button>
-                  <Button variant="outline" size="lg">
+                  <Button variant="outline" size="lg" disabled={isPreview}>
                     <Heart className="w-4 h-4" />
                   </Button>
-                  <Button variant="outline" size="lg">
+                  <Button variant="outline" size="lg" disabled={isPreview}>
                     <Share2 className="w-4 h-4" />
                   </Button>
                 </div>

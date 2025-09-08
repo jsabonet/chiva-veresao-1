@@ -27,7 +27,7 @@ import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { useCreateProduct, useCategories, useColors } from '@/hooks/useApi';
+import { useCreateProduct, useCategories, useColors, useSubcategoriesByCategory } from '@/hooks/useApi';
 import { type ProductCreateUpdate, type Color, productImageApi } from '@/lib/api';
 
 const CreateProduct = () => {
@@ -48,7 +48,8 @@ const CreateProduct = () => {
     name: '',
     description: '',
     short_description: '',
-    category: '',
+  category: '',
+  subcategory: '',
     sku: '',
     brand: '',
     price: '',
@@ -68,6 +69,9 @@ const CreateProduct = () => {
     meta_keywords: '',
     specifications: {}
   });
+
+  const selectedCategoryId = formData.category ? parseInt(formData.category) : undefined;
+  const { subcategories } = useSubcategoriesByCategory(selectedCategoryId);
 
   // Image upload state - main image + unlimited thumbnails
   const [mainImage, setMainImage] = useState<{ file: File; preview: string } | null>(null);
@@ -115,6 +119,11 @@ const CreateProduct = () => {
       }
     });
   };
+
+  // When category changes, clear subcategory
+  useEffect(() => {
+    setFormData(prev => ({ ...prev, subcategory: '' }));
+  }, [formData.category]);
 
   const removeMainImage = () => {
     setMainImage(null);
@@ -190,6 +199,10 @@ const CreateProduct = () => {
         setErrorMessage('Categoria é obrigatória');
         return;
       }
+      if (!formData.subcategory) {
+        setErrorMessage('Subcategoria é obrigatória');
+        return;
+      }
       if (!formData.price || parseFloat(formData.price) <= 0) {
         setErrorMessage('Preço deve ser maior que zero');
         return;
@@ -207,7 +220,8 @@ const CreateProduct = () => {
         name: formData.name.trim(),
         description: formData.description.trim(),
         short_description: formData.short_description.trim() || formData.description.substring(0, 300),
-        category: parseInt(formData.category),
+  category: parseInt(formData.category),
+  subcategory: formData.subcategory ? parseInt(formData.subcategory) : null,
         brand: formData.brand.trim(),
         price: formData.price,
         original_price: formData.original_price || undefined,
@@ -662,6 +676,32 @@ const CreateProduct = () => {
                             {cat.name}
                           </SelectItem>
                         ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="subcategory">Subcategoria</Label>
+                  <Select
+                    value={formData.subcategory}
+                    onValueChange={(value) => setFormData({ ...formData, subcategory: value })}
+                    disabled={!formData.category || (subcategories?.length ?? 0) === 0}
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder={formData.category ? 'Selecione uma subcategoria' : 'Selecione uma categoria primeiro'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {subcategories && subcategories.length > 0 ? (
+                        subcategories.map((sub) => (
+                          <SelectItem key={sub.id} value={sub.id.toString()}>
+                            {sub.name}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="none" disabled>
+                          {formData.category ? 'Sem subcategorias disponíveis' : 'Selecione uma categoria primeiro'}
+                        </SelectItem>
                       )}
                     </SelectContent>
                   </Select>

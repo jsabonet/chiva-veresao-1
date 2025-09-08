@@ -113,9 +113,23 @@ const ProductsManagement = () => {
     }
   };
 
+  const handleDuplicateProduct = async (product: ProductListItem) => {
+    if (!confirm(`Duplicar o produto "${product.name}"?`)) return;
+    try {
+      const duplicated = await productApi.duplicateProduct(product.id);
+      setSuccessMessage('Produto duplicado com sucesso!');
+      // Refresh list and go to edit page of the new product
+      refreshProducts();
+      navigate(`/admin/products/edit/${duplicated.id}`);
+    } catch (error) {
+      console.error(error);
+      setErrorMessage('Erro ao duplicar produto.');
+    }
+  };
+
   const handleViewProduct = (productSlug: string) => {
-    // Navigate to product detail page  
-    navigate(`/products/${productSlug}`);
+    // Navigate to product detail page with preview flag
+    navigate(`/products/${productSlug}?preview=1`);
   };
 
   const getStockStatus = (stockQuantity?: number) => {
@@ -406,6 +420,10 @@ const ProductsManagement = () => {
                                 <DropdownMenuItem onClick={() => handleEditProduct(product)}>
                                   <Edit className="h-4 w-4 mr-2" />
                                   Editar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleDuplicateProduct(product)}>
+                                  <Plus className="h-4 w-4 mr-2" />
+                                  Duplicar
                                 </DropdownMenuItem>
                                 <DropdownMenuItem 
                                   onClick={() => handleDeleteProduct(product.id)}

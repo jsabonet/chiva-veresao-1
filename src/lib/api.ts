@@ -12,6 +12,17 @@ export interface Category {
   product_count?: number; // Made optional since it's calculated on frontend
 }
 
+export interface Subcategory {
+  id: number;
+  name: string;
+  description?: string;
+  category: number; // parent category id
+  category_name?: string;
+  created_at: string;
+  updated_at: string;
+  product_count?: number;
+}
+
 export interface Color {
   id: number;
   name: string;
@@ -34,6 +45,7 @@ export interface ProductListItem {
   is_featured: boolean;
   is_bestseller: boolean;
   category_name: string;
+  subcategory_name?: string;
   brand: string;
   sku: string;
   main_image_url?: string;
@@ -62,7 +74,9 @@ export interface Product {
   name: string;
   slug: string;
   sku: string;
-  category: Category;
+  category: any; // keep flexible due to backend returning id; existing code expects possibly object
+  subcategory?: number | null;
+  subcategory_name?: string;
   brand: string;
   price: string;
   original_price?: string;
@@ -103,6 +117,7 @@ export interface ProductCreateUpdate {
   name?: string;
   sku?: string;
   category?: number;
+  subcategory?: number | null;
   brand?: string;
   price?: string;
   original_price?: string;
@@ -362,6 +377,10 @@ export const productApi = {
   deleteProduct: (id: number) => 
     apiClient.delete(`/products/id/${id}/`),
 
+  // Duplicate product
+  duplicateProduct: (id: number) =>
+    apiClient.post<Product>(`/products/id/${id}/duplicate/`, {}),
+
   // Get featured products
   getFeaturedProducts: () => 
     apiClient.get<ProductListItem[]>('/products/featured/'),
@@ -416,6 +435,27 @@ export const categoryApi = {
   // Delete category
   delete: (id: number) => 
     apiClient.delete(`/categories/${id}/`),
+};
+
+// Subcategory API functions
+export const subcategoryApi = {
+  // Get all subcategories
+  getAll: () => apiClient.get<ApiResponse<Subcategory>>('/subcategories/'),
+
+  // Get subcategories by category
+  getByCategory: (categoryId: number) => apiClient.get<Subcategory[]>(`/categories/${categoryId}/subcategories/`),
+
+  // Get single subcategory
+  get: (id: number) => apiClient.get<Subcategory>(`/subcategories/${id}/`),
+
+  // Create new subcategory
+  create: (data: Partial<Subcategory>) => apiClient.post<Subcategory>('/subcategories/', data),
+
+  // Update subcategory
+  update: (id: number, data: Partial<Subcategory>) => apiClient.put<Subcategory>(`/subcategories/${id}/`, data),
+
+  // Delete subcategory
+  delete: (id: number) => apiClient.delete(`/subcategories/${id}/`),
 };
 
 // Color API

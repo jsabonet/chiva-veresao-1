@@ -10,6 +10,10 @@ urlpatterns = [
     # Categories URLs
     path('categories/', views.CategoryListCreateView.as_view(), name='category-list-create'),
     path('categories/<int:pk>/', views.CategoryDetailView.as_view(), name='category-detail'),
+    # Subcategories URLs
+    path('subcategories/', views.SubcategoryListCreateView.as_view(), name='subcategory-list-create'),
+    path('subcategories/<int:pk>/', views.SubcategoryDetailView.as_view(), name='subcategory-detail'),
+    path('categories/<int:category_id>/subcategories/', views.subcategories_by_category, name='subcategories-by-category'),
     
     # Colors URLs
     path('colors/', views.ColorListCreateView.as_view(), name='color-list-create'),
@@ -25,6 +29,7 @@ urlpatterns = [
     path('products/stats/', views.product_stats, name='product-stats'),
     path('products/category/<int:category_id>/', views.products_by_category, name='products-by-category'),
     path('products/search/', views.search_products, name='search-products'),
+    path('products/id/<int:pk>/duplicate/', views.duplicate_product, name='product-duplicate'),
     
     # Generic Products URLs (must come after specific endpoints)
     path('products/', views.ProductListCreateView.as_view(), name='product-list-create'),

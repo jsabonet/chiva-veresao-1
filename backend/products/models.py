@@ -57,6 +57,25 @@ class Category(models.Model):
     def __str__(self):
         return self.name
 
+class Subcategory(models.Model):
+    """Subcategory model linked to a parent Category"""
+    category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='subcategories', verbose_name="Categoria Pai")
+    name = models.CharField(max_length=100, verbose_name="Nome")
+    description = models.TextField(blank=True, verbose_name="Descrição")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Criado em")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Atualizado em")
+
+    class Meta:
+        verbose_name = "Subcategoria"
+        verbose_name_plural = "Subcategorias"
+        ordering = ['name']
+        constraints = [
+            models.UniqueConstraint(fields=['category', 'name'], name='unique_subcategory_per_category')
+        ]
+
+    def __str__(self):
+        return f"{self.category.name} > {self.name}"
+
 class Product(models.Model):
     """Product model for the e-commerce system"""
     
@@ -73,6 +92,7 @@ class Product(models.Model):
     
     # Category and Organization
     category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='products', verbose_name="Categoria")
+    subcategory = models.ForeignKey('Subcategory', on_delete=models.SET_NULL, null=True, blank=True, related_name='products', verbose_name="Subcategoria")
     sku = models.CharField(max_length=50, unique=True, blank=True, verbose_name="SKU")
     brand = models.CharField(max_length=100, blank=True, verbose_name="Marca")
     

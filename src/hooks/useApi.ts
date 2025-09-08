@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { productApi, categoryApi, colorApi, type Product, type ProductListItem, type Category, type Color, type ApiResponse, type ProductStats, type ProductCreateUpdate } from '@/lib/api';
+import { productApi, categoryApi, colorApi, subcategoryApi, type Product, type ProductListItem, type Category, type Color, type ApiResponse, type ProductStats, type ProductCreateUpdate, type Subcategory } from '@/lib/api';
 
 // Hook for products
 export const useProducts = (params?: {
@@ -272,6 +272,63 @@ export const useProductsByCategory = (categoryId?: number) => {
   }, [categoryId]);
 
   return { data, loading, error };
+};
+
+// Hook for subcategories (all)
+export const useSubcategories = () => {
+  const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchSubcategories = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await subcategoryApi.getAll();
+      setSubcategories(response.results);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch subcategories');
+      setSubcategories([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSubcategories();
+  }, []);
+
+  const refresh = () => fetchSubcategories();
+
+  return { subcategories, loading, error, refresh };
+};
+
+// Hook for subcategories by category
+export const useSubcategoriesByCategory = (categoryId?: number) => {
+  const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchSubs = async () => {
+    if (!categoryId) { setSubcategories([]); return; }
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await subcategoryApi.getByCategory(categoryId);
+      setSubcategories(response);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch subcategories');
+      setSubcategories([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchSubs(); }, [categoryId]);
+
+  const refresh = () => { fetchSubs(); };
+
+  return { subcategories, loading, error, refresh };
 };
 
 // Hook for search

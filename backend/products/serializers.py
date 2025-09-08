@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Product, Category, Color, ProductImage
+from .models import Product, Category, Color, ProductImage, Subcategory
 
 class ColorSerializer(serializers.ModelSerializer):
     """Serializer for Color model"""
@@ -37,6 +37,24 @@ class CategorySerializer(serializers.ModelSerializer):
     def get_product_count(self, obj):
         return obj.products.filter(status='active').count()
 
+class SubcategorySerializer(serializers.ModelSerializer):
+    """
+    Serializer for Subcategory model
+    """
+    category_name = serializers.CharField(source='category.name', read_only=True)
+    product_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Subcategory
+        fields = [
+            'id', 'name', 'description', 'category', 'category_name',
+            'created_at', 'updated_at', 'product_count'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at', 'product_count', 'category_name']
+
+    def get_product_count(self, obj):
+        return obj.products.filter(status='active').count()
+
 class ProductListSerializer(serializers.ModelSerializer):
     """Serializer for Product list view (minimal fields)"""
     category_name = serializers.CharField(source='category.name', read_only=True)
@@ -45,13 +63,14 @@ class ProductListSerializer(serializers.ModelSerializer):
     discount_percentage = serializers.FloatField(read_only=True)
     main_image_url = serializers.SerializerMethodField()
     colors = ColorSerializer(many=True, read_only=True)
+    subcategory_name = serializers.CharField(source='subcategory.name', read_only=True)
     
     class Meta:
         model = Product
         fields = [
             'id', 'name', 'slug', 'short_description', 'price', 'original_price',
             'is_on_sale', 'stock_quantity', 'status', 'is_featured',
-            'is_bestseller', 'category_name', 'brand', 'sku',
+            'is_bestseller', 'category_name', 'subcategory_name', 'brand', 'sku',
             'main_image_url', 'is_in_stock', 'is_low_stock',
             'discount_percentage', 'view_count', 'sales_count',
             'colors', 'created_at', 'updated_at'
@@ -78,12 +97,13 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     all_images = serializers.SerializerMethodField()
     images = ProductImageSerializer(many=True, read_only=True)
     colors = ColorSerializer(many=True, read_only=True)
+    subcategory_name = serializers.CharField(source='subcategory.name', read_only=True)
     
     class Meta:
         model = Product
         fields = [
-            'id', 'name', 'description', 'short_description', 'category',
-            'category_name', 'sku', 'brand', 'price', 'original_price',
+            'id', 'name', 'description', 'short_description', 'category', 'subcategory',
+            'category_name', 'subcategory_name', 'sku', 'brand', 'price', 'original_price',
             'is_on_sale', 'stock_quantity', 'min_stock_level',
             'main_image', 'image_2', 'image_3', 'image_4', 'all_images', 'images',
             'specifications', 'meta_title', 'meta_description', 'slug',
@@ -124,7 +144,7 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = [
-            'id', 'name', 'description', 'short_description', 'category',
+            'id', 'name', 'description', 'short_description', 'category', 'subcategory',
             'sku', 'brand', 'price', 'original_price', 'is_on_sale',
             'stock_quantity', 'min_stock_level', 'main_image',
             'image_2', 'image_3', 'image_4', 'specifications',
@@ -132,6 +152,17 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             'is_bestseller', 'weight', 'length', 'width', 'height', 'colors'
         ]
         read_only_fields = ['id']
+
+    def validate(self, attrs):
+        # If subcategory provided, ensure it belongs to the selected category
+        subcat = attrs.get('subcategory') or getattr(self.instance, 'subcategory', None)
+        cat = attrs.get('category') or getattr(self.instance, 'category', None)
+        if subcat is not None:
+            if cat is None:
+                raise serializers.ValidationError({'subcategory': 'Categoria deve ser informada quando subcategoria é escolhida.'})
+            if subcat.category_id != cat.id:
+                raise serializers.ValidationError({'subcategory': 'Subcategoria não pertence à categoria selecionada.'})
+        return attrs
     
     def validate_price(self, value):
         """Validate that price is positive"""

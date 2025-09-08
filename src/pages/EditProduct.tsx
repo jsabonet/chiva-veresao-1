@@ -27,7 +27,7 @@ import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { useUpdateProduct, useCategories } from '@/hooks/useApi';
+import { useUpdateProduct, useCategories, useSubcategoriesByCategory } from '@/hooks/useApi';
 import { productApi, productImageApi, type Product, type ProductCreateUpdate, type ProductImage } from '@/lib/api';
 
 const EditProduct = () => {
@@ -47,7 +47,8 @@ const EditProduct = () => {
     name: '',
     description: '',
     short_description: '',
-    category: '',
+  category: '',
+  subcategory: '',
     sku: '',
     brand: '',
     price: '',
@@ -67,6 +68,9 @@ const EditProduct = () => {
     meta_keywords: '',
     specifications: {}
   });
+
+  const selectedCategoryId = formData.category ? parseInt(formData.category) : undefined;
+  const { subcategories } = useSubcategoriesByCategory(selectedCategoryId);
 
   // Image upload state
   const [mainImage, setMainImage] = useState<File | null>(null);
@@ -96,7 +100,8 @@ const EditProduct = () => {
         name: productData.name || '',
         description: productData.description || '',
         short_description: productData.short_description || '',
-        category: productData.category?.id?.toString() || '',
+  category: productData.category?.id?.toString() || '',
+  subcategory: (productData as any).subcategory ? String((productData as any).subcategory) : '',
         sku: productData.sku || '',
         brand: productData.brand || '',
         price: productData.price?.toString() || '',
@@ -151,6 +156,11 @@ const EditProduct = () => {
       setLoading(false);
     }
   };
+
+  // When category changes, reset subcategory
+  useEffect(() => {
+    setFormData(prev => ({ ...prev, subcategory: '' }));
+  }, [formData.category]);
 
   // Clear messages after 5 seconds
   useEffect(() => {
@@ -250,6 +260,10 @@ const EditProduct = () => {
         setErrorMessage('Categoria é obrigatória');
         return;
       }
+      if (!formData.subcategory) {
+        setErrorMessage('Subcategoria é obrigatória');
+        return;
+      }
       if (!formData.price || parseFloat(formData.price) <= 0) {
         setErrorMessage('Preço deve ser maior que zero');
         return;
@@ -267,7 +281,8 @@ const EditProduct = () => {
         name: formData.name.trim(),
         description: formData.description.trim(),
         short_description: formData.short_description.trim() || formData.description.substring(0, 300),
-        category: parseInt(formData.category),
+  category: parseInt(formData.category),
+  subcategory: formData.subcategory ? parseInt(formData.subcategory) : null,
         sku: formData.sku.trim(),
         brand: formData.brand.trim(),
         price: formData.price,
@@ -745,6 +760,32 @@ const EditProduct = () => {
                             {cat.name}
                           </SelectItem>
                         ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="subcategory">Subcategoria</Label>
+                  <Select 
+                    value={formData.subcategory}
+                    onValueChange={(value) => setFormData({ ...formData, subcategory: value })}
+                    disabled={!formData.category || (subcategories?.length ?? 0) === 0}
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder={formData.category ? 'Selecione uma subcategoria' : 'Selecione uma categoria primeiro'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {subcategories && subcategories.length > 0 ? (
+                        subcategories.map((sub) => (
+                          <SelectItem key={sub.id} value={sub.id.toString()}>
+                            {sub.name}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="none" disabled>
+                          {formData.category ? 'Sem subcategorias disponíveis' : 'Selecione uma categoria primeiro'}
+                        </SelectItem>
                       )}
                     </SelectContent>
                   </Select>
