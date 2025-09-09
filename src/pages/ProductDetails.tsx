@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
@@ -30,6 +30,7 @@ const ProductDetails = () => {
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState<string>('');
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [selectedColorId, setSelectedColorId] = useState<number | null>(null);
 
   // Try to fetch by slug first, then by ID if it's numeric
   const { product: productBySlug, loading: loadingBySlug, error: errorBySlug } = useProductBySlug(id);
@@ -116,10 +117,12 @@ const ProductDetails = () => {
     if (!product) return;
     
     // TODO: Implement cart functionality
-    console.log(`Adding ${quantity} of product ${product.id} to cart`);
+  console.log(`Adding ${quantity} of product ${product.id} to cart`, { colorId: selectedColorId });
     
     // For now, just show an alert
-    alert(`${quantity}x ${product.name} adicionado ao carrinho!`);
+  const selectedColor = product.colors?.find(c => c.id === selectedColorId);
+  const colorLabel = selectedColor ? ` (Cor: ${selectedColor.name})` : '';
+  alert(`${quantity}x ${product.name}${colorLabel} adicionado ao carrinho!`);
   };
 
   if (loading) {
@@ -175,6 +178,13 @@ const ProductDetails = () => {
     ...(product.images?.map(img => img.image_url) || [])
   ].filter(Boolean);
 
+  // Prepare breadcrumb info
+  const categoryObj: any = product.category;
+  const categoryId: number | undefined = typeof categoryObj === 'object' ? categoryObj?.id : (product.category as unknown as number);
+  const categoryName: string = typeof categoryObj === 'object' ? categoryObj?.name : '';
+  const subcategoryId: number | null = typeof product.subcategory === 'number' ? product.subcategory : null;
+  const subcategoryName: string | undefined = product.subcategory_name;
+
   const specifications = product.specifications ? 
     Object.entries(product.specifications).filter(([_, value]) => value) : [];
 
@@ -188,21 +198,31 @@ const ProductDetails = () => {
           </div>
         )}
         {/* Breadcrumb */}
-        <nav className="flex items-center space-x-2 text-sm text-muted-foreground mb-6">
-          <button onClick={() => navigate('/')} className="hover:text-foreground">
-            Início
-          </button>
+        <nav className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground mb-6">
+          <Link to="/" className="hover:text-foreground">Início</Link>
+          {categoryId ? (
+            <Link to={`/products?category=${categoryId}`} className="hover:text-foreground">{categoryName}</Link>
+          ) : (
+            <span className="hover:text-foreground">{categoryName || 'Categoria'}</span>
+          )}
+          {subcategoryId && subcategoryName ? (
+            <>
+              <span>/</span>
+              <Link
+                to={`/products?category=${categoryId}&subcategory=${subcategoryId}`}
+                className="hover:text-foreground"
+              >
+                {subcategoryName}
+              </Link>
+            </>
+          ) : null}
           <span>/</span>
-          <button onClick={() => navigate('/')} className="hover:text-foreground">
-            {product.category.name}
-          </button>
-          <span>/</span>
-          <span className="text-foreground">{product.name}</span>
+          <span className="text-foreground break-words">{product.name}</span>
         </nav>
 
-        <div className="grid md:grid-cols-2 gap-8 mb-12">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 mb-8 lg:mb-12">
           {/* Product Images Gallery */}
-          <div className="space-y-4">
+          <div className="space-y-3 lg:space-y-4">
             {/* Main Image with Navigation */}
             <div className="relative group">
               <div className="aspect-square rounded-lg overflow-hidden bg-gray-100 border border-gray-200">
@@ -271,7 +291,7 @@ const ProductDetails = () => {
                   <button
                     key={index}
                     onClick={() => selectImage(image, index)}
-                    className={`flex-shrink-0 w-16 h-16 rounded-md border-2 overflow-hidden gallery-thumbnail ${
+                    className={`flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-md border-2 overflow-hidden gallery-thumbnail ${
                       selectedImage === image 
                         ? 'border-primary ring-2 ring-primary/20 active' 
                         : 'border-gray-200 hover:border-gray-300'
@@ -293,31 +313,31 @@ const ProductDetails = () => {
           </div>
 
           {/* Product Information */}
-          <div className="space-y-6">
+          <div className="space-y-4 lg:space-y-6">
             <div>
-              <h1 className="text-3xl font-bold mb-2">{product.name}</h1>
-              <p className="text-muted-foreground">SKU: {product.sku}</p>
+              <h1 className="text-2xl sm:text-3xl font-bold mb-2 break-words leading-tight">{product.name}</h1>
+              <p className="text-sm sm:text-base text-muted-foreground">SKU: {product.sku}</p>
             </div>
 
             {/* Badges */}
             <div className="flex flex-wrap gap-2">
-              <Badge variant="secondary">{product.category.name}</Badge>
-              {product.is_featured && <Badge variant="default">Destaque</Badge>}
-              {product.is_bestseller && <Badge variant="default">Best Seller</Badge>}
-              {product.is_on_sale && <Badge variant="destructive">Promoção</Badge>}
+              <Badge variant="secondary" className="text-xs sm:text-sm">{product.category.name}</Badge>
+              {product.is_featured && <Badge variant="default" className="text-xs sm:text-sm">Destaque</Badge>}
+              {product.is_bestseller && <Badge variant="default" className="text-xs sm:text-sm">Best Seller</Badge>}
+              {product.is_on_sale && <Badge variant="destructive" className="text-xs sm:text-sm">Promoção</Badge>}
               {product.stock_quantity > 0 ? (
-                <Badge variant="default">Em Estoque</Badge>
+                <Badge variant="default" className="text-xs sm:text-sm">Em Estoque</Badge>
               ) : (
-                <Badge variant="destructive">Fora de Estoque</Badge>
+                <Badge variant="destructive" className="text-xs sm:text-sm">Fora de Estoque</Badge>
               )}
             </div>
 
             {/* Price */}
             <div className="space-y-2">
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-bold">{formatPrice(product.price)}</span>
+              <div className="flex flex-wrap items-baseline gap-2">
+                <span className="text-2xl sm:text-3xl font-bold">{formatPrice(product.price)}</span>
                 {product.original_price && parseFloat(product.original_price) > parseFloat(product.price) && (
-                  <span className="text-lg text-muted-foreground line-through">
+                  <span className="text-lg sm:text-xl text-muted-foreground line-through">
                     {formatPrice(product.original_price)}
                   </span>
                 )}
@@ -330,30 +350,71 @@ const ProductDetails = () => {
             </div>
 
             {/* Description */}
-            <div className="prose prose-sm max-w-none">
-              <p className="text-muted-foreground">{product.description}</p>
+            <div className="prose prose-sm max-w-none break-words">
+              <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">{product.description}</p>
             </div>
+
+            {/* Color selection */}
+            {product.colors && product.colors.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium">Cor:</span>
+                  {(() => {
+                    const selected = product.colors.find(c => c.id === selectedColorId);
+                    return selected ? (
+                      <Badge variant="outline" className="text-xs sm:text-sm">{selected.name}</Badge>
+                    ) : null;
+                  })()}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {product.colors.map((color) => {
+                    const isSelected = selectedColorId === color.id;
+                    const hasHex = !!color.hex_code;
+                    return (
+                      <button
+                        key={color.id}
+                        type="button"
+                        onClick={() => setSelectedColorId(color.id)}
+                        aria-label={color.name}
+                        aria-pressed={isSelected}
+                        title={color.name}
+                        className={`h-8 w-8 sm:h-10 sm:w-10 rounded-full border-2 ring-offset-2 transition focus:outline-none focus:ring-2 focus:ring-primary/40 ${
+                          isSelected ? 'border-primary ring-2 ring-primary/40' : 'border-gray-300 hover:border-gray-400'
+                        } flex items-center justify-center overflow-hidden`}
+                        style={hasHex ? { backgroundColor: color.hex_code } : undefined}
+                      >
+                        {!hasHex && (
+                          <span className="text-[10px] px-1 text-foreground">{color.name[0]}</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Quantity and Add to Cart */}
             {product.stock_quantity > 0 && (
               <div className="space-y-4">
-                <div className="flex items-center gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
                   <span className="text-sm font-medium">Quantidade:</span>
-                  <div className="flex items-center border rounded-md">
+                  <div className="flex items-center border rounded-md w-fit">
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => handleQuantityChange(-1)}
                       disabled={quantity <= 1}
+                      className="h-9 w-9 sm:h-10 sm:w-10"
                     >
                       <Minus className="w-4 h-4" />
                     </Button>
-                    <span className="px-4 py-2 border-x">{quantity}</span>
+                    <span className="px-3 py-2 border-x text-center min-w-[3rem]">{quantity}</span>
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => handleQuantityChange(1)}
                       disabled={quantity >= product.stock_quantity}
+                      className="h-9 w-9 sm:h-10 sm:w-10"
                     >
                       <Plus className="w-4 h-4" />
                     </Button>
@@ -363,37 +424,41 @@ const ProductDetails = () => {
                   </span>
                 </div>
 
-                <div className="flex gap-3">
-                  <Button size="lg" className="flex-1" onClick={handleAddToCart} disabled={isPreview}>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Button size="lg" className="w-full sm:flex-1 h-12 sm:h-11" onClick={handleAddToCart} disabled={isPreview}>
                     <ShoppingCart className="w-4 h-4 mr-2" />
                     Adicionar ao Carrinho
                   </Button>
-                  <Button variant="outline" size="lg" disabled={isPreview}>
-                    <Heart className="w-4 h-4" />
-                  </Button>
-                  <Button variant="outline" size="lg" disabled={isPreview}>
-                    <Share2 className="w-4 h-4" />
-                  </Button>
+                  <div className="flex gap-3 sm:gap-2">
+                    <Button variant="outline" size="lg" className="flex-1 sm:flex-none sm:w-auto h-12 sm:h-11" disabled={isPreview}>
+                      <Heart className="w-4 h-4 sm:mr-0" />
+                      <span className="ml-2 sm:hidden">Favoritar</span>
+                    </Button>
+                    <Button variant="outline" size="lg" className="flex-1 sm:flex-none sm:w-auto h-12 sm:h-11" disabled={isPreview}>
+                      <Share2 className="w-4 h-4 sm:mr-0" />
+                      <span className="ml-2 sm:hidden">Compartilhar</span>
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
 
             {/* Features */}
-            <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 p-4 bg-gray-50 rounded-lg">
               <div className="flex items-center gap-2">
-                <Shield className="w-5 h-5 text-green-600" />
+                <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 flex-shrink-0" />
                 <span className="text-sm">Garantia de 1 ano</span>
               </div>
               <div className="flex items-center gap-2">
-                <Truck className="w-5 h-5 text-blue-600" />
+                <Truck className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 flex-shrink-0" />
                 <span className="text-sm">Entrega grátis</span>
               </div>
               <div className="flex items-center gap-2">
-                <RotateCcw className="w-5 h-5 text-orange-600" />
+                <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600 flex-shrink-0" />
                 <span className="text-sm">30 dias para troca</span>
               </div>
               <div className="flex items-center gap-2">
-                <Award className="w-5 h-5 text-purple-600" />
+                <Award className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600 flex-shrink-0" />
                 <span className="text-sm">Produto original</span>
               </div>
             </div>
@@ -402,28 +467,41 @@ const ProductDetails = () => {
 
         {/* Product Details Tabs */}
         <Tabs defaultValue="specifications" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="specifications">Especificações</TabsTrigger>
-            <TabsTrigger value="description">Descrição Completa</TabsTrigger>
-            <TabsTrigger value="reviews">Avaliações</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="specifications" className="mt-6">
+          <TabsList className="w-full h-auto flex sm:grid sm:grid-cols-3 gap-1 sm:gap-2 overflow-x-auto scrollbar-hide p-1">
+            <TabsTrigger 
+              value="specifications" 
+              className="min-w-[120px] sm:min-w-0 text-xs sm:text-sm py-2 sm:py-2.5 px-3 sm:px-4 whitespace-nowrap"
+            >
+              Especificações
+            </TabsTrigger>
+            <TabsTrigger 
+              value="description" 
+              className="min-w-[120px] sm:min-w-0 text-xs sm:text-sm py-2 sm:py-2.5 px-3 sm:px-4 whitespace-nowrap"
+            >
+              Descrição Completa
+            </TabsTrigger>
+            <TabsTrigger 
+              value="reviews" 
+              className="min-w-[120px] sm:min-w-0 text-xs sm:text-sm py-2 sm:py-2.5 px-3 sm:px-4 whitespace-nowrap"
+            >
+              Avaliações
+            </TabsTrigger>
+          </TabsList>          <TabsContent value="specifications" className="mt-4 sm:mt-6">
             <Card>
-              <CardContent className="pt-6">
+              <CardContent className="pt-4 sm:pt-6 px-4 sm:px-6">
                 {specifications.length > 0 ? (
-                  <div className="grid gap-4">
+                  <div className="space-y-3 sm:space-y-4">
                     {specifications.map(([key, value]) => (
-                      <div key={key} className="flex justify-between py-2 border-b last:border-b-0">
-                        <span className="font-medium capitalize">
+                      <div key={key} className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-2 py-2 sm:py-3 border-b last:border-b-0">
+                        <span className="font-medium text-sm sm:text-base capitalize">
                           {key.replace(/_/g, ' ')}:
                         </span>
-                        <span className="text-muted-foreground">{value}</span>
+                        <span className="text-muted-foreground text-sm sm:text-base break-words sm:text-right">{value}</span>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-muted-foreground text-center py-8">
+                  <p className="text-muted-foreground text-center py-6 sm:py-8 text-sm sm:text-base">
                     Especificações não disponíveis para este produto.
                   </p>
                 )}
@@ -431,26 +509,26 @@ const ProductDetails = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="description" className="mt-6">
+          <TabsContent value="description" className="mt-4 sm:mt-6">
             <Card>
-              <CardContent className="pt-6">
+              <CardContent className="pt-4 sm:pt-6 px-4 sm:px-6">
                 <div className="prose prose-sm max-w-none">
-                  <p>{product.description}</p>
+                  <p className="text-sm sm:text-base leading-relaxed">{product.description}</p>
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
 
-          <TabsContent value="reviews" className="mt-6">
+          <TabsContent value="reviews" className="mt-4 sm:mt-6">
             <Card>
-              <CardContent className="pt-6">
-                <div className="text-center py-8">
-                  <Star className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Ainda não há avaliações</h3>
-                  <p className="text-muted-foreground">
+              <CardContent className="pt-4 sm:pt-6 px-4 sm:px-6">
+                <div className="text-center py-6 sm:py-8">
+                  <Star className="w-10 h-10 sm:w-12 sm:h-12 text-muted-foreground mx-auto mb-3 sm:mb-4" />
+                  <h3 className="text-base sm:text-lg font-semibold mb-2">Ainda não há avaliações</h3>
+                  <p className="text-muted-foreground text-sm sm:text-base mb-3 sm:mb-4">
                     Seja o primeiro a avaliar este produto!
                   </p>
-                  <Button className="mt-4" disabled>
+                  <Button className="text-sm sm:text-base h-9 sm:h-10 px-4 sm:px-6" disabled>
                     Escrever Avaliação
                   </Button>
                 </div>

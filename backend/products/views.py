@@ -87,10 +87,10 @@ class ProductListCreateView(generics.ListCreateAPIView):
     """
     List all products or create a new product
     """
-    queryset = Product.objects.select_related('category').all()
+    queryset = Product.objects.select_related('category', 'subcategory').all()
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['name', 'description', 'brand', 'sku']
-    filterset_fields = ['category', 'status', 'is_featured', 'is_bestseller', 'is_on_sale']
+    filterset_fields = ['category', 'subcategory', 'status', 'is_featured', 'is_bestseller', 'is_on_sale']
     ordering_fields = ['name', 'price', 'created_at', 'stock_quantity', 'view_count', 'sales_count']
     ordering = ['-created_at']
     

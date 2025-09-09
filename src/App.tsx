@@ -12,6 +12,7 @@ import TestCurrency from "./pages/TestCurrency";
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const ProductForm = lazy(() => import("./pages/ProductForm"));
 import ProductsManagement from "./pages/ProductsManagement";
+import Products from "./pages/Products";
 import CategoriesManagement from "./pages/CategoriesManagement";
 import CreateProduct from "./pages/CreateProduct";
 import EditProduct from "./pages/EditProduct";
@@ -33,6 +34,8 @@ const App = () => (
           <Route path="/produto/:id" element={<ProductDetails />} />
           {/* Alias para rota em inglês */}
           <Route path="/products/:id" element={<ProductDetails />} />
+          {/* Listagem de produtos com filtros */}
+          <Route path="/products" element={<Products />} />
           <Route path="/carrinho" element={<Cart />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/test-currency" element={<TestCurrency />} />
