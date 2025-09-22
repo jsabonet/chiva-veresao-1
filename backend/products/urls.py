@@ -35,4 +35,14 @@ urlpatterns = [
     path('products/', views.ProductListCreateView.as_view(), name='product-list-create'),
     path('products/id/<int:pk>/', views.ProductByIdDetailView.as_view(), name='product-detail-by-id'),
     path('products/<slug:slug>/', views.ProductDetailView.as_view(), name='product-detail'),
+    
+    # Favorites URLs
+    path('favorites/', views.FavoriteListCreateView.as_view(), name='favorite-list-create'),
+    path('favorites/<int:pk>/', views.FavoriteDetailView.as_view(), name='favorite-detail'),
+    path('favorites/toggle/<int:product_id>/', views.toggle_favorite, name='toggle-favorite'),
+    path('favorites/check/<int:product_id>/', views.check_favorite_status, name='check-favorite'),
+    
+    # Auth debug
+    path('auth/ping/', views.auth_ping, name='auth-ping'),
+    path('auth/token-payload/', views.auth_token_payload, name='auth-token-payload'),
 ]

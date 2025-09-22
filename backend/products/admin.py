@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.utils.html import format_html
-from .models import Category, Product, Color, ProductImage
+from .models import Category, Product, Color, ProductImage, Favorite
 
 
 @admin.register(Color)
@@ -118,3 +118,15 @@ class ProductImageAdmin(admin.ModelAdmin):
             )
         return ''
     image_preview.short_description = 'Preview'
+
+
+@admin.register(Favorite)
+class FavoriteAdmin(admin.ModelAdmin):
+    list_display = ['user', 'product', 'created_at']
+    list_filter = ['created_at']
+    search_fields = ['user__username', 'user__email', 'product__name', 'product__sku']
+    readonly_fields = ['created_at']
+    raw_id_fields = ['user', 'product']
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('user', 'product')

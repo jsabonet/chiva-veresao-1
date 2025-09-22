@@ -1,5 +1,5 @@
-from rest_framework import generics, status, filters, serializers
-from rest_framework.decorators import api_view, action
+from rest_framework import generics, status, filters, serializers, permissions
+from rest_framework.decorators import api_view, action, permission_classes
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.parsers import MultiPartParser, FormParser
@@ -7,7 +7,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q, F, Count, Avg, Sum
 from django.core.files.base import File
 import os
-from .models import Product, Category, Color, ProductImage, Subcategory
+from .models import Product, Category, Color, ProductImage, Subcategory, Favorite
 from .serializers import (
     ProductListSerializer, 
     ProductDetailSerializer, 
@@ -15,7 +15,9 @@ from .serializers import (
     CategorySerializer,
     SubcategorySerializer,
     ColorSerializer,
-    ProductImageSerializer
+    ProductImageSerializer,
+    FavoriteSerializer,
+    FavoriteCreateSerializer
 )
 
 class ColorListCreateView(generics.ListCreateAPIView):
@@ -238,9 +240,15 @@ def featured_products(request):
     Get featured products
     """
     products = Product.objects.filter(
-        is_featured=True, 
-        status='active'
+        is_featured=True
     ).select_related('category')[:8]
+    
+    # Debug info sobre produtos
+    total_products = Product.objects.count()
+    featured_products = Product.objects.filter(is_featured=True).count()
+    active_featured = Product.objects.filter(is_featured=True, status='active').count()
+    
+    print(f"[Products][DEBUG] Total: {total_products}, Featured: {featured_products}, Active Featured: {active_featured}")
     
     serializer = ProductListSerializer(products, many=True, context={'request': request})
     return Response(serializer.data)
@@ -251,8 +259,7 @@ def bestseller_products(request):
     Get bestseller products
     """
     products = Product.objects.filter(
-        is_bestseller=True, 
-        status='active'
+        is_bestseller=True
     ).select_related('category').order_by('-sales_count')[:8]
     
     serializer = ProductListSerializer(products, many=True, context={'request': request})
@@ -466,3 +473,209 @@ class ProductImageViewSet(ModelViewSet):
             return Response(response_data, status=status.HTTP_400_BAD_REQUEST)
         
         return Response(response_data, status=status.HTTP_201_CREATED)
+
+
+# =====================================================
+# FAVORITES VIEWS
+# =====================================================
+
+class FavoriteListCreateView(generics.ListCreateAPIView):
+    """List or create favorites.
+    LIST: If unauthenticated return empty list (200) instead of 403 to simplify frontend handling.
+    CREATE: Requires authentication.
+    """
+    serializer_class = FavoriteSerializer
+    # AllowAny so GET returns 200 empty when not authenticated; create() will enforce auth.
+    permission_classes = [permissions.AllowAny]
+
+    def get_queryset(self):
+        # TEMP DEBUG
+        auth_header = self.request.headers.get('Authorization')
+        if auth_header:
+            print('[Favorites][DEBUG] Authorization header present (truncated):', auth_header[:40])
+        else:
+            print('[Favorites][DEBUG] No Authorization header')
+
+        if getattr(self.request, 'user', None) and self.request.user.is_authenticated:
+            return Favorite.objects.filter(user=self.request.user).select_related('product')
+        return Favorite.objects.none()
+    
+    def create(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        serializer = FavoriteCreateSerializer(data=request.data)
+        if serializer.is_valid():
+            product_id = serializer.validated_data['product_id']
+            
+            # Check if already favorited
+            if Favorite.objects.filter(user=request.user, product_id=product_id).exists():
+                return Response(
+                    {'error': 'Produto já está nos favoritos'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Create favorite
+            favorite = Favorite.objects.create(
+                user=request.user,
+                product_id=product_id
+            )
+            
+            # Return favorite with product details
+            response_serializer = FavoriteSerializer(favorite, context={'request': request})
+            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class FavoriteDetailView(generics.DestroyAPIView):
+    """
+    Remove a favorite
+    """
+    serializer_class = FavoriteSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        if self.request.user.is_authenticated:
+            return Favorite.objects.filter(user=self.request.user)
+        return Favorite.objects.none()
+
+
+@api_view(['POST', 'DELETE'])
+@permission_classes([permissions.AllowAny])
+def toggle_favorite(request, product_id):
+    """
+    Toggle favorite status for a product
+    POST: Add to favorites
+    DELETE: Remove from favorites
+    """
+    # TEMP DEBUG
+    header = request.headers.get('Authorization')
+    if header:
+        print('[ToggleFavorite][DEBUG] Auth header (truncated):', header[:40])
+    else:
+        print('[ToggleFavorite][DEBUG] Missing Authorization header')
+
+    if not request.user.is_authenticated:
+        return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+    
+    try:
+        product = Product.objects.get(id=product_id, status='active')
+    except Product.DoesNotExist:
+        return Response(
+            {'error': 'Produto não encontrado'}, 
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    user = request.user
+    
+    favorite = Favorite.objects.filter(user=user, product=product).first()
+    
+    if request.method == 'POST':
+        if favorite:
+            return Response(
+                {'message': 'Produto já está nos favoritos', 'is_favorite': True}, 
+                status=status.HTTP_200_OK
+            )
+        else:
+            Favorite.objects.create(user=user, product=product)
+            return Response(
+                {'message': 'Produto adicionado aos favoritos', 'is_favorite': True}, 
+                status=status.HTTP_201_CREATED
+            )
+    
+    elif request.method == 'DELETE':
+        if favorite:
+            favorite.delete()
+            return Response(
+                {'message': 'Produto removido dos favoritos', 'is_favorite': False}, 
+                status=status.HTTP_200_OK
+            )
+        else:
+            return Response(
+                {'message': 'Produto não está nos favoritos', 'is_favorite': False}, 
+                status=status.HTTP_200_OK
+            )
+
+
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def check_favorite_status(request, product_id):
+    """
+    Check if a product is favorited by the user
+    """
+    if not request.user.is_authenticated:
+        return Response({'is_favorite': False})
+    
+    is_favorite = Favorite.objects.filter(
+        user=request.user, 
+        product_id=product_id
+    ).exists()
+    
+    return Response({'is_favorite': is_favorite})
+
+
+# =====================================================
+# AUTH DEBUG
+# =====================================================
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def auth_ping(request):
+    """Return basic auth info for debugging Firebase integration."""
+    user = None
+    if getattr(request, 'user', None) and request.user.is_authenticated:
+        user = {
+            'username': request.user.username,
+            'email': request.user.email,
+            'first_name': request.user.first_name,
+            'last_login': request.user.last_login,
+        }
+    return Response({
+        'authenticated': bool(user),
+        'user': user,
+    })
+
+
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def auth_token_payload(request):
+    """(DEV ONLY) Return unverified JWT payload from Authorization header for debugging.
+    Gate with ENABLE_TOKEN_PAYLOAD_DEBUG env var to avoid accidental exposure.
+    Never enable in production environments.
+    """
+    if os.getenv('ENABLE_TOKEN_PAYLOAD_DEBUG') not in ['1', 'true', 'True']:
+        return Response({'error': 'Endpoint disabled'}, status=status.HTTP_403_FORBIDDEN)
+
+    header = request.headers.get('Authorization')
+    if not header or not header.startswith('Bearer '):
+        return Response({'error': 'Missing Bearer token'}, status=status.HTTP_400_BAD_REQUEST)
+
+    token = header.split(' ')[1].strip()
+    parts = token.split('.')
+    if len(parts) != 3:
+        return Response({'error': 'Malformed JWT'}, status=status.HTTP_400_BAD_REQUEST)
+    import base64, json
+    try:
+        # Add padding then decode
+        payload_segment = parts[1] + '==='  # ensure padding
+        payload_json = base64.urlsafe_b64decode(payload_segment).decode('utf-8')
+        payload = json.loads(payload_json)
+    except Exception as e:
+        return Response({'error': 'Decode failed', 'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Redact potentially sensitive fields (like firebase sign-in provider tokens) if present
+    redacted = dict(payload)
+    for k in list(redacted.keys()):
+        if k.lower().endswith('token') or k in ['firebase', 'nonce']:  # optionally redact nested objects
+            continue  # keep structure but could also remove; adjust if needed
+
+    return Response({
+        'unverified_payload': redacted,
+        'uid': payload.get('uid'),
+        'email': payload.get('email'),
+        'auth_time': payload.get('auth_time'),
+        'exp': payload.get('exp'),
+        'iat': payload.get('iat'),
+        'iss': payload.get('iss'),
+        'aud': payload.get('aud'),
+    })

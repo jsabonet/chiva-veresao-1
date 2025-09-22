@@ -4,12 +4,15 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ShoppingCart, Heart, Eye } from 'lucide-react';
 import { formatPrice, getImageUrl, type Product, type ProductListItem } from '@/lib/api';
+import { useCart } from '@/contexts/CartContext';
+import { toast } from '@/hooks/use-toast';
 
 interface ProductCardProps {
   product: Product | ProductListItem;
 }
 
 const ProductCard = ({ product }: ProductCardProps) => {
+  const { addItem } = useCart();
   // Type guard to check if product is ProductListItem
   const isProductListItem = (prod: Product | ProductListItem): prod is ProductListItem => {
     return 'main_image_url' in prod || 'category_name' in prod;
@@ -38,8 +41,23 @@ const ProductCard = ({ product }: ProductCardProps) => {
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    // TODO: Implement add to cart functionality
-    console.log('Add to cart:', product.id);
+    const priceNumber = typeof product.price === 'number' ? product.price : parseFloat(product.price as any);
+    const originalNumber = product.original_price ? (typeof product.original_price === 'number' ? product.original_price : parseFloat(product.original_price as any)) : null;
+    addItem({
+      id: (product as any).id,
+      name: product.name,
+      price: priceNumber,
+      original_price: originalNumber ?? undefined,
+      image: getMainImage() || undefined,
+      category: getCategoryName() || undefined,
+      slug: getProductSlug(),
+      quantity: 1,
+      max_quantity: (product as any).stock_quantity ?? undefined,
+    });
+    toast({
+      title: 'Adicionado ao carrinho',
+      description: product.name,
+    });
   };
 
   const handleToggleFavorite = (e: React.MouseEvent) => {
@@ -92,7 +110,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
             <Button
               size="icon"
               variant="secondary"
-              className="h-8 w-8 bg-white/90 hover:bg-white"
+              className="h-8 w-8 bg-red/90 hover:bg-white"
               onClick={handleToggleFavorite}
             >
               <Heart className="h-4 w-4" />

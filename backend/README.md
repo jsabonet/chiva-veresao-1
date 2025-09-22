@@ -202,6 +202,32 @@ backend/
 | `DEBUG` | Modo debug | `True` |
 | `CORS_ALLOWED_ORIGINS` | Origens permitidas CORS | `http://localhost:5173` |
 
+### Paysuite (M-Pesa / e-mola)
+
+Add the following variables to the backend `.env` when integrating Paysuite payment gateway:
+
+```env
+# Paysuite configuration
+PAYSUITE_BASE_URL=https://api.paysuite.co.mz
+PAYSUITE_API_KEY=your_paysuite_api_key
+PAYSUITE_API_SECRET=your_paysuite_api_secret
+# Optional: override callback path if behind a proxy
+PAYSUITE_CALLBACK_PATH=/api/payments/webhook/
+```
+
+PowerShell example to run the server with env already in `.env` (from `backend`):
+
+```powershell
+# Load .env automatically via the app (no extra command required), then run:
+venv\Scripts\activate; python manage.py runserver
+```
+
+If you prefer to set only the Paysuite env vars in the session:
+
+```powershell
+Set-Location 'D:\Projectos\versao_1_chiva\backend'; $env:PAYSUITE_API_KEY='xxx'; $env:PAYSUITE_API_SECRET='yyy'; python manage.py runserver
+```
+
 ## 🤝 Contribuição
 
 1. Faça um fork do projeto

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo } from 'react';
 import { Trash2, Plus, Minus, ShoppingBag, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,45 +8,14 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { Link } from 'react-router-dom';
 import { formatPrice } from '@/lib/formatPrice';
+import { useCart } from '@/contexts/CartContext';
 
 const Cart = () => {
-  const [cartItems, setCartItems] = useState([
-    {
-      id: 1,
-      name: "Máquina de Sorvete Industrial GELATO PRO 3000",
-      price: 85000,
-      quantity: 1,
-      image: "https://images.unsplash.com/photo-1560717845-968823efbfa1?w=400&h=300&fit=crop&crop=center",
-      category: "Máquinas Industriais"
-    },
-    {
-      id: 2,
-      name: "Laptop Dell Inspiron 15",
-      price: 45000,
-      quantity: 2,
-      image: "/src/assets/laptop.jpg",
-      category: "Informática"
-    }
-  ]);
+  const { items, updateQuantity, removeItem, subtotal } = useCart();
+  const shipping = 2500; // TODO: calcular dinamicamente no futuro
+  const total = useMemo(() => subtotal + shipping, [subtotal, shipping]);
 
-  const updateQuantity = (id: number, newQuantity: number) => {
-    if (newQuantity < 1) return;
-    setCartItems(items =>
-      items.map(item =>
-        item.id === id ? { ...item, quantity: newQuantity } : item
-      )
-    );
-  };
-
-  const removeItem = (id: number) => {
-    setCartItems(items => items.filter(item => item.id !== id));
-  };
-
-  const subtotal = cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
-  const shipping = 2500; // Fixed shipping cost
-  const total = subtotal + shipping;
-
-  if (cartItems.length === 0) {
+  if (items.length === 0) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
@@ -85,13 +54,13 @@ const Cart = () => {
               </Link>
             </Button>
             <h1 className="text-3xl font-bold">Carrinho de Compras</h1>
-            <p className="text-muted-foreground">{cartItems.length} itens no seu carrinho</p>
+            <p className="text-muted-foreground">{items.length} itens no seu carrinho</p>
           </div>
 
           <div className="grid lg:grid-cols-3 gap-8">
             {/* Cart Items */}
             <div className="lg:col-span-2 space-y-4">
-              {cartItems.map((item) => (
+              {items.map((item) => (
                 <Card key={item.id}>
                   <CardContent className="p-6">
                     <div className="grid md:grid-cols-4 gap-4 items-center">
@@ -108,7 +77,14 @@ const Cart = () => {
                           <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
                             {item.category}
                           </p>
-                          <h3 className="font-semibold text-sm leading-tight">{item.name}</h3>
+                          <h3 className="font-semibold text-sm leading-tight">
+                            {item.name}
+                            {item.color_name && (
+                              <span className="text-xs text-muted-foreground font-normal ml-2">
+                                • Cor: {item.color_name}
+                              </span>
+                            )}
+                          </h3>
                           <p className="text-lg font-bold mt-2">
                             {formatPrice(item.price)}
                           </p>
@@ -122,14 +98,14 @@ const Cart = () => {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8"
-                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                            onClick={() => updateQuantity(item.id, item.quantity - 1, item.color_id)}
                           >
                             <Minus className="h-4 w-4" />
                           </Button>
                           <Input
                             type="number"
                             value={item.quantity}
-                            onChange={(e) => updateQuantity(item.id, parseInt(e.target.value) || 1)}
+                            onChange={(e) => updateQuantity(item.id, parseInt(e.target.value) || 1, item.color_id)}
                             className="w-16 text-center border-0 focus:ring-0"
                             min="1"
                           />
@@ -137,7 +113,8 @@ const Cart = () => {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8"
-                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                            onClick={() => updateQuantity(item.id, item.quantity + 1, item.color_id)}
+                            disabled={item.max_quantity ? item.quantity >= item.max_quantity : false}
                           >
                             <Plus className="h-4 w-4" />
                           </Button>
@@ -155,7 +132,7 @@ const Cart = () => {
                           variant="ghost"
                           size="icon"
                           className="text-destructive hover:text-destructive"
-                          onClick={() => removeItem(item.id)}
+                          onClick={() => removeItem(item.id, item.color_id)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>

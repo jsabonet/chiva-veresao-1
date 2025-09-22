@@ -15,11 +15,13 @@ Site da **Chiva Computer & Service**, loja especializada em produtos de informá
 
 ### ✨ Funcionalidades
 - **Páginas individuais** para cada produto com especificações completas
-- **Sistema de avaliações** com ratings e comentários
 - **Carrinho de compras** integrado
 - **Design responsivo** para mobile e desktop
 - **Galeria de imagens** para cada produto
-- **Sistema de orçamentos** para produtos personalizados
+- **Autenticação Firebase** (Email/Senha + Google)
+- **Área do Cliente** com seções de perfil, pedidos e endereços (estrutura inicial)
+- **Recuperação de senha** via email
+- **Painel Administrativo protegido**
 
 ### 🛠️ Tecnologias Utilizadas
 - **Frontend**: React 18 + TypeScript
@@ -73,11 +75,14 @@ src/
 
 ## 📱 Páginas Disponíveis
 
-- **`/`** - Página inicial com produtos em destaque
-- **`/produto/:id`** - Página individual de cada produto
+- **`/`** - Página inicial
+- **`/produto/:id`** / **`/products/:id`** - Página de produto
+- **`/products`** - Listagem de produtos (filtros futuros)
 - **`/carrinho`** - Carrinho de compras
-- **`/admin`** - Painel administrativo
-- **`/404`** - Página de erro personalizada
+- **Autenticação**: `/login`, `/register`, `/forgot-password`
+- **Área do Cliente (autenticado)**: `/account`, `/account/profile`, `/account/orders`, `/account/addresses`
+- **Admin (autenticado)**: `/admin` e subseções (produtos, categorias, etc.)
+- **`/404`** - Página de erro
 
 ## 🛍️ Produtos Disponíveis
 
@@ -125,13 +130,14 @@ src/
 
 ## 📈 Próximas Melhorias
 
-- [ ] Sistema de busca e filtros
+- [ ] Histórico real de pedidos do cliente
+- [ ] Endereços persistentes (CRUD) vinculados ao usuário
 - [ ] Integração com sistema de pagamento
-- [ ] Painel administrativo completo
-- [ ] Sistema de usuários e login
 - [ ] Wishlist de produtos
 - [ ] Comparação de produtos
 - [ ] Sistema de cupons e descontos
+- [ ] Upload de avatar do usuário
+- [ ] Verificação de email e roles
 
 ---
 

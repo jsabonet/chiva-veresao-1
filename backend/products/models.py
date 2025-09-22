@@ -46,16 +46,33 @@ class Category(models.Model):
     """Category model for products"""
     name = models.CharField(max_length=100, unique=True, verbose_name="Nome")
     description = models.TextField(blank=True, verbose_name="Descrição")
+    # Campo de status que existia no banco (erro mostra constraint NOT NULL). Re-adicionado para alinhar modelo e schema.
+    is_active = models.BooleanField(default=True, verbose_name="Ativo")
+    # Campo de ordenação que existe no banco (NOT NULL). Re-adicionado para restaurar alinhamento.
+    order = models.PositiveIntegerField(default=0, verbose_name="Ordem")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Criado em")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Atualizado em")
     
     class Meta:
         verbose_name = "Categoria"
         verbose_name_plural = "Categorias"
-        ordering = ['name']
+        ordering = ['order', 'name']
     
     def __str__(self):
         return self.name
+
+    def save(self, *args, **kwargs):
+        # Auto-atribuir ordem incremental se não informada ou = 0
+        if not self.order or self.order == 0:
+            # Evita consultar durante migrações iniciais antes da tabela existir
+            try:
+                max_order = Category.objects.exclude(pk=self.pk).aggregate(models.Max('order'))['order__max'] or 0
+                self.order = max_order + 1
+            except Exception:
+                # Em cenários de migração inicial apenas mantém default
+                if not self.order:
+                    self.order = 1
+        super().save(*args, **kwargs)
 
 class Subcategory(models.Model):
     """Subcategory model linked to a parent Category"""
@@ -286,3 +303,19 @@ class ProductImage(models.Model):
         # If this is set as main image, unset other main images for this product
         if self.is_main and self.product:
             ProductImage.objects.filter(product=self.product, is_main=True).exclude(id=self.id).update(is_main=False)
+
+
+class Favorite(models.Model):
+    """Model for user favorites"""
+    user = models.ForeignKey('auth.User', on_delete=models.CASCADE, related_name='favorites', verbose_name="Usuário")
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='favorited_by', verbose_name="Produto")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Favoritado em")
+    
+    class Meta:
+        verbose_name = "Favorito"
+        verbose_name_plural = "Favoritos"
+        unique_together = ('user', 'product')  # Prevent duplicate favorites
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.product.name}"

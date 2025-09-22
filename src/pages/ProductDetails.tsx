@@ -22,15 +22,20 @@ import {
 } from 'lucide-react';
 import { useProductBySlug, useProduct } from '@/hooks/useApi';
 import { formatPrice, getImageUrl, type Product } from '@/lib/api';
+import { useCart } from '@/contexts/CartContext';
+import { toast } from '@/hooks/use-toast';
+import { FavoriteButton } from '@/components/ui/FavoriteButton';
+import { ShareButton } from '@/components/ui/ShareButton';
 
 const ProductDetails = () => {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
   const navigate = useNavigate();
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setLocalQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState<string>('');
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [selectedColorId, setSelectedColorId] = useState<number | null>(null);
+  const { addItem, setQuantity, items } = useCart();
 
   // Try to fetch by slug first, then by ID if it's numeric
   const { product: productBySlug, loading: loadingBySlug, error: errorBySlug } = useProductBySlug(id);
@@ -76,12 +81,9 @@ const ProductDetails = () => {
   useEffect(() => {
     if (product && !selectedImage) {
       const images = [
-        product.main_image,
+        product.main_image_url || product.main_image,
         ...(product.images?.map(img => img.image_url) || [])
       ].filter(Boolean);
-      
-      console.log('Product images:', images); // Debug
-      console.log('Images length:', images.length); // Debug
       
       if (images.length > 0) {
         setSelectedImage(images[0]);
@@ -109,20 +111,72 @@ const ProductDetails = () => {
   const handleQuantityChange = (change: number) => {
     const newQuantity = quantity + change;
     if (newQuantity >= 1 && newQuantity <= (product?.stock_quantity || 0)) {
-      setQuantity(newQuantity);
+      setLocalQuantity(newQuantity);
     }
   };
 
   const handleAddToCart = () => {
     if (!product) return;
     
-    // TODO: Implement cart functionality
-  console.log(`Adding ${quantity} of product ${product.id} to cart`, { colorId: selectedColorId });
+    const unitPrice = typeof product.price === 'number' ? product.price : parseFloat(product.price as any);
+    const original = product.original_price ? (typeof product.original_price === 'number' ? product.original_price : parseFloat(product.original_price as any)) : null;
+    const selectedColor = product.colors?.find(c => c.id === selectedColorId);
     
-    // For now, just show an alert
-  const selectedColor = product.colors?.find(c => c.id === selectedColorId);
-  const colorLabel = selectedColor ? ` (Cor: ${selectedColor.name})` : '';
-  alert(`${quantity}x ${product.name}${colorLabel} adicionado ao carrinho!`);
+    const imageUrl = product.main_image_url || product.main_image || (product.images?.[0]?.image_url) || undefined;
+    
+    addItem({
+      id: product.id,
+      name: product.name,
+      slug: product.slug,
+      price: unitPrice,
+      original_price: original ?? undefined,
+      quantity,
+      image: imageUrl,
+      category: product.category?.name || undefined,
+      color_id: selectedColor ? selectedColor.id : undefined,
+      color_name: selectedColor ? selectedColor.name : undefined,
+      max_quantity: product.stock_quantity,
+    });
+    toast({
+      title: 'Adicionado ao carrinho',
+      description: `${quantity}x ${product.name}${selectedColor ? ` (${selectedColor.name})` : ''}`,
+    });
+  };
+
+  const handleBuyNow = () => {
+    if (!product) return;
+    const unitPrice = typeof product.price === 'number' ? product.price : parseFloat(product.price as any);
+    const original = product.original_price ? (typeof product.original_price === 'number' ? product.original_price : parseFloat(product.original_price as any)) : null;
+    const selectedColor = product.colors?.find(c => c.id === selectedColorId);
+    
+    const cartItem = {
+      id: product.id,
+      name: product.name,
+      slug: product.slug,
+      price: unitPrice,
+      original_price: original ?? undefined,
+      image: product.main_image || (product.images?.[0]?.image_url) || undefined,
+      category: product.category?.name || undefined,
+      color_id: selectedColor ? selectedColor.id : undefined,
+      color_name: selectedColor ? selectedColor.name : undefined,
+      max_quantity: product.stock_quantity,
+    };
+
+    // Check if item already exists in cart
+    const existingItem = items.find(i => 
+      i.id === product.id && (i.color_id || null) === (selectedColor?.id || null)
+    );
+
+    if (existingItem) {
+      // Update quantity to current selection
+      setQuantity(product.id, quantity, selectedColor?.id || null);
+    } else {
+      // Add new item
+      addItem({ ...cartItem, quantity });
+    }
+
+    // Navigate to cart
+    navigate('/carrinho');
   };
 
   if (loading) {
@@ -415,6 +469,7 @@ const ProductDetails = () => {
                       onClick={() => handleQuantityChange(1)}
                       disabled={quantity >= product.stock_quantity}
                       className="h-9 w-9 sm:h-10 sm:w-10"
+                      title={quantity >= product.stock_quantity ? 'Estoque máximo atingido' : 'Aumentar quantidade'}
                     >
                       <Plus className="w-4 h-4" />
                     </Button>
@@ -424,20 +479,42 @@ const ProductDetails = () => {
                   </span>
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <Button size="lg" className="w-full sm:flex-1 h-12 sm:h-11" onClick={handleAddToCart} disabled={isPreview}>
-                    <ShoppingCart className="w-4 h-4 mr-2" />
-                    Adicionar ao Carrinho
-                  </Button>
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <Button size="lg" className="w-full sm:flex-1 h-12 sm:h-11" onClick={handleAddToCart} disabled={isPreview}>
+                      <ShoppingCart className="w-4 h-4 mr-2" />
+                      Adicionar ao Carrinho
+                    </Button>
+                    <Button 
+                      size="lg" 
+                      variant="secondary" 
+                      className="w-full sm:w-auto h-12 sm:h-11 px-8" 
+                      onClick={handleBuyNow} 
+                      disabled={isPreview}
+                    >
+                      Comprar Agora
+                    </Button>
+                  </div>
                   <div className="flex gap-3 sm:gap-2">
-                    <Button variant="outline" size="lg" className="flex-1 sm:flex-none sm:w-auto h-12 sm:h-11" disabled={isPreview}>
-                      <Heart className="w-4 h-4 sm:mr-0" />
-                      <span className="ml-2 sm:hidden">Favoritar</span>
-                    </Button>
-                    <Button variant="outline" size="lg" className="flex-1 sm:flex-none sm:w-auto h-12 sm:h-11" disabled={isPreview}>
-                      <Share2 className="w-4 h-4 sm:mr-0" />
-                      <span className="ml-2 sm:hidden">Compartilhar</span>
-                    </Button>
+                    <div className="flex-1 sm:flex-none">
+                      <FavoriteButton
+                        productId={product.id}
+                        variant="outline"
+                        size="lg"
+                        showText={true}
+                        className="w-full sm:w-auto h-12 sm:h-11"
+                      />
+                    </div>
+                    <div className="flex-1 sm:flex-none">
+                      <ShareButton
+                        productName={product.name}
+                        productSlug={product.slug}
+                        productImage={selectedImage || undefined}
+                        variant="outline"
+                        size="lg"
+                        className="w-full sm:w-auto h-12 sm:h-11"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>

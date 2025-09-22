@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Search, ShoppingCart, User, Menu, X, Settings, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, ShoppingCart, User, Menu, X, Settings, ChevronDown, ChevronUp, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NavigationMenu, NavigationMenuContent, NavigationMenuItem, NavigationMenuList, NavigationMenuTrigger } from '@/components/ui/navigation-menu';
 import { Link } from 'react-router-dom';
 import { useCategories, useSubcategories } from '@/hooks/useApi';
+import { useAuth } from '@/contexts/AuthContext';
+import { useCart } from '@/contexts/CartContext';
+import { useFavoritesContext } from '@/contexts/FavoritesContext';
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -35,6 +38,9 @@ const Header = () => {
 
   const { categories } = useCategories();
   const { subcategories } = useSubcategories();
+  const { currentUser } = useAuth();
+  const { totalQuantity } = useCart();
+  const { favoriteCount } = useFavoritesContext();
 
   // Compute responsive limit for visible categories
   useEffect(() => {
@@ -138,17 +144,19 @@ const Header = () => {
 
           {/* Actions */}
           <div className="flex items-center space-x-2">
-            <Button variant="ghost" size="icon" className="relative" asChild>
-              <Link to="/carrinho">
-                <ShoppingCart className="h-5 w-5" />
-                <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                  3
-                </span>
-              </Link>
-            </Button>
-            <Button variant="ghost" size="icon">
-              <User className="h-5 w-5" />
-            </Button>
+            {currentUser ? (
+              <Button variant="ghost" size="icon" asChild title="Minha Conta">
+                <Link to="/account">
+                  <User className="h-5 w-5" />
+                </Link>
+              </Button>
+            ) : (
+              <Button variant="ghost" size="icon" asChild title="Entrar ou Registrar">
+                <Link to="/login">
+                  <User className="h-5 w-5" />
+                </Link>
+              </Button>
+            )}
             <Button variant="ghost" size="icon" asChild>
               <Link to="/admin">
                 <Settings className="h-5 w-5" />
@@ -162,6 +170,20 @@ const Header = () => {
             >
               {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
+            <Button variant="ghost" size="icon" className="relative" asChild>
+              <Link to="/carrinho" aria-label="Carrinho de compras">
+                <ShoppingCart className="h-5 w-5" />
+                {totalQuantity > 0 && (
+                  <span
+                    className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-[10px] font-semibold rounded-full h-5 min-w-[1.25rem] px-1 flex items-center justify-center animate-in zoom-in"
+                    aria-live="polite"
+                  >
+                    {totalQuantity > 99 ? '99+' : totalQuantity}
+                  </span>
+                )}
+              </Link>
+            </Button>
+
           </div>
         </div>
 

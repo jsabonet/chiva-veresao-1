@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Product, Category, Color, ProductImage, Subcategory
+from .models import Product, Category, Color, ProductImage, Subcategory, Favorite
 
 class ColorSerializer(serializers.ModelSerializer):
     """Serializer for Color model"""
@@ -29,7 +29,7 @@ class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = [
-            'id', 'name', 'description', 
+            'id', 'name', 'description', 'is_active', 'order',
             'created_at', 'updated_at', 'product_count'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at', 'product_count']
@@ -95,6 +95,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     is_low_stock = serializers.BooleanField(read_only=True)
     discount_percentage = serializers.FloatField(read_only=True)
     all_images = serializers.SerializerMethodField()
+    main_image_url = serializers.SerializerMethodField()
     images = ProductImageSerializer(many=True, read_only=True)
     colors = ColorSerializer(many=True, read_only=True)
     subcategory_name = serializers.CharField(source='subcategory.name', read_only=True)
@@ -105,7 +106,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             'id', 'name', 'description', 'short_description', 'category', 'subcategory',
             'category_name', 'subcategory_name', 'sku', 'brand', 'price', 'original_price',
             'is_on_sale', 'stock_quantity', 'min_stock_level',
-            'main_image', 'image_2', 'image_3', 'image_4', 'all_images', 'images',
+            'main_image', 'main_image_url', 'image_2', 'image_3', 'image_4', 'all_images', 'images',
             'specifications', 'meta_title', 'meta_description', 'slug',
             'status', 'is_featured', 'is_bestseller', 'weight', 'length',
             'width', 'height', 'colors', 'is_in_stock', 'is_low_stock',
@@ -116,6 +117,14 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             'id', 'slug', 'is_in_stock', 'is_low_stock', 'discount_percentage',
             'view_count', 'sales_count', 'created_at', 'updated_at'
         ]
+    
+    def get_main_image_url(self, obj):
+        main_image_url = obj.get_main_image()
+        if main_image_url:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(main_image_url)
+        return None
     
     def get_all_images(self, obj):
         request = self.context.get('request')
@@ -211,3 +220,31 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             instance.colors.set(colors_data)
         
         return instance
+
+
+class FavoriteSerializer(serializers.ModelSerializer):
+    """Serializer for Favorite model"""
+    product = ProductListSerializer(read_only=True)
+    product_id = serializers.IntegerField(write_only=True)
+    
+    class Meta:
+        model = Favorite
+        fields = ['id', 'product', 'product_id', 'created_at']
+        read_only_fields = ['id', 'created_at']
+    
+    def create(self, validated_data):
+        """Create favorite with current user"""
+        validated_data['user'] = self.context['request'].user
+        return super().create(validated_data)
+
+
+class FavoriteCreateSerializer(serializers.Serializer):
+    """Simple serializer for creating favorites"""
+    product_id = serializers.IntegerField()
+    
+    def validate_product_id(self, value):
+        """Validate product exists"""
+        from .models import Product
+        if not Product.objects.filter(id=value, status='active').exists():
+            raise serializers.ValidationError("Produto não encontrado ou inativo.")
+        return value

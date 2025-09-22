@@ -83,6 +83,7 @@ export interface Product {
   description: string;
   short_description: string;
   main_image?: string;
+  main_image_url?: string;
   image_2?: string;
   image_3?: string;
   image_4?: string;
@@ -182,9 +183,26 @@ class ApiClient {
   ): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
     
+    // Get Firebase token if user is authenticated
+    let authHeaders = {};
+    try {
+      // Import Firebase auth here to avoid circular imports
+      const { auth } = await import('./firebase');
+      const user = auth.currentUser;
+      if (user) {
+        const token = await user.getIdToken();
+        authHeaders = {
+          'Authorization': `Bearer ${token}`,
+        };
+      }
+    } catch (error) {
+      console.warn('Could not get Firebase token:', error);
+    }
+    
     const config: RequestInit = {
       headers: {
         'Content-Type': 'application/json',
+        ...authHeaders,
         ...options.headers,
       },
       ...options,
