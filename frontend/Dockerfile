@@ -6,12 +6,19 @@ FROM node:20-bullseye AS build
 ARG BUILD_FRONTEND=true
 WORKDIR /app
 
-# Desativa dependências opcionais para evitar erros nativos
+# Evita instalar dependências opcionais que podem quebrar o build
 ENV NPM_CONFIG_OPTIONAL=false
 
-# Copiar arquivos essenciais
-COPY package.json ./
-COPY package-lock.json ./         
+# Instala ferramentas de compilação necessárias para binários nativos
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    python3 \
+    libc6-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copiar arquivos essenciais para o build
+COPY package.json ./ 
+COPY package-lock.json ./ 
 COPY .env.local .env
 COPY tsconfig*.json ./
 COPY vite.config.ts ./
@@ -21,6 +28,7 @@ COPY index.html ./
 
 # Rodar build somente se BUILD_FRONTEND=true
 RUN if [ "$BUILD_FRONTEND" = "true" ]; then \
+      rm -rf node_modules package-lock.json && \
       npm install --legacy-peer-deps --silent && \
       npm run build; \
     else \
