@@ -21,7 +21,7 @@ COPY vite.config.ts ./
 # Run build only when requested. If BUILD_FRONTEND=false and a dist/ was present in the context,
 # the copied dist will be used.
 RUN if [ "$BUILD_FRONTEND" = "true" ]; then \
-      npm install --no-optional --legacy-peer-deps --silent && \
+      npm install --legacy-peer-deps --silent && \
       npm run build; \
     else \
       echo "Skipping frontend build inside Docker (BUILD_FRONTEND=false)"; \
