@@ -21,7 +21,13 @@ COPY vite.config.ts ./
 # Run build only when requested. If BUILD_FRONTEND=false and a dist/ was present in the context,
 # the copied dist will be used.
 RUN if [ "$BUILD_FRONTEND" = "true" ]; then \
-        npm ci --silent && npm run build; \
+        # prefer npm ci when a lockfile exists (reproducible), otherwise fall back
+        # to npm install --no-optional to avoid optional native binaries in some envs
+        if [ -f package-lock.json ]; then \
+            npm ci --silent; \
+        else \
+            npm install --no-optional --silent; \
+        fi && npm run build; \
     else \
         echo "Skipping frontend build inside Docker (BUILD_FRONTEND=false)"; \
     fi
