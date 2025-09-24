@@ -15,8 +15,25 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+// Debug: print firebase config at runtime to validate env injection (remove in production)
+try {
+  // eslint-disable-next-line no-console
+  const rawKey = import.meta.env.VITE_FIREBASE_API_KEY as string | undefined;
+  console.debug('[Firebase] config:', {
+    apiKey_present: Boolean(rawKey),
+    apiKey_prefix: rawKey ? `${rawKey.slice(0,8)}...` : null,
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  });
+
+  // Initialize Firebase
+  var app = initializeApp(firebaseConfig);
+} catch (err) {
+  // Provide clearer runtime error when initialization fails (e.g., invalid API key)
+  // eslint-disable-next-line no-console
+  console.error('[Firebase] initialization error:', err);
+  throw err;
+}
 
 // Initialize Firebase Authentication and get a reference to the service
 export const auth = getAuth(app);

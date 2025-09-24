@@ -1,3 +1,142 @@
+# Chiva — Guia de Deploy (Droplet / Docker)
+
+Este README descreve os passos práticos para testar localmente e subir o projeto em um Droplet no DigitalOcean usando Docker Compose. Contém comandos PowerShell e instruções de configuração.
+
+Resumo rápido
+- O repositório já contém Dockerfiles para backend e frontend, um `docker-compose.yml`, e um script auxiliar `scripts/deploy.ps1` que constrói a imagem do backend usando dependências de produção (`requirements.prod.txt`) e sobe a stack.
+- Antes de rodar em produção: atualize o `.env` com valores reais (ou use Secrets do DigitalOcean). Não versionar credenciais.
+
+Pré-requisitos
+- Droplet (Ubuntu 22.04+ recomendado) ou máquina local com Docker e Docker Compose.
+- Docker e Docker Compose instalados no servidor.
+- Registrar domínio e acesso para configurar DNS.
+
+1) Preparar localmente (teste rápido)
+
+1.1 Copiar o exemplo de env e ajustar valores:
+
+```powershell
+cd D:\Projectos\versao_1_chiva
+cp .env.example .env
+notepad .env
+# Edite SECRET_KEY, DB_* e ALLOWED_HOSTS conforme necessário
+```
+
+1.2 Build e subir via Docker Compose (usa `requirements.prod.txt` para o backend):
+
+```powershell
+.\scripts\deploy.ps1
+```
+
+O script fará: build do backend (com ARG REQUIREMENTS=prod) e `docker compose up -d --build`.
+
+1.3 Ver logs e checar endpoints:
+
+```powershell
+docker compose ps
+docker compose logs -f backend
+docker compose logs -f frontend
+# Acesse no browser: http://localhost (frontend)
+# API: http://localhost/api/
+```
+
+2) Preparar Droplet (DigitalOcean)
+
+2.1 Crie um droplet (recomendado com espaço suficiente; 2GB+ RAM como mínimo para uma instância básica).
+
+2.2 Instale Docker e Docker Compose no Droplet (exemplo rápido para Ubuntu):
+
+```bash
+sudo apt update && sudo apt -y upgrade
+sudo apt install -y ca-certificates curl gnupg lsb-release
+sudo mkdir -p /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" \
+  | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+sudo usermod -aG docker $USER
+```
+
+2.3 Clonar repositório no Droplet e preparar `.env` (ou usar Secrets):
+
+```bash
+git clone https://github.com/<seu-usuario>/chiva-veresao-1.git
+cd chiva-veresao-1
+cp .env.example .env
+nano .env
+```
+
+2.4 Build e rodar no Droplet
+
+```bash
+docker build --build-arg REQUIREMENTS=prod -t chiva-backend:prod ./backend
+docker compose up -d --build
+```
+
+3) Banco de dados e migrações
+- O entrypoint (`backend/entrypoint.sh`) já tenta aplicar `python manage.py migrate` e `collectstatic`. Se preferir, rode manualmente:
+
+```bash
+docker compose exec backend python manage.py migrate --noinput
+docker compose exec backend python manage.py createsuperuser
+```
+
+4) Configurar domínio e TLS
+
+Opção A — DigitalOcean Load Balancer (recomendado):
+- Crie um Load Balancer no painel DO e aponte para o droplet; ative HTTPS e solicite um certificado Let's Encrypt pelo painel.
+
+Opção B — Nginx + Certbot no Droplet:
+
+```bash
+sudo apt install -y nginx certbot python3-certbot-nginx
+# configurar nginx para proxy (ex.: /etc/nginx/sites-available/chiva.conf)
+sudo nginx -t && sudo systemctl restart nginx
+sudo certbot --nginx -d seu-dominio.com -d www.seu-dominio.com
+```
+
+5) Armazenamento de media (recomendado)
+- Evite usar volume de host para `media` em produção. Use DigitalOcean Spaces (compatível S3) com `django-storages`.
+- Posso adicionar `django-storages` e configuração de exemplo se desejar.
+
+6) Observações de segurança e produção
+- Nunca deixar `DEBUG=True` em produção.
+- Use DO Managed Postgres se possível e configure `DB_HOST`/`DB_USER`/`DB_PASSWORD` corretamente.
+- Faça backups automáticos do banco e do storage.
+- Remova ou separe dependências de ML da imagem do webapp (já criamos `requirements.prod.txt`).
+
+7) Comandos úteis
+
+```powershell
+# Subir localmente
+.\scripts\deploy.ps1
+
+# Ver status
+docker compose ps
+
+# Logs
+docker compose logs -f backend
+docker compose logs -f frontend
+
+# Entrar no container backend
+docker compose exec backend bash
+
+# Rodar migrações manualmente
+docker compose exec backend python manage.py migrate --noinput
+
+# Criar superuser
+docker compose exec backend python manage.py createsuperuser
+```
+
+8) Problemas conhecidos
+- O `requirements.txt` original contém pacotes de Machine Learning que tornam o build muito pesado. A imagem do backend foi ajustada para usar por padrão `requirements.prod.txt`. Se você precisa do ML no mesmo container, considere criar uma imagem separada ou usar um runner de CI com recursos suficientes.
+
+Contato / próximos passos
+- Posso: (A) adicionar `django-storages` para DigitalOcean Spaces; (B) adicionar script de backup do Postgres; (C) automatizar a emissão de certificados via certbot no `docker-compose` se preferir.
+
+Escolha uma das opções acima e eu implemento a próxima etapa.
 # Chiva Computer & Service - Loja de Computadores
 
 ## 🖥️ Sobre o Projeto
