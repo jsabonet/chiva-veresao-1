@@ -11,7 +11,7 @@ COPY index.html ./
 COPY public/ ./public/
 COPY tsconfig.json ./
 COPY vite.config.ts ./
-RUN npm ci --silent
+RUN npm ci --silent || (rm -rf node_modules package-lock.json && npm install --silent --no-optional)
 RUN npm run build
 
 FROM nginx:stable-alpine
