@@ -1,21 +1,30 @@
 FROM node:20-bullseye as build
+ARG BUILD_FRONTEND=true
 WORKDIR /app
 ENV NPM_CONFIG_OPTIONAL=false
-# prevent npm from fetching optional native binaries (rollup native)
+# If you ran `npm run build` on the host and created a ./dist folder, Docker will copy it
+# here and skip the in-image build when BUILD_FRONTEND=false. This avoids native optional
+# binary issues in some environments.
+COPY dist /app/dist
+
 # Copy project files. Do NOT copy package-lock.json so `npm install --no-optional` will
 # generate modules without optional native binaries that can fail in some container platforms.
 COPY package.json ./
-# If you have an .npmrc, add it to the frontend context; otherwise skip copying it
 # Copy environment file so Vite has VITE_* values at build time. Use .env.local in the frontend folder.
-# We copy .env.local as .env so Vite picks up VITE_* variables at build time
 COPY .env.local .env
 COPY src/ ./src/
 COPY index.html ./
 COPY public/ ./public/
 COPY tsconfig.json ./
 COPY vite.config.ts ./
-RUN npm install --silent --no-optional
-RUN npm run build
+
+# Run build only when requested. If BUILD_FRONTEND=false and a dist/ was present in the context,
+# the copied dist will be used.
+RUN if [ "$BUILD_FRONTEND" = "true" ]; then \
+			npm install --silent --no-optional && npm run build; \
+		else \
+			echo "Skipping frontend build inside Docker (BUILD_FRONTEND=false)"; \
+		fi
 
 FROM nginx:stable
 COPY --from=build /app/dist /usr/share/nginx/html
