@@ -1,6 +1,8 @@
 from django.contrib import admin
 from django.utils.html import format_html
-from .models import Category, Product, Color, ProductImage, Favorite
+from django.utils import timezone
+from django.contrib import messages
+from .models import Category, Product, Color, ProductImage, Favorite, Review
 
 
 @admin.register(Color)
@@ -130,3 +132,65 @@ class FavoriteAdmin(admin.ModelAdmin):
     
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('user', 'product')
+
+
+@admin.register(Review)
+class ReviewAdmin(admin.ModelAdmin):
+    list_display = ['product', 'user', 'rating', 'status', 'created_at', 'moderated_by']
+    list_filter = ['status', 'rating', 'created_at', 'moderated_at']
+    search_fields = ['product__name', 'user__username', 'user__email', 'comment']
+    readonly_fields = ['created_at', 'updated_at']
+    raw_id_fields = ['product', 'user', 'moderated_by']
+    actions = ['approve_reviews', 'reject_reviews']
+    
+    fieldsets = (
+        ('Informações da Avaliação', {
+            'fields': ('product', 'user', 'rating', 'comment')
+        }),
+        ('Status e Moderação', {
+            'fields': (
+                'status', 'moderated_by', 'moderated_at',
+                'moderation_notes'
+            )
+        }),
+        ('Datas', {
+            'fields': ('created_at', 'updated_at')
+        })
+    )
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related(
+            'product', 'user', 'moderated_by'
+        )
+    
+    def save_model(self, request, obj, form, change):
+        if change and 'status' in form.changed_data:
+            obj.moderated_by = request.user
+            obj.moderated_at = timezone.now()
+        super().save_model(request, obj, form, change)
+    
+    def approve_reviews(self, request, queryset):
+        updated = queryset.update(
+            status='approved',
+            moderated_by=request.user,
+            moderated_at=timezone.now()
+        )
+        self.message_user(
+            request,
+            f'{updated} avaliação(ões) aprovada(s) com sucesso.',
+            messages.SUCCESS
+        )
+    approve_reviews.short_description = "Aprovar avaliações selecionadas"
+    
+    def reject_reviews(self, request, queryset):
+        updated = queryset.update(
+            status='rejected',
+            moderated_by=request.user,
+            moderated_at=timezone.now()
+        )
+        self.message_user(
+            request,
+            f'{updated} avaliação(ões) rejeitada(s).',
+            messages.SUCCESS
+        )
+    reject_reviews.short_description = "Rejeitar avaliações selecionadas"

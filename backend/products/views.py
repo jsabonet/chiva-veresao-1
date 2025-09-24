@@ -7,7 +7,9 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q, F, Count, Avg, Sum
 from django.core.files.base import File
 import os
-from .models import Product, Category, Color, ProductImage, Subcategory, Favorite
+from django.utils import timezone
+from django.conf import settings
+from .models import Product, Category, Color, ProductImage, Subcategory, Favorite, Review
 from .serializers import (
     ProductListSerializer, 
     ProductDetailSerializer, 
@@ -17,7 +19,8 @@ from .serializers import (
     ColorSerializer,
     ProductImageSerializer,
     FavoriteSerializer,
-    FavoriteCreateSerializer
+    FavoriteCreateSerializer,
+    ReviewSerializer
 )
 
 class ColorListCreateView(generics.ListCreateAPIView):
@@ -679,3 +682,114 @@ def auth_token_payload(request):
         'iss': payload.get('iss'),
         'aud': payload.get('aud'),
     })
+
+
+class ReviewListCreateView(generics.ListCreateAPIView):
+    """
+    List approved reviews for a product or create a new review (pending approval)
+    """
+    serializer_class = ReviewSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    
+    def get_queryset(self):
+        product_id = self.kwargs.get('product_id')
+        queryset = Review.objects.filter(product_id=product_id).select_related('user')
+        
+        # Staff users can see all reviews in the admin
+        if self.request.user.is_staff and self.request.query_params.get('admin'):
+            return queryset
+            
+        # Regular users only see approved reviews
+        return queryset.filter(status='approved')
+    
+    def perform_create(self, serializer):
+        product_id = self.kwargs.get('product_id')
+        product = Product.objects.get(pk=product_id)
+        # New reviews start as pending
+        serializer.save(
+            user=self.request.user,
+            product=product,
+            status='pending'
+        )
+
+
+class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    Retrieve, update or delete a review
+    """
+    queryset = Review.objects.all()
+    serializer_class = ReviewSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    
+    def get_queryset(self):
+        return Review.objects.filter(user=self.request.user)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def review_admin_list(request):
+    """Admin reviews listing used by the SPA admin page.
+    This endpoint now requires authentication (IsAuthenticated). Moderation actions
+    still require admin/staff privileges; this endpoint exposes reviews to any
+    authenticated user so the admin SPA can fetch them after login.
+    """
+    status_filter = request.query_params.get('status')
+    qs = Review.objects.select_related('user', 'product', 'moderated_by').all()
+    if status_filter:
+        qs = qs.filter(status=status_filter)
+
+    # Simple pagination support (page, page_size)
+    try:
+        page = int(request.query_params.get('page', 1))
+        page_size = int(request.query_params.get('page_size', 25))
+    except ValueError:
+        page = 1
+        page_size = 25
+
+    offset = (page - 1) * page_size
+    results = qs.order_by('-created_at')[offset:offset + page_size]
+
+    serializer = ReviewSerializer(results, many=True, context={'request': request})
+    return Response({
+        'results': serializer.data,
+        'count': qs.count(),
+        'next': None,
+        'previous': None
+    })
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def review_moderate(request, pk: int):
+    """Admin endpoint to moderate (approve/reject) a review.
+    Moderation requires staff privileges in production, but in DEBUG mode any
+    authenticated user can moderate to simplify local testing of the SPA.
+    """
+    # Authorization check: staff users or any authenticated user when DEBUG
+    if not (getattr(request, 'user', None) and request.user.is_authenticated and (
+        request.user.is_staff or getattr(settings, 'DEBUG', False)
+    )):
+        return Response({'detail': 'You do not have permission to perform this action.'}, status=status.HTTP_403_FORBIDDEN)
+
+    action = request.data.get('action')
+    notes = request.data.get('notes', '')
+    if action not in ['approve', 'reject']:
+        return Response({'error': 'Invalid action'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        review = Review.objects.get(pk=pk)
+    except Review.DoesNotExist:
+        return Response({'error': 'Review not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    if action == 'approve':
+        review.status = 'approved'
+        review.moderation_notes = ''
+    else:
+        review.status = 'rejected'
+        review.moderation_notes = notes
+
+    review.moderated_by = request.user
+    review.moderated_at = timezone.now()
+    review.save()
+
+    return Response(ReviewSerializer(review, context={'request': request}).data)

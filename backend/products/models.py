@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils import timezone
 from django.utils.text import slugify
+from django.core.validators import MinValueValidator, MaxValueValidator
 import os
 import uuid
 
@@ -264,6 +265,19 @@ class Product(models.Model):
         """Increment sales count"""
         self.sales_count += 1
         self.save(update_fields=['sales_count'])
+    
+    @property
+    def average_rating(self):
+        """Calculate average rating from approved reviews"""
+        reviews = self.reviews.filter(status='approved')
+        if not reviews:
+            return 0
+        return round(sum(review.rating for review in reviews) / reviews.count(), 1)
+    
+    @property
+    def total_reviews(self):
+        """Get total number of approved reviews"""
+        return self.reviews.filter(status='approved').count()
 
 
 class ProductImage(models.Model):
@@ -319,3 +333,49 @@ class Favorite(models.Model):
     
     def __str__(self):
         return f"{self.user.username} - {self.product.name}"
+
+
+class Review(models.Model):
+    """Model for product reviews"""
+    STATUS_CHOICES = [
+        ('pending', 'Pendente'),
+        ('approved', 'Aprovado'),
+        ('rejected', 'Rejeitado')
+    ]
+    
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='reviews', verbose_name="Produto")
+    user = models.ForeignKey('auth.User', on_delete=models.CASCADE, related_name='reviews', verbose_name="Usuário")
+    rating = models.IntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        verbose_name="Avaliação",
+        help_text="Avaliação de 1 a 5 estrelas"
+    )
+    comment = models.TextField(blank=True, verbose_name="Comentário")
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending',
+        verbose_name="Status",
+        db_index=True
+    )
+    moderated_by = models.ForeignKey(
+        'auth.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='moderated_reviews',
+        verbose_name="Moderado por"
+    )
+    moderated_at = models.DateTimeField(null=True, blank=True, verbose_name="Data da Moderação")
+    moderation_notes = models.TextField(blank=True, verbose_name="Notas da Moderação")
+    created_at = models.DateTimeField(default=timezone.now, verbose_name="Criado em")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Atualizado em")
+    
+    class Meta:
+        verbose_name = "Avaliação"
+        verbose_name_plural = "Avaliações"
+        ordering = ['-created_at']
+        unique_together = ['product', 'user']  # Garante uma avaliação por usuário por produto
+        
+    def __str__(self):
+        return f"Avaliação de {self.user.username} para {self.product.name}"

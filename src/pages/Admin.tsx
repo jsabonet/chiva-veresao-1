@@ -24,6 +24,14 @@ const Admin = () => {
       color: "text-blue-600"
     },
     {
+      title: "Avaliações",
+      description: "Modere avaliações de produtos",
+      icon: FileText,
+      href: "/admin/reviews",
+      color: "text-yellow-600",
+      badge: "Novo"
+    },
+    {
       title: "Produtos",
       description: "Gerencie o catálogo de produtos",
       icon: Package,

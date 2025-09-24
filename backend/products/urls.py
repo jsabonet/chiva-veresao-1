@@ -32,6 +32,13 @@ urlpatterns = [
     path('products/id/<int:pk>/duplicate/', views.duplicate_product, name='product-duplicate'),
     
     # Generic Products URLs (must come after specific endpoints)
+    # Reviews URLs (place before the generic slug route to avoid conflicts with product slugs)
+    path('products/<int:product_id>/reviews/', views.ReviewListCreateView.as_view(), name='review-list-create'),
+    path('reviews/<int:pk>/', views.ReviewDetailView.as_view(), name='review-detail'),
+    # Admin review listing and moderation
+    path('products/reviews/', views.review_admin_list, name='review-admin-list'),
+    path('products/reviews/<int:pk>/moderate/', views.review_moderate, name='review-moderate'),
+
     path('products/', views.ProductListCreateView.as_view(), name='product-list-create'),
     path('products/id/<int:pk>/', views.ProductByIdDetailView.as_view(), name='product-detail-by-id'),
     path('products/<slug:slug>/', views.ProductDetailView.as_view(), name='product-detail'),
@@ -42,6 +49,7 @@ urlpatterns = [
     path('favorites/toggle/<int:product_id>/', views.toggle_favorite, name='toggle-favorite'),
     path('favorites/check/<int:product_id>/', views.check_favorite_status, name='check-favorite'),
     
+
     # Auth debug
     path('auth/ping/', views.auth_ping, name='auth-ping'),
     path('auth/token-payload/', views.auth_token_payload, name='auth-token-payload'),

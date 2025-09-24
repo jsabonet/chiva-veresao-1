@@ -36,6 +36,7 @@ import OrdersManagement from "./pages/OrdersManagement";
 import CustomersManagement from "./pages/CustomersManagement";
 import AdminSettings from "./pages/AdminSettings";
 import NotFound from "./pages/NotFound";
+import ReviewManagement from "./pages/ReviewManagement";
 
 const queryClient = new QueryClient();
 
@@ -93,6 +94,11 @@ const App = () => (
             <Route path="/admin/products" element={
               <ProtectedRoute>
                 <ProductsManagement />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/reviews" element={
+              <ProtectedRoute>
+                <ReviewManagement />
               </ProtectedRoute>
             } />
             <Route path="/admin/categories" element={

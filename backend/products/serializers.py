@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Product, Category, Color, ProductImage, Subcategory, Favorite
+from .models import Product, Category, Color, ProductImage, Subcategory, Favorite, Review
 
 class ColorSerializer(serializers.ModelSerializer):
     """Serializer for Color model"""
@@ -88,9 +88,62 @@ class ProductListSerializer(serializers.ModelSerializer):
                 return request.build_absolute_uri(main_image_url)
         return None
 
+class ReviewSerializer(serializers.ModelSerializer):
+    """Serializer for Review model"""
+    user_name = serializers.CharField(source='user.username', read_only=True)
+    user_email = serializers.EmailField(source='user.email', read_only=True)
+    user_first_name = serializers.CharField(source='user.first_name', read_only=True)
+    user_last_name = serializers.CharField(source='user.last_name', read_only=True)
+    product_name = serializers.CharField(source='product.name', read_only=True)
+    moderated_by = serializers.CharField(source='moderated_by.username', read_only=True)
+    moderation_notes = serializers.CharField(read_only=True)
+    status = serializers.CharField(read_only=True)
+
+
+    class Meta:
+        model = Review
+        fields = [
+            'id', 'product', 'user', 'user_name', 'user_email',
+            'user_first_name', 'user_last_name',
+            'rating', 'comment', 'created_at', 'updated_at',
+            'product_name', 'moderated_by', 'moderation_notes', 'status'
+        ]
+        # user should be read-only for create requests; view will attach the user
+        read_only_fields = ['id', 'user', 'user_name', 'user_email', 'user_first_name', 'user_last_name', 'created_at', 'updated_at',
+                            'product_name', 'moderated_by', 'moderation_notes', 'status']
+
+    def create(self, validated_data):
+        # Attach the request user instead of expecting it in the payload
+        request = self.context.get('request')
+        if request and getattr(request, 'user', None) and request.user.is_authenticated:
+            user = request.user
+        else:
+            raise serializers.ValidationError({'user': 'Authentication required to create a review.'})
+
+        product = validated_data.get('product')
+        # If the user already has a review for this product, update it instead
+        # of rejecting — this acts as an 'upsert' so clients can POST to create
+        # or update their own review. When updating, reset status to 'pending'
+        # so the new content can be re-moderated.
+        existing = Review.objects.filter(user=user, product=product).first()
+        if existing:
+            existing.rating = validated_data.get('rating', existing.rating)
+            existing.comment = validated_data.get('comment', existing.comment)
+            # Reset moderation so re-submissions are reviewed again
+            existing.status = 'pending'
+            existing.moderation_notes = ''
+            existing.moderated_by = None
+            existing.moderated_at = None
+            existing.save()
+            return existing
+
+        return super().create({**validated_data, 'user': user})
+
+
 class ProductDetailSerializer(serializers.ModelSerializer):
     """Serializer for Product detail view (all fields)"""
     category_name = serializers.CharField(source='category.name', read_only=True)
+    subcategory_name = serializers.CharField(source='subcategory.name', read_only=True)
     is_in_stock = serializers.BooleanField(read_only=True)
     is_low_stock = serializers.BooleanField(read_only=True)
     discount_percentage = serializers.FloatField(read_only=True)
@@ -98,8 +151,15 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     main_image_url = serializers.SerializerMethodField()
     images = ProductImageSerializer(many=True, read_only=True)
     colors = ColorSerializer(many=True, read_only=True)
-    subcategory_name = serializers.CharField(source='subcategory.name', read_only=True)
-    
+    average_rating = serializers.FloatField(read_only=True)
+    total_reviews = serializers.IntegerField(read_only=True)
+    reviews = serializers.SerializerMethodField()
+
+    def get_reviews(self, obj):
+        # Get the 5 most recent reviews
+        reviews = obj.reviews.all().order_by('-created_at')[:5]
+        return ReviewSerializer(reviews, many=True, context=self.context).data
+
     class Meta:
         model = Product
         fields = [
@@ -111,13 +171,15 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             'status', 'is_featured', 'is_bestseller', 'weight', 'length',
             'width', 'height', 'colors', 'is_in_stock', 'is_low_stock',
             'discount_percentage', 'view_count', 'sales_count',
+            'average_rating', 'total_reviews', 'reviews',
             'created_at', 'updated_at'
         ]
         read_only_fields = [
             'id', 'slug', 'is_in_stock', 'is_low_stock', 'discount_percentage',
-            'view_count', 'sales_count', 'created_at', 'updated_at'
+            'view_count', 'sales_count', 'created_at', 'updated_at',
+            'average_rating', 'total_reviews', 'reviews'
         ]
-    
+
     def get_main_image_url(self, obj):
         main_image_url = obj.get_main_image()
         if main_image_url:
@@ -125,21 +187,21 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             if request:
                 return request.build_absolute_uri(main_image_url)
         return None
-    
+
     def get_all_images(self, obj):
         request = self.context.get('request')
         images = []
-        
+
         # Get all images from the get_all_images method
         all_image_urls = obj.get_all_images()
-        
+
         if request and all_image_urls:
             for image_url in all_image_urls:
                 if not image_url.startswith('http'):
                     images.append(request.build_absolute_uri(image_url))
                 else:
                     images.append(image_url)
-        
+
         return images
 
 class ProductCreateUpdateSerializer(serializers.ModelSerializer):

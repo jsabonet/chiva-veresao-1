@@ -69,6 +69,40 @@ export interface ProductImage {
   order: number;
   created_at: string;
 }
+
+export interface Review {
+  id: number;
+  product: number;
+  user?: number;
+  user_name?: string;
+  user_first_name?: string;
+  user_last_name?: string;
+  user_email?: string;
+  rating: number;
+  comment?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  moderation_notes?: string;
+  created_at: string;
+  updated_at?: string;
+  moderated_at?: string;
+  moderated_by?: {
+    id: number;
+    username: string;
+  };
+  product_name?: string;  // Added for admin list view
+}
+
+interface ReviewModerationRequest {
+  action: 'approve' | 'reject';
+  notes?: string;
+}
+
+interface ReviewResponse {
+  results: Review[];
+  count: number;
+  next: string | null;
+  previous: string | null;
+}
 export interface Product {
   id: number;
   name: string;
@@ -112,6 +146,11 @@ export interface Product {
   meta_keywords?: string;
   created_at: string;
   updated_at: string;
+  // Reviews summary (optional - provided by backend when available)
+  average_rating?: number;
+  total_reviews?: number;
+  reviews?: Review[];
+  rating_distribution?: Record<number, number>; // key: stars (1-5), value: count
 }
 
 export interface ProductCreateUpdate {

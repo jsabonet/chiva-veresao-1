@@ -20,6 +20,9 @@ import {
   Minus,
   Plus
 } from 'lucide-react';
+import StarRating from '@/components/ui/StarRating';
+import ReviewForm from '@/components/ui/ReviewForm';
+import ReviewList from '@/components/ui/ReviewList';
 import { useProductBySlug, useProduct } from '@/hooks/useApi';
 import { formatPrice, getImageUrl, type Product } from '@/lib/api';
 import { useCart } from '@/contexts/CartContext';
@@ -35,6 +38,9 @@ const ProductDetails = () => {
   const [selectedImage, setSelectedImage] = useState<string>('');
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [selectedColorId, setSelectedColorId] = useState<number | null>(null);
+  // State for sorting/filtering reviews (moved here to ensure hooks run in same order)
+  const [sort, setSort] = useState('recent');
+  const [filter, setFilter] = useState('all');
   const { addItem, setQuantity, items } = useCart();
 
   // Try to fetch by slug first, then by ID if it's numeric
@@ -241,6 +247,7 @@ const ProductDetails = () => {
 
   const specifications = product.specifications ? 
     Object.entries(product.specifications).filter(([_, value]) => value) : [];
+
 
   return (
     <div className="min-h-screen bg-background">
@@ -599,15 +606,121 @@ const ProductDetails = () => {
           <TabsContent value="reviews" className="mt-4 sm:mt-6">
             <Card>
               <CardContent className="pt-4 sm:pt-6 px-4 sm:px-6">
-                <div className="text-center py-6 sm:py-8">
-                  <Star className="w-10 h-10 sm:w-12 sm:h-12 text-muted-foreground mx-auto mb-3 sm:mb-4" />
-                  <h3 className="text-base sm:text-lg font-semibold mb-2">Ainda não há avaliações</h3>
-                  <p className="text-muted-foreground text-sm sm:text-base mb-3 sm:mb-4">
-                    Seja o primeiro a avaliar este produto!
-                  </p>
-                  <Button className="text-sm sm:text-base h-9 sm:h-10 px-4 sm:px-6" disabled>
-                    Escrever Avaliação
-                  </Button>
+                <div className="space-y-8">
+                  {/* Review Summary */}
+                  <div className="flex flex-col lg:flex-row gap-8 pb-6 border-b">
+                    {/* Overall Rating */}
+                    <div className="flex-1 flex flex-col items-center lg:items-start">
+                      <div className="flex flex-col items-center lg:items-start gap-2">
+                        <div className="text-4xl font-bold">
+                          {(product?.average_rating ?? 0).toFixed(1)}
+                          <span className="text-lg text-muted-foreground">/5</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <StarRating rating={Math.round(product?.average_rating ?? 0)} readOnly size="lg" />
+                          <span className="text-sm text-muted-foreground">
+                            {product?.total_reviews ?? 0} {(product?.total_reviews ?? 0) === 1 ? 'avaliação' : 'avaliações'}
+                          </span>
+                        </div>
+                      </div>
+                      {/* Verified Purchase Summary */}
+                      <div className="mt-4 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-2">
+                          <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          </svg>
+                          90% compras verificadas
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Rating Distribution (real data) */}
+                    <div className="flex-1 flex flex-col gap-2">
+                      {[5, 4, 3, 2, 1].map((stars) => {
+                        const count = product?.rating_distribution?.[stars] || 0;
+                        const total = product?.total_reviews || 1;
+                        const percent = Math.round((count / total) * 100);
+                        return (
+                          <div key={stars} className="flex items-center gap-2">
+                            <div className="w-12 text-sm whitespace-nowrap">{stars} estrelas</div>
+                            <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-yellow-400 rounded-full"
+                                style={{ width: `${percent}%` }}
+                                aria-label={`Barra de ${stars} estrelas: ${percent}%`}
+                              />
+                            </div>
+                            <div className="w-12 text-sm text-right text-muted-foreground">
+                              {percent}%
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Review CTA */}
+                    <div className="flex-1 flex flex-col items-center lg:items-start gap-4">
+                      <div className="text-center lg:text-left">
+                        <h4 className="font-semibold mb-2">Compartilhe sua opinião</h4>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Ajude outros compradores a fazer a melhor escolha
+                        </p>
+                      </div>
+                      <Button onClick={() => document.getElementById('review-form')?.scrollIntoView({ behavior: 'smooth' })}>
+                        Avaliar Produto
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Reviews List Section */}
+                  <div className="space-y-6">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                      <h3 className="text-lg font-semibold">Avaliações dos Clientes</h3>
+                      <div className="flex items-center gap-4">
+                        <label htmlFor="review-sort" className="sr-only">Ordenar avaliações</label>
+                        <select
+                          id="review-sort"
+                          className="text-sm border rounded-md px-2 py-1"
+                          value={sort}
+                          onChange={e => setSort(e.target.value)}
+                          aria-label="Ordenar avaliações"
+                        >
+                          <option value="recent">Mais recentes</option>
+                          <option value="helpful">Mais úteis</option>
+                          <option value="highest">Maior avaliação</option>
+                          <option value="lowest">Menor avaliação</option>
+                        </select>
+                        <label htmlFor="review-filter" className="sr-only">Filtrar por estrelas</label>
+                        <select
+                          id="review-filter"
+                          className="text-sm border rounded-md px-2 py-1"
+                          value={filter}
+                          onChange={e => setFilter(e.target.value)}
+                          aria-label="Filtrar por estrelas"
+                        >
+                          <option value="all">Todas as estrelas</option>
+                          <option value="5">5 estrelas</option>
+                          <option value="4">4 estrelas</option>
+                          <option value="3">3 estrelas</option>
+                          <option value="2">2 estrelas</option>
+                          <option value="1">1 estrela</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <ReviewList 
+                      productId={product!.id}
+                      initialReviews={product?.reviews || []}
+                      sort={sort}
+                      filter={filter}
+                    />
+                  </div>
+
+                  {/* Review Form */}
+                  <div id="review-form" className="pt-6 border-t">
+                    <h3 className="text-lg font-semibold mb-4">Avaliar Produto</h3>
+                    <ReviewForm productId={product.id} onReviewSubmitted={() => window.location.reload()} />
+                  </div>
                 </div>
               </CardContent>
             </Card>

@@ -8,7 +8,9 @@ import {
   Settings,
   LogOut,
   Menu,
-  Home
+  Home,
+  FileText,
+  Star
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -67,6 +69,13 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
       current: location.pathname.startsWith('/admin/products')
     },
     {
+      name: 'Avaliações',
+      href: '/admin/reviews',
+      icon: Star,
+      current: location.pathname.startsWith('/admin/reviews'),
+      badge: 'Novo'
+    },
+    {
       name: 'Pedidos',
       href: '/admin/pedidos',
       icon: ShoppingCart,
@@ -113,7 +122,12 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                           }`}
                           aria-hidden="true"
                         />
-                        {item.name}
+                        <span className="flex-1">{item.name}</span>
+                        {item.badge && (
+                          <span className="ml-2 inline-flex items-center rounded-md bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-800 ring-1 ring-inset ring-yellow-600/20">
+                            {item.badge}
+                          </span>
+                        )}
                       </Link>
                     </li>
                   ))}
