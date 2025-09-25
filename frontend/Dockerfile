@@ -28,9 +28,13 @@ COPY index.html ./
 
 # Rodar build somente se BUILD_FRONTEND=true
 RUN if [ "$BUILD_FRONTEND" = "true" ]; then \
-      rm -rf node_modules package-lock.json && \
-      npm install --legacy-peer-deps --silent && \
-      npm run build; \
+      # Use package-lock.json for reproducible installs when present, and omit optional
+      # dependencies (native optional binaries) which often fail in container builds.
+      if [ -f package-lock.json ]; then \
+        npm ci --omit=optional --silent; \
+      else \
+        npm install --no-optional --silent; \
+      fi && npm run build; \
     else \
       echo "Skipping frontend build inside Docker (BUILD_FRONTEND=false)"; \
     fi
