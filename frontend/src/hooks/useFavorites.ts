@@ -18,7 +18,17 @@ export interface Favorite {
   created_at: string;
 }
 
-const API_BASE_URL = 'http://localhost:8000/api';
+// Base URL for the backend API. Use Vite environment variable VITE_API_BASE_URL
+// Example values you can set in .env.production or during build:
+// VITE_API_BASE_URL=https://chivacomputer.co.mz    -> will point to https://chivacomputer.co.mz/api
+// VITE_API_BASE_URL=https://chivacomputer.co.mz/api -> will also work
+const __env = (import.meta.env as Record<string, any>);
+const _base = __env.VITE_API_BASE_URL;
+const API_BASE_URL = (() => {
+  if (!_base) return 'http://localhost:8000/api';
+  const normalized = _base.replace(/\/$/, '');
+  return normalized.endsWith('/api') ? normalized : `${normalized}/api`;
+})();
 
 // Helper function to get auth headers
 const getAuthHeaders = async (): Promise<HeadersInit> => {
