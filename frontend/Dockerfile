@@ -40,8 +40,11 @@ RUN if [ "$BUILD_FRONTEND" = "true" ]; then \
       if npm run build; then \
         echo "Build succeeded"; \
       else \
-        echo "Initial build failed — attempting to install @rollup/rollup-linux-x64-gnu and retry"; \
+        echo "Initial build failed — attempting recovery: install rollup native binary, rebuild native modules, and retry"; \
         npm install @rollup/rollup-linux-x64-gnu --silent || true; \
+        # Try to update native bindings (e.g. @swc/core) and rebuild any native modules
+        npm rebuild @swc/core --update-binary --silent || true; \
+        npm rebuild --update-binary --silent || true; \
         npm run build; \
       fi; \
     else \
@@ -53,7 +56,13 @@ RUN if [ "$BUILD_FRONTEND" = "true" ]; then \
 # ========================
 FROM nginx:stable
 
-# Copiar build do frontend
+# If a prebuilt `dist/` is provided in the build context, copy it first
+# (this supports the prebuild workflow: build locally/CI and then build the image
+# with `--build-arg BUILD_FRONTEND=false`). If the in-image build produced a
+# `/app/dist`, copy it afterwards to overwrite the prebuilt files.
+COPY dist /usr/share/nginx/html
+
+# Copiar build do frontend do estágio de build (se presente)
 COPY --from=build /app/dist /usr/share/nginx/html
 
 # Configuração personalizada do Nginx
