@@ -30,7 +30,11 @@ SECRET_KEY = config('SECRET_KEY', default="django-insecure-jpz$&f8lx9!)+oyf9bj8l
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=True, cast=bool)
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0']
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,0.0.0.0', cast=lambda v: [host.strip() for host in v.split(',')])
+
+# Add production hosts here (example: the droplet IP and the production domain)
+# You can override via environment: ALLOWED_HOSTS="localhost,127.0.0.1,0.0.0.0,157.230.16.193,chivacomputer.co.mz"
+
 
 
 # Application definition
@@ -173,7 +177,7 @@ SPECTACULAR_SETTINGS = {
 # CORS settings
 CORS_ALLOWED_ORIGINS = config(
     'CORS_ALLOWED_ORIGINS',
-    default='http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173,http://localhost:8080,http://127.0.0.1:8080,http://localhost:8081,http://127.0.0.1:8081,http://localhost:8082,http://127.0.0.1:8082,http://localhost:8083,http://127.0.0.1:8083',
+    default='http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173,http://localhost:8080,http://127.0.0.1:8080,http://localhost:8081,http://127.0.0.1:8081,http://localhost:8082,http://127.0.0.1:8082,http://localhost:8083,http://127.0.0.1:8083,https://chivacomputer.co.mz,http://157.230.16.193',
     cast=lambda v: [origin.strip() for origin in v.split(',')]
 )
 
@@ -212,3 +216,9 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
 # Allowed file extensions for uploads
 ALLOWED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp']
 MAX_IMAGE_SIZE = 5 * 1024 * 1024  # 5MB
+
+# Trusted origins for CSRF (add https://yourdomain and http://ip if needed)
+CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', default='https://chivacomputer.co.mz,http://157.230.16.193', cast=lambda v: [origin.strip() for origin in v.split(',')])
+
+# Optional: session/cookie domain for production
+SESSION_COOKIE_DOMAIN = config('SESSION_COOKIE_DOMAIN', default=None)

@@ -18,7 +18,9 @@ export interface Favorite {
   created_at: string;
 }
 
-const API_BASE_URL = 'http://localhost:8000/api';
+const API_BASE_URL = typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE_URL
+  ? import.meta.env.VITE_API_BASE_URL
+  : (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}${window.location.port ? ':'+window.location.port : ''}/api` : 'http://localhost:8000/api');
 
 // Helper function to get auth headers
 const getAuthHeaders = async (): Promise<HeadersInit> => {

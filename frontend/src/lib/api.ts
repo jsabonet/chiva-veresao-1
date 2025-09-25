@@ -1,5 +1,7 @@
-// API Configuration
-const API_BASE_URL = 'http://127.0.0.1:8000/api';
+// API Configuration - respect Vite env var VITE_API_BASE_URL, otherwise default to same origin /api
+const API_BASE_URL = typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE_URL
+  ? import.meta.env.VITE_API_BASE_URL
+  : (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}${window.location.port ? ':'+window.location.port : ''}/api` : 'http://127.0.0.1:8000/api');
 
 // Types for our API responses
 export interface Category {

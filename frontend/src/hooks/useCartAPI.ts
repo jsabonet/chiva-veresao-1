@@ -52,7 +52,9 @@ export interface Coupon {
   is_currently_valid: boolean;
 }
 
-const API_BASE_URL = 'http://localhost:8000/api';
+const API_BASE_URL = typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE_URL
+  ? import.meta.env.VITE_API_BASE_URL
+  : (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}${window.location.port ? ':'+window.location.port : ''}/api` : 'http://localhost:8000/api');
 
 // Custom hook for cart API operations
 export const useCartAPI = () => {
