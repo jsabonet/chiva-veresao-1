@@ -31,10 +31,19 @@ RUN if [ "$BUILD_FRONTEND" = "true" ]; then \
       # Use package-lock.json for reproducible installs when present, and omit optional
       # dependencies (native optional binaries) which often fail in container builds.
       if [ -f package-lock.json ]; then \
-        npm ci --omit=optional --silent; \
+        npm ci --omit=optional --silent || true; \
       else \
-        npm install --no-optional --silent; \
-      fi && npm run build; \
+        npm install --no-optional --silent || true; \
+      fi; \
+      # Try build; if it fails due to missing native rollup binary, attempt to
+      # install the linux native rollup package and retry once.
+      if npm run build; then \
+        echo "Build succeeded"; \
+      else \
+        echo "Initial build failed — attempting to install @rollup/rollup-linux-x64-gnu and retry"; \
+        npm install @rollup/rollup-linux-x64-gnu --silent || true; \
+        npm run build; \
+      fi; \
     else \
       echo "Skipping frontend build inside Docker (BUILD_FRONTEND=false)"; \
     fi
