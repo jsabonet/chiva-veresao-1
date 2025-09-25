@@ -26,6 +26,9 @@ COPY src/ ./src/
 COPY public/ ./public/
 COPY index.html ./
 
+# Force-install rollup native binary to avoid "Cannot find module @rollup/rollup-linux-x64-gnu" during vite build
+RUN npm install @rollup/rollup-linux-x64-gnu --silent || true
+
 # Rodar build somente se BUILD_FRONTEND=true
 RUN if [ "$BUILD_FRONTEND" = "true" ]; then \
       # Use package-lock.json for reproducible installs when present, and omit optional
