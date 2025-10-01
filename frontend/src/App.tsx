@@ -9,6 +9,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
 import { FavoritesProvider } from "@/contexts/FavoritesContext";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import AdminRoute from "@/components/auth/AdminRoute";
 import Home from "./pages/Home";
 import ProductDetails from "./pages/ProductDetails";
 import Cart from "./pages/Cart";
@@ -35,6 +36,7 @@ import EditProduct from "./pages/EditProduct";
 import OrdersManagement from "./pages/OrdersManagement";
 import CustomersManagement from "./pages/CustomersManagement";
 import AdminSettings from "./pages/AdminSettings";
+import PromotionsManagement from "./pages/PromotionsManagement";
 import NotFound from "./pages/NotFound";
 import ReviewManagement from "./pages/ReviewManagement";
 
@@ -122,14 +124,19 @@ const App = () => (
               </ProtectedRoute>
             } />
             <Route path="/admin/clientes" element={
-              <ProtectedRoute>
+              <AdminRoute>
                 <CustomersManagement />
-              </ProtectedRoute>
+              </AdminRoute>
             } />
             <Route path="/admin/configuracoes" element={
               <ProtectedRoute>
                 <AdminSettings />
               </ProtectedRoute>
+            } />
+            <Route path="/admin/promocoes" element={
+              <AdminRoute>
+                <PromotionsManagement />
+              </AdminRoute>
             } />
             
             {/* Redirects para manter compatibilidade com rotas antigas */}

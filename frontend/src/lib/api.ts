@@ -596,3 +596,50 @@ export const getImageUrl = (imagePath?: string): string => {
   const origin = typeof window !== 'undefined' ? window.location.origin : 'http://127.0.0.1:8000';
   return `${origin}${imagePath}`;
 };
+
+// Customers API (Admin + Me)
+export interface CustomerProfile {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  province?: string;
+  registrationDate: string;
+  lastOrderDate?: string | null;
+  totalOrders: number;
+  totalSpent: number | string;
+  status: 'active' | 'inactive' | 'blocked';
+  notes?: string;
+  avatar?: string;
+}
+
+export const customersApi = {
+  listAdmin: (params?: Record<string, string>) => apiClient.get<ApiResponse<CustomerProfile>>('/admin/customers/', params),
+  getAdmin: (username: string) => apiClient.get<CustomerProfile>(`/admin/customers/${username}/`),
+  updateAdmin: (username: string, data: Partial<CustomerProfile>) => apiClient.put<CustomerProfile>(`/admin/customers/${username}/`, data),
+  me: () => apiClient.get<CustomerProfile>('/me/profile/'),
+};
+
+// Promotions API
+export interface Promotion {
+  id: number;
+  name: string;
+  description?: string;
+  banner_image?: string;
+  start_date: string;
+  end_date: string;
+  discount_type: 'percentage' | 'fixed';
+  discount_value: number | string;
+  status: 'draft' | 'active' | 'expired';
+  isActiveNow?: boolean;
+}
+
+export const promotionsApi = {
+  listPublic: () => apiClient.get<Promotion[]>('/promotions/'),
+  listAdmin: () => apiClient.get<Promotion[]>('/admin/promotions/'),
+  createAdmin: (data: Partial<Promotion>) => apiClient.post<Promotion>('/admin/promotions/', data),
+  updateAdmin: (id: number, data: Partial<Promotion>) => apiClient.put<Promotion>(`/admin/promotions/${id}/`, data),
+  deleteAdmin: (id: number) => apiClient.delete(`/admin/promotions/${id}/`),
+};

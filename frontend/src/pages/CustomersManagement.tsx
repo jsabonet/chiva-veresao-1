@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { 
   Search, 
@@ -46,106 +46,20 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { formatPrice } from '@/lib/formatPrice';
-
-interface Customer {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  address: string;
-  city: string;
-  province: string;
-  registrationDate: string;
-  lastOrderDate?: string;
-  totalOrders: number;
-  totalSpent: number;
-  status: 'active' | 'inactive' | 'blocked';
-  notes?: string;
-  avatar?: string;
-}
+import { customersApi, type CustomerProfile } from '@/lib/api';
 
 const CustomersManagement = () => {
-  const [customers, setCustomers] = useState<Customer[]>([
-    {
-      id: 'CUST-001',
-      name: 'João Silva',
-      email: 'joao.silva@email.com',
-      phone: '+258 84 123 4567',
-      address: 'Av. Julius Nyerere, 123',
-      city: 'Maputo',
-      province: 'Maputo',
-      registrationDate: '2023-08-15T10:30:00Z',
-      lastOrderDate: '2024-01-15T10:30:00Z',
-      totalOrders: 5,
-      totalSpent: 245000,
-      status: 'active',
-      notes: 'Cliente VIP - desconto especial'
-    },
-    {
-      id: 'CUST-002',
-      name: 'Maria Santos',
-      email: 'maria.santos@email.com',
-      phone: '+258 87 654 3210',
-      address: 'Rua da Resistência, 456',
-      city: 'Maputo',
-      province: 'Maputo',
-      registrationDate: '2023-09-22T14:20:00Z',
-      lastOrderDate: '2024-01-14T14:20:00Z',
-      totalOrders: 3,
-      totalSpent: 147000,
-      status: 'active'
-    },
-    {
-      id: 'CUST-003',
-      name: 'Carlos Mendes',
-      email: 'carlos.mendes@email.com',
-      phone: '+258 82 111 2222',
-      address: 'Av. 24 de Julho, 789',
-      city: 'Beira',
-      province: 'Sofala',
-      registrationDate: '2023-10-05T09:15:00Z',
-      lastOrderDate: '2024-01-10T09:15:00Z',
-      totalOrders: 2,
-      totalSpent: 89000,
-      status: 'active'
-    },
-    {
-      id: 'CUST-004',
-      name: 'Ana Costa',
-      email: 'ana.costa@email.com',
-      phone: '+258 85 333 4444',
-      address: 'Rua dos Trabalhadores, 321',
-      city: 'Nampula',
-      province: 'Nampula',
-      registrationDate: '2023-11-12T16:45:00Z',
-      totalOrders: 1,
-      totalSpent: 25000,
-      status: 'inactive'
-    },
-    {
-      id: 'CUST-005',
-      name: 'Pedro Magaia',
-      email: 'pedro.magaia@email.com',
-      phone: '+258 86 555 6666',
-      address: 'Av. Eduardo Mondlane, 654',
-      city: 'Matola',
-      province: 'Maputo',
-      registrationDate: '2023-12-01T08:30:00Z',
-      lastOrderDate: '2024-01-12T11:00:00Z',
-      totalOrders: 7,
-      totalSpent: 198000,
-      status: 'active',
-      notes: 'Cliente frequente - oferece indicações'
-    }
-  ]);
+  const [customers, setCustomers] = useState<CustomerProfile[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [provinceFilter, setProvinceFilter] = useState('all');
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerProfile | null>(null);
   const [isCustomerDialogOpen, setIsCustomerDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [editingCustomer, setEditingCustomer] = useState<CustomerProfile | null>(null);
 
   const statusConfig = {
     active: { label: 'Ativo', color: 'bg-green-100 text-green-800' },
@@ -158,14 +72,14 @@ const CustomersManagement = () => {
     'Manica', 'Tete', 'Zambézia', 'Nampula', 'Cabo Delgado', 'Niassa'
   ];
 
-  const filteredCustomers = customers.filter(customer => {
+  const filteredCustomers = useMemo(() => customers.filter(customer => {
     const matchesSearch = customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         customer.phone.includes(searchTerm);
+                         (customer.phone || '').includes(searchTerm);
     const matchesStatus = statusFilter === 'all' || customer.status === statusFilter;
     const matchesProvince = provinceFilter === 'all' || customer.province === provinceFilter;
     return matchesSearch && matchesStatus && matchesProvince;
-  });
+  }), [customers, searchTerm, statusFilter, provinceFilter]);
 
   const getCustomerStats = () => {
     const total = customers.length;
@@ -181,12 +95,32 @@ const CustomersManagement = () => {
 
   const stats = getCustomerStats();
 
-  const handleViewCustomer = (customer: Customer) => {
+  // Fetch customers from API (admin endpoint)
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const res = await customersApi.listAdmin();
+        // normalize results or array
+        const items = Array.isArray(res) ? res : (res as any).results || [];
+        setCustomers(items);
+      } catch (e: any) {
+        setError(e?.message || 'Falha ao carregar clientes');
+        setCustomers([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  const handleViewCustomer = (customer: CustomerProfile) => {
     setSelectedCustomer(customer);
     setIsCustomerDialogOpen(true);
   };
 
-  const handleEditCustomer = (customer: Customer) => {
+  const handleEditCustomer = (customer: CustomerProfile) => {
     setEditingCustomer({ ...customer });
     setIsEditDialogOpen(true);
   };
@@ -202,6 +136,7 @@ const CustomersManagement = () => {
   };
 
   const handleDeleteCustomer = (customerId: string) => {
+    // For now only remove from UI; backend delete not implemented in scope
     setCustomers(customers.filter(customer => customer.id !== customerId));
   };
 
@@ -638,7 +573,13 @@ const CustomersManagement = () => {
 
       {/* Customers Table */}
       <Card>
-        <CardContent className="pt-6">
+          <CardContent className="pt-6">
+            {error && (
+              <div className="mb-4 text-red-600">Erro ao carregar clientes: {error}</div>
+            )}
+            {loading ? (
+              <div className="py-12 text-center text-muted-foreground">Carregando clientes...</div>
+            ) : (
           <div className="rounded-md border">
             <table className="w-full">
               <thead>
@@ -724,8 +665,9 @@ const CustomersManagement = () => {
               </tbody>
             </table>
           </div>
+          )}
           
-          {filteredCustomers.length === 0 && (
+          {!loading && filteredCustomers.length === 0 && !error && (
             <div className="text-center py-12">
               <h3 className="text-lg font-medium mb-2">Nenhum cliente encontrado</h3>
               <p className="text-muted-foreground">
