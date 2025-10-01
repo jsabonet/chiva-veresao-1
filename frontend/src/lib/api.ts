@@ -267,10 +267,15 @@ class ApiClient {
       
       // Check if response has content before trying to parse JSON
       const contentType = response.headers.get('content-type');
-      if (response.status === 204 || !contentType?.includes('application/json')) {
+      if (response.status === 204) {
         return null as T;
       }
-      
+      if (!contentType || !contentType.includes('application/json')) {
+        // Response is not JSON (likely HTML error or proxy issue) -> throw to be handled by hooks/UI
+        const text = await response.text();
+        throw new Error(`Unexpected response type: ${contentType || 'unknown'}; body starts with: ${text.slice(0, 120)}...`);
+      }
+
       return await response.json();
     } catch (error) {
       console.error('API request failed:', error);
@@ -587,5 +592,7 @@ export const formatPrice = (price: string | number): string => {
 export const getImageUrl = (imagePath?: string): string => {
   if (!imagePath) return '/placeholder.svg';
   if (imagePath.startsWith('http')) return imagePath;
-  return `http://127.0.0.1:8000${imagePath}`;
+  // Use current origin (protocol + host + port) to build absolute URL so HTTPS and host are respected
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'http://127.0.0.1:8000';
+  return `${origin}${imagePath}`;
 };

@@ -1,6 +1,15 @@
 import { useState, useEffect } from 'react';
 import { productApi, categoryApi, colorApi, subcategoryApi, type Product, type ProductListItem, type Category, type Color, type ApiResponse, type ProductStats, type ProductCreateUpdate, type Subcategory } from '@/lib/api';
 
+// Utility to normalize API list responses into arrays
+const normalizeList = <T,>(res: any): T[] => {
+  if (!res) return [];
+  if (Array.isArray(res)) return res as T[];
+  if (res.results && Array.isArray(res.results)) return res.results as T[];
+  if (res.products && Array.isArray(res.products)) return res.products as T[];
+  return [];
+};
+
 // Hook for products
 export const useProducts = (params?: {
   page?: number;
@@ -27,10 +36,11 @@ export const useProducts = (params?: {
           Object.entries(params).filter(([_, value]) => value !== undefined && value !== '')
         ) : undefined;
         
-        const response = await productApi.getProducts(cleanParams);
-        setProducts(response.results);
-        setTotalCount(response.count);
-        setNextPage(response.next || null);
+  const response = await productApi.getProducts(cleanParams);
+  const items = normalizeList<ProductListItem>(response);
+  setProducts(items);
+  setTotalCount((response as any)?.count ?? items.length ?? 0);
+  setNextPage((response as any)?.next || null);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch products');
       } finally {
@@ -52,10 +62,11 @@ export const useProducts = (params?: {
           Object.entries(params).filter(([_, value]) => value !== undefined && value !== '')
         ) : undefined;
         
-        const response = await productApi.getProducts(cleanParams);
-        setProducts(response.results);
-        setTotalCount(response.count);
-        setNextPage(response.next || null);
+  const response = await productApi.getProducts(cleanParams);
+  const items = normalizeList<ProductListItem>(response);
+  setProducts(items);
+  setTotalCount((response as any)?.count ?? items.length ?? 0);
+  setNextPage((response as any)?.next || null);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch products');
       } finally {
@@ -135,8 +146,8 @@ export const useFeaturedProducts = () => {
       try {
         setLoading(true);
         setError(null);
-        const response = await productApi.getFeaturedProducts();
-        setProducts(response);
+  const response = await productApi.getFeaturedProducts();
+  setProducts(normalizeList<ProductListItem>(response));
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch featured products');
       } finally {
@@ -161,8 +172,8 @@ export const useBestsellerProducts = () => {
       try {
         setLoading(true);
         setError(null);
-        const response = await productApi.getBestsellerProducts();
-        setProducts(response);
+  const response = await productApi.getBestsellerProducts();
+  setProducts(normalizeList<ProductListItem>(response));
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch bestseller products');
       } finally {
@@ -186,8 +197,8 @@ export const useCategories = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await categoryApi.getAll();
-      setCategories(response.results);
+  const response = await categoryApi.getAll();
+  setCategories(normalizeList<Category>(response));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch categories');
       setCategories([]); // Set empty array on error
@@ -284,8 +295,8 @@ export const useSubcategories = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await subcategoryApi.getAll();
-      setSubcategories(response.results);
+  const response = await subcategoryApi.getAll();
+  setSubcategories(normalizeList<Subcategory>(response));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch subcategories');
       setSubcategories([]);
@@ -453,8 +464,8 @@ export const useColors = () => {
       try {
         setLoading(true);
         setError(null);
-        const response = await colorApi.getColors();
-        setColors(response.results);
+    const response = await colorApi.getColors();
+    setColors(normalizeList<Color>(response));
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch colors');
       } finally {
@@ -470,8 +481,8 @@ export const useColors = () => {
     const fetchColors = async () => {
       try {
         setError(null);
-        const response = await colorApi.getColors();
-        setColors(response.results);
+  const response = await colorApi.getColors();
+  setColors(normalizeList<Color>(response));
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch colors');
       } finally {

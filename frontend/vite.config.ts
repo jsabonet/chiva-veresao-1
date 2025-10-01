@@ -9,6 +9,14 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
     cors: true,
+    // Proxy API requests to the Django backend during development
+    proxy: {
+      "/api": {
+        target: "http://127.0.0.1:8000",
+        changeOrigin: true,
+        secure: false,
+      },
+    },
   },
   plugins: [
     react(),
