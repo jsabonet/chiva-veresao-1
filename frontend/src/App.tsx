@@ -39,6 +39,7 @@ import AdminSettings from "./pages/AdminSettings";
 import PromotionsManagement from "./pages/PromotionsManagement";
 import NotFound from "./pages/NotFound";
 import ReviewManagement from "./pages/ReviewManagement";
+import OrderConfirmation from "./pages/OrderConfirmation";
 
 const queryClient = new QueryClient();
 
@@ -63,6 +64,7 @@ const App = () => (
             <Route path="/security" element={<Security />} />
             <Route path="/networking" element={<Networking />} />
             <Route path="/carrinho" element={<Cart />} />
+            <Route path="/order/:id/confirmation" element={<OrderConfirmation />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />

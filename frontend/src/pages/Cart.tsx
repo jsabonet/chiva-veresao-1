@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { formatPrice } from '@/lib/formatPrice';
 import { useCart } from '@/contexts/CartContext';
 import { usePayments } from '@/hooks/usePayments';
@@ -14,7 +14,8 @@ import { usePayments } from '@/hooks/usePayments';
 const Cart = () => {
   const { items, updateQuantity, removeItem, subtotal } = useCart();
   const { initiatePayment } = usePayments();
-  const paymentMethodRef = useRef<'mpesa' | 'card' | 'transfer'>('mpesa');
+  const paymentMethodRef = useRef<'mpesa' | 'emola' | 'card' | 'transfer'>('mpesa');
+  const navigate = useNavigate();
   const shipping = 2500; // TODO: calcular dinamicamente no futuro
   const total = useMemo(() => subtotal + shipping, [subtotal, shipping]);
 
@@ -178,6 +179,10 @@ const Cart = () => {
                       <span>M-Pesa</span>
                     </label>
                     <label className="flex items-center space-x-2">
+                      <input type="radio" name="payment" value="emola" onChange={() => (paymentMethodRef.current = 'emola')} />
+                      <span>e-Mola</span>
+                    </label>
+                    <label className="flex items-center space-x-2">
                       <input type="radio" name="payment" value="card" onChange={() => (paymentMethodRef.current = 'card')} />
                       <span>Cartão de Crédito/Débito</span>
                     </label>
@@ -200,7 +205,7 @@ const Cart = () => {
                       return;
                     }
                     // Otherwise, show reference or instructions (basic UX)
-                    alert(`Pagamento iniciado. Referência: ${payment?.reference || 'N/A'}`);
+                    navigate(`/order/${order_id}/confirmation`);
                   } catch (e: any) {
                     alert(e?.message || 'Falha ao iniciar pagamento');
                   }
