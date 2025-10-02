@@ -655,29 +655,39 @@ def initiate_payment(request):
         # Recalculate totals after potential price refresh
         cart.calculate_totals()
 
-        # Optional: Validate client-sent amount against server total to prevent mismatches
+        # Include shipping from client when provided and validate client total against subtotal + shipping
+        from decimal import Decimal, ROUND_HALF_UP
         client_amount = request.data.get('amount')
         client_shipping = request.data.get('shipping_amount')
         client_currency = request.data.get('currency') or 'MZN'
+        try:
+            shipping_dec = Decimal(str(client_shipping)) if client_shipping is not None else Decimal('0.00')
+            if shipping_dec < 0:
+                shipping_dec = Decimal('0.00')
+        except Exception:
+            shipping_dec = Decimal('0.00')
+
+        charge_total = (cart.total or Decimal('0.00')) + shipping_dec
+
         if client_amount is not None:
             try:
-                # Normalize to Decimal with 2 places
-                from decimal import Decimal, ROUND_HALF_UP
                 sent = Decimal(str(client_amount)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-                if sent != cart.total:
-                    logger.warning(f"Client amount mismatch: sent={sent} vs server_total={cart.total}")
+                if sent != charge_total:
+                    logger.warning(f"Client amount mismatch: sent={sent} vs calculated_total={charge_total} (cart_total={cart.total} + shipping={shipping_dec})")
                     return Response({
                         'error': 'amount_mismatch',
-                        'message': f'O total enviado pelo cliente ({sent} {client_currency}) não corresponde ao total calculado ({cart.total} MZN).',
+                        'message': f'O total enviado pelo cliente ({sent} {client_currency}) não corresponde ao total calculado ({charge_total} MZN).',
                         'sent': str(sent),
-                        'calculated': str(cart.total),
+                        'calculated': str(charge_total),
+                        'cart_total': str(cart.total),
+                        'shipping': str(shipping_dec),
                     }, status=status.HTTP_400_BAD_REQUEST)
             except Exception:
                 logger.warning('Could not parse client amount for validation')
         
         # Create order
         from .models import Order, Payment
-        order = Order.objects.create(cart=cart, user=request.user, total_amount=cart.total, status='pending')
+        order = Order.objects.create(cart=cart, user=request.user, total_amount=charge_total, status='pending')
         
         # Mark cart as converted to prevent reuse
         cart.status = 'converted'
@@ -702,7 +712,7 @@ def initiate_payment(request):
         } if method == 'transfer' else None
 
         # Create payment record
-        payment = Payment.objects.create(order=order, method=method, amount=cart.total, currency='MZN', status='initiated')
+        payment = Payment.objects.create(order=order, method=method, amount=charge_total, currency='MZN', status='initiated')
 
         # Call Paysuite
         from .payments.paysuite import PaysuiteClient
@@ -765,8 +775,8 @@ def initiate_payment(request):
                 }, status=status.HTTP_400_BAD_REQUEST)
         
         # Log order details for debugging
-        print(f"💰 ORDER DETAILS: ID={order.id}, Original={payment.amount}, Formatted={formatted_amount}, Method={method}")
-        print(f"🛒 CART DETAILS: Items={cart.items.count()}, Total={cart.total}")
+        print(f"💰 ORDER DETAILS: ID={order.id}, Charge={payment.amount} (cart={cart.total} + shipping={shipping_dec}), Method={method}")
+        print(f"🛒 CART DETAILS: Items={cart.items.count()}, CartTotal={cart.total}, Shipping={shipping_dec}, Calculated={charge_total}")
         
         # Add method-specific data
         if method in ['mpesa', 'emola'] and phone:
