@@ -6,7 +6,8 @@ import json
 
 PAYSUITE_BASE_URL = os.getenv('PAYSUITE_BASE_URL', 'https://api.paysuite.co.mz')
 PAYSUITE_API_KEY = os.getenv('PAYSUITE_API_KEY')
-PAYSUITE_API_SECRET = os.getenv('PAYSUITE_API_SECRET')
+# Prefer dedicated webhook secret; keep backward compatibility with legacy var name
+PAYSUITE_WEBHOOK_SECRET = os.getenv('PAYSUITE_WEBHOOK_SECRET') or os.getenv('PAYSUITE_API_SECRET')
 
 
 class PaysuiteClient:
@@ -17,10 +18,12 @@ class PaysuiteClient:
     - Expects JSON responses.
     """
 
-    def __init__(self, base_url=None, api_key=None, api_secret=None):
+    def __init__(self, base_url=None, api_key=None, api_secret=None, webhook_secret=None):
         self.base_url = base_url or PAYSUITE_BASE_URL
         self.api_key = api_key or PAYSUITE_API_KEY
-        self.api_secret = api_secret or PAYSUITE_API_SECRET
+        # api_secret kept for compatibility; webhook_secret preferred for signatures
+        self.api_secret = api_secret or None
+        self.webhook_secret = webhook_secret or PAYSUITE_WEBHOOK_SECRET
         self.session = requests.Session()
         if self.api_key:
             self.session.headers.update({'Authorization': f'Bearer {self.api_key}'})
@@ -45,11 +48,25 @@ class PaysuiteClient:
         return resp.json()
 
     def verify_signature(self, payload_body: bytes, signature_header: str) -> bool:
-        """Verify HMAC signature (if Paysuite uses HMAC with API secret).
-        - This implementation assumes signature is HMAC-SHA256 of body with api secret.
-        - Adjust as needed to match Paysuite docs.
+        """Verify HMAC signature using webhook secret.
+        - Assumes signature is HMAC-SHA256 of raw body with secret, hex-encoded.
+        - Also accepts header formats like: "t=...,v1=<hexdigest>" and extracts v1.
         """
-        if not self.api_secret or not signature_header:
+        secret = self.webhook_secret or self.api_secret
+        if not secret or not signature_header:
             return False
-        computed = hmac.new(self.api_secret.encode('utf-8'), payload_body, hashlib.sha256).hexdigest()
-        return hmac.compare_digest(computed, signature_header)
+
+        # Extract possible v1 signature if header is in the form "t=...,v1=..."
+        sig_value = signature_header
+        if 'v1=' in signature_header:
+            try:
+                parts = dict(
+                    p.split('=', 1) for p in signature_header.split(',') if '=' in p
+                )
+                sig_value = parts.get('v1', sig_value)
+            except Exception:
+                # Fallback to raw header if parsing fails
+                sig_value = signature_header
+
+        computed = hmac.new(secret.encode('utf-8'), payload_body, hashlib.sha256).hexdigest()
+        return hmac.compare_digest(computed, sig_value)

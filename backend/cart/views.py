@@ -598,11 +598,16 @@ def paysuite_webhook(request):
         client = PaysuiteClient()
 
         payload = request.body
-        signature = request.headers.get('X-Signature') or request.headers.get('X-Paysuite-Signature')
+        # Accept multiple common header names; prioritize Paysuite's documented one if available
+        signature = (
+            request.headers.get('X-Paysuite-Signature')
+            or request.headers.get('X-Signature')
+            or request.headers.get('Stripe-Signature')  # in case provider mimics Stripe format
+        )
 
         # Verify signature when possible (best-effort; adjust to Paysuite docs)
         # If no secret/signature is configured, skip verification but log a warning
-        if signature and client.api_secret:
+        if signature and (client.webhook_secret or client.api_secret):
             if not client.verify_signature(payload, signature):
                 logger.warning('Paysuite webhook signature verification failed')
                 return Response({'error': 'Invalid signature'}, status=status.HTTP_400_BAD_REQUEST)
