@@ -18,17 +18,21 @@ export function usePayments() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const ensureActiveCart = async () => {
+  // Sync current UI cart items to the backend before initiating payment
+  const syncCart = async (items: Array<{ id: number; quantity: number; color_id?: number | null }>) => {
     try {
-      // Try to add a default item to cart to ensure there's an active cart
-      await fetch(`${API_BASE_URL}/cart/debug/add-item/`, {
+      const body = { items: items.map(i => ({ product_id: i.id, quantity: i.quantity, color_id: i.color_id })) };
+      const authHeaders = await getAuthHeaders();
+      const res = await fetch(`${API_BASE_URL}/cart/sync/`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: 'test-uid', product_id: 21 }),
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
+        credentials: 'include',
+        body: JSON.stringify(body),
       });
-      console.log('✅ Ensured active cart exists');
+      if (!res.ok) throw new Error('Falha ao sincronizar carrinho');
+      console.log('🔄 Cart synced with server');
     } catch (e) {
-      console.warn('⚠️ Could not ensure active cart:', e);
+      console.warn('⚠️ Cart sync failed (continuing):', e);
     }
   };
 
@@ -60,8 +64,10 @@ export function usePayments() {
     setLoading(true);
     setError(null);
     try {
-      // Ensure there's an active cart before attempting payment
-      await ensureActiveCart();
+      // Sync UI cart first if caller provided items
+      if (Array.isArray(paymentData?.items)) {
+        await syncCart(paymentData.items);
+      }
       
       const authHeaders = await getAuthHeaders();
       const url = `${API_BASE_URL}/cart/payments/initiate/`;
@@ -95,6 +101,15 @@ export function usePayments() {
           err.limit = data.limit;
           err.total = data.total;
           err.suggestions = data.suggestions || [];
+          throw err;
+        }
+        if (data && data.error === 'amount_mismatch') {
+          const err: any = new Error(data.message || 'O total no carrinho foi atualizado. Recarregue a página.');
+          err.code = data.error;
+          err.sent = data.sent;
+          err.calculated = data.calculated;
+          err.cart_total = data.cart_total;
+          err.shipping = data.shipping;
           throw err;
         }
         throw new Error(data.error || `HTTP ${res.status}`);

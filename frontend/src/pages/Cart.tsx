@@ -206,6 +206,11 @@ const Cart = () => {
                 amount: total,
                 shipping_amount: shipping,
                 currency: 'MZN',
+                items: items.map(item => ({
+                  id: item.id,
+                  quantity: item.quantity,
+                  color_id: item.color_id || null
+                }))
               });
               setShowPaymentModal(false);
               

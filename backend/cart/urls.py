@@ -14,6 +14,7 @@ urlpatterns = [
     
     # Cart synchronization
     path('merge/', views.merge_cart, name='merge-cart'),
+    path('sync/', views.sync_cart, name='sync-cart'),
     
     # Abandoned carts (admin)
     path('abandoned/', views.abandoned_carts, name='abandoned-carts'),

@@ -196,6 +196,92 @@ class CartAPIView(APIView):
             )
 
 
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def sync_cart(request):
+    """Replace server cart items with the list provided by the client.
+    Accepts: { items: [{ product_id, quantity, color_id? }] }
+    Works for authenticated users and anonymous sessions.
+    """
+    try:
+        items = request.data.get('items') or []
+        if not isinstance(items, list):
+            return Response({'error': 'Invalid items payload'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Get or create the appropriate cart
+        if request.user.is_authenticated:
+            cart, _ = Cart.objects.get_or_create(
+                user=request.user,
+                status='active',
+                defaults={'last_activity': timezone.now()}
+            )
+        else:
+            session_key = request.session.session_key
+            if not session_key:
+                request.session.create()
+                session_key = request.session.session_key
+            cart, _ = Cart.objects.get_or_create(
+                session_key=session_key,
+                status='active',
+                defaults={'last_activity': timezone.now()}
+            )
+
+        with transaction.atomic():
+            # Clear existing items
+            cart.items.all().delete()
+
+            # Add provided items
+            for it in items:
+                try:
+                    product_id = it.get('product_id') or it.get('id')
+                    quantity = int(it.get('quantity') or 1)
+                    if quantity < 1:
+                        quantity = 1
+                    color_id = it.get('color_id')
+
+                    logger.info(f"Sync cart: adding product_id={product_id}, quantity={quantity}, color_id={color_id}")
+                    
+                    try:
+                        product = Product.objects.get(id=product_id, status='active')
+                    except Product.DoesNotExist:
+                        logger.warning(f"Product {product_id} not found or inactive, skipping")
+                        continue
+                        
+                    if product.stock is not None and quantity > product.stock:
+                        quantity = product.stock
+
+                    color = None
+                    if color_id:
+                        try:
+                            color = Color.objects.get(id=color_id, is_active=True)
+                        except Color.DoesNotExist:
+                            color = None
+
+                    cart_item = CartItem.objects.create(
+                        cart=cart,
+                        product=product,
+                        color=color,
+                        quantity=quantity,
+                        price=product.price,
+                    )
+                    logger.info(f"Added cart item: {product.name} x{quantity} @ {product.price}")
+                except Exception as e:
+                    logger.warning(f"Skipping invalid item in sync: {it} ({e})")
+
+            # Recalculate totals and update activity
+            cart.calculate_totals()
+            cart.last_activity = timezone.now()
+            cart.save(update_fields=['last_activity'])
+
+        serializer = CartSerializer(cart)
+        logger.info(f"Sync result: cart {cart.id} with {cart.items.count()} items, total {cart.total}")
+        return Response(serializer.data)
+
+    except Exception:
+        logger.exception('Error syncing cart')
+        return Response({'error': 'Failed to sync cart'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 class CartItemAPIView(APIView):
     """
     API for individual cart item operations
