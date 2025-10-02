@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { Trash2, Plus, Minus, ShoppingBag, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,9 +9,12 @@ import Footer from '@/components/layout/Footer';
 import { Link } from 'react-router-dom';
 import { formatPrice } from '@/lib/formatPrice';
 import { useCart } from '@/contexts/CartContext';
+import { usePayments } from '@/hooks/usePayments';
 
 const Cart = () => {
   const { items, updateQuantity, removeItem, subtotal } = useCart();
+  const { initiatePayment } = usePayments();
+  const paymentMethodRef = useRef<'mpesa' | 'card' | 'transfer'>('mpesa');
   const shipping = 2500; // TODO: calcular dinamicamente no futuro
   const total = useMemo(() => subtotal + shipping, [subtotal, shipping]);
 
@@ -171,15 +174,15 @@ const Cart = () => {
                   <h3 className="font-semibold">Métodos de Pagamento</h3>
                   <div className="space-y-2">
                     <label className="flex items-center space-x-2">
-                      <input type="radio" name="payment" value="mpesa" defaultChecked />
+                      <input type="radio" name="payment" value="mpesa" defaultChecked onChange={() => (paymentMethodRef.current = 'mpesa')} />
                       <span>M-Pesa</span>
                     </label>
                     <label className="flex items-center space-x-2">
-                      <input type="radio" name="payment" value="card" />
+                      <input type="radio" name="payment" value="card" onChange={() => (paymentMethodRef.current = 'card')} />
                       <span>Cartão de Crédito/Débito</span>
                     </label>
                     <label className="flex items-center space-x-2">
-                      <input type="radio" name="payment" value="transfer" />
+                      <input type="radio" name="payment" value="transfer" onChange={() => (paymentMethodRef.current = 'transfer')} />
                       <span>Transferência Bancária</span>
                     </label>
                   </div>
@@ -187,7 +190,21 @@ const Cart = () => {
               </Card>
 
               <div className="space-y-3">
-                <Button size="lg" className="w-full">
+                <Button size="lg" className="w-full" onClick={async () => {
+                  try {
+                    const { order_id, payment } = await initiatePayment(paymentMethodRef.current as any);
+                    // If gateway provides redirect URL, navigate there
+                    const redirectUrl = payment?.redirect_url || payment?.payment_url;
+                    if (redirectUrl) {
+                      window.location.href = redirectUrl;
+                      return;
+                    }
+                    // Otherwise, show reference or instructions (basic UX)
+                    alert(`Pagamento iniciado. Referência: ${payment?.reference || 'N/A'}`);
+                  } catch (e: any) {
+                    alert(e?.message || 'Falha ao iniciar pagamento');
+                  }
+                }}>
                   Finalizar Compra
                 </Button>
                 <Button variant="quote" size="lg" className="w-full">

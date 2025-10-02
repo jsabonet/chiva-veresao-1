@@ -19,6 +19,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Load environment variables from .env file
 config = AutoConfig(search_path=BASE_DIR)
+# Paysuite configuration (keep real secrets in environment/.env)
+PAYSUITE_BASE_URL = config('PAYSUITE_BASE_URL', default='https://api.paysuite.co.mz')
+PAYSUITE_API_KEY = config('PAYSUITE_API_KEY', default='')
+PAYSUITE_API_SECRET = config('PAYSUITE_API_SECRET', default='')
 
 
 # Quick-start development settings - unsuitable for production

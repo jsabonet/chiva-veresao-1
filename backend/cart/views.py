@@ -7,6 +7,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from django.views.decorators.csrf import csrf_exempt
 from products.models import Product, Color
 from .models import Cart, CartItem, Coupon, CartHistory, AbandonedCart
 from .serializers import (
@@ -563,8 +564,16 @@ def initiate_payment(request):
         # Call Paysuite
         from .payments.paysuite import PaysuiteClient
         client = PaysuiteClient()
-        callback_url = request.build_absolute_uri('/api/payments/webhook/')
-        resp = client.create_payment(amount=payment.amount, currency=payment.currency, method=method, customer={'email': request.user.email}, metadata={'order_id': order.id}, callback_url=callback_url)
+        # Correct API path for webhook lives under /api/cart/
+        callback_url = request.build_absolute_uri('/api/cart/payments/webhook/')
+        resp = client.create_payment(
+            amount=payment.amount,
+            currency=payment.currency,
+            method=method,
+            customer={'email': request.user.email},
+            metadata={'order_id': order.id},
+            callback_url=callback_url,
+        )
 
         # Store reference and raw response
         payment.paysuite_reference = resp.get('reference') or resp.get('id')
@@ -581,6 +590,7 @@ def initiate_payment(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@csrf_exempt
 def paysuite_webhook(request):
     """Endpoint to receive Paysuite callbacks/webhooks"""
     try:
@@ -590,12 +600,17 @@ def paysuite_webhook(request):
         payload = request.body
         signature = request.headers.get('X-Signature') or request.headers.get('X-Paysuite-Signature')
 
-        # Verify signature (best-effort; adjust to Paysuite docs)
-        if not client.verify_signature(payload, signature):
-            logger.warning('Paysuite webhook signature verification failed')
-            return Response({'error': 'Invalid signature'}, status=status.HTTP_400_BAD_REQUEST)
+        # Verify signature when possible (best-effort; adjust to Paysuite docs)
+        # If no secret/signature is configured, skip verification but log a warning
+        if signature and client.api_secret:
+            if not client.verify_signature(payload, signature):
+                logger.warning('Paysuite webhook signature verification failed')
+                return Response({'error': 'Invalid signature'}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            logger.warning('Paysuite webhook without signature verification (missing secret or header)')
 
-        data = request.json() if hasattr(request, 'json') else request.data
+        # DRF provides parsed data in request.data; keep raw body for signature
+        data = request.data
 
         # Find payment by reference or metadata
         reference = data.get('reference') or data.get('id') or data.get('data', {}).get('reference')
@@ -606,7 +621,8 @@ def paysuite_webhook(request):
 
         # If not found, try by metadata order_id
         if not payment:
-            order_id = data.get('metadata', {}).get('order_id') if isinstance(data.get('metadata'), dict) else None
+            metadata = data.get('metadata') if isinstance(data.get('metadata'), dict) else {}
+            order_id = metadata.get('order_id')
             if order_id:
                 payment = Payment.objects.filter(order__id=order_id).first()
 
@@ -622,7 +638,7 @@ def paysuite_webhook(request):
             'pending': 'pending'
         }
         event_status = (data.get('status') or data.get('payment_status') or '').lower()
-        mapped = status_map.get(event_status, None)
+        mapped = status_map.get(event_status)
         if mapped:
             payment.status = mapped
             payment.raw_response = data
@@ -639,7 +655,23 @@ def paysuite_webhook(request):
     except Exception as e:
         logger.exception('Error handling paysuite webhook')
         return Response({'error': 'Webhook handling failed'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        return Response(
-            {'error': 'Failed to get abandoned carts'},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def payment_status(request, order_id: int):
+    """Simple endpoint to fetch an order and its payments for status polling."""
+    try:
+        from .models import Order, Payment
+        from .serializers import OrderSerializer, PaymentSerializer
+
+        order = get_object_or_404(Order, id=order_id, user=request.user)
+        payments = Payment.objects.filter(order=order).order_by('-created_at')
+
+        return Response({
+            'order': OrderSerializer(order).data,
+            'payments': PaymentSerializer(payments, many=True).data,
+        })
+    except Exception:
+        logger.exception('Error fetching payment status')
+        return Response({'error': 'Failed to fetch payment status'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

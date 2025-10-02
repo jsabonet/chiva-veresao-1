@@ -20,4 +20,5 @@ urlpatterns = [
     # Payments
     path('payments/initiate/', views.initiate_payment, name='payments-initiate'),
     path('payments/webhook/', views.paysuite_webhook, name='payments-webhook'),
+    path('payments/status/<int:order_id>/', views.payment_status, name='payments-status'),
 ]
