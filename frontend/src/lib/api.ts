@@ -613,12 +613,14 @@ export interface CustomerProfile {
   status: 'active' | 'inactive' | 'blocked';
   notes?: string;
   avatar?: string;
+  isStaff?: boolean;
 }
 
 export const customersApi = {
   listAdmin: (params?: Record<string, string>) => apiClient.get<ApiResponse<CustomerProfile>>('/admin/customers/', params),
   getAdmin: (username: string) => apiClient.get<CustomerProfile>(`/admin/customers/${username}/`),
   updateAdmin: (username: string, data: Partial<CustomerProfile>) => apiClient.put<CustomerProfile>(`/admin/customers/${username}/`, data),
+  createAdmin: (data: Partial<CustomerProfile> & { email: string }) => apiClient.post<CustomerProfile>('/admin/customers/create/', data),
   me: () => apiClient.get<CustomerProfile>('/me/profile/'),
 };
 

@@ -86,7 +86,8 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
       href: '/admin/clientes',
       icon: Users,
       current: location.pathname === '/admin/clientes'
-    }
+    },
+    // Promotions link can be added later to the sidebar if desired
   ];
 
   return (
