@@ -4,7 +4,8 @@ import hmac
 import hashlib
 import json
 
-PAYSUITE_BASE_URL = os.getenv('PAYSUITE_BASE_URL', 'https://api.paysuite.co.mz')
+# Default base URL per docs: https://paysuite.tech/api
+PAYSUITE_BASE_URL = os.getenv('PAYSUITE_BASE_URL', 'https://paysuite.tech/api')
 PAYSUITE_API_KEY = os.getenv('PAYSUITE_API_KEY')
 # Prefer dedicated webhook secret; keep backward compatibility with legacy var name
 PAYSUITE_WEBHOOK_SECRET = os.getenv('PAYSUITE_WEBHOOK_SECRET') or os.getenv('PAYSUITE_API_SECRET')
@@ -29,21 +30,66 @@ class PaysuiteClient:
             self.session.headers.update({'Authorization': f'Bearer {self.api_key}'})
         self.session.headers.update({'Content-Type': 'application/json'})
 
-    def create_payment(self, amount, currency='MZN', method='mpesa', customer=None, metadata=None, callback_url=None):
+    def create_payment(self, *, amount, method=None, reference: str, description: str | None = None,
+                       return_url: str | None = None, callback_url: str | None = None, 
+                       msisdn: str | None = None, direct_payment: bool = False, **kwargs) -> dict:
         """Create a payment request on Paysuite and return the response dict.
 
-        Returns dict with at least 'reference' and 'redirect_url' (if applicable).
+        Docs expect fields: amount (numeric, MZN), optional method (credit_card|mpesa|emola),
+        reference (required), optional description, optional return_url, optional callback_url.
+        Response format: { status: 'success'|'error', data?: {...}, message?: str }
         """
         url = f"{self.base_url}/v1/payments"
-        payload = {
-            'amount': str(amount),
-            'currency': currency,
-            'method': method,
-            'customer': customer or {},
-            'metadata': metadata or {},
-            'callback_url': callback_url,
+        payload: dict = {
+            'amount': float(amount),  # ensure numeric type
+            'reference': reference,
         }
+        if method:
+            payload['method'] = method
+        if description:
+            payload['description'] = description
+        if return_url:
+            payload['return_url'] = return_url
+        if callback_url:
+            payload['callback_url'] = callback_url
+        if msisdn:
+            payload['msisdn'] = msisdn
+            
+        # For direct payments, add specific flags - but test different approaches
+        if direct_payment:
+            # Test mode determines which flags to send
+            test_mode = os.getenv('PAYSUITE_TEST_MODE', 'clean')
+            
+            if test_mode == 'direct_v1':
+                payload['direct'] = True
+            elif test_mode == 'direct_v2':
+                payload['push'] = True
+            elif test_mode == 'direct_v3':
+                payload['mobile_payment'] = True
+            elif test_mode == 'clean':
+                # Don't add any special flags, just send msisdn
+                pass
+            else:
+                # Default: original approach
+                payload['direct'] = True
+                
+            # Remove return_url for mobile payments to avoid redirects
+            payload.pop('return_url', None)
+            
+        # Add any additional fields from kwargs (card data, bank data, etc.)
+        for key, value in kwargs.items():
+            if value is not None:
+                payload[key] = value
+
+        print(f"🌐 PAYSUITE CLIENT - URL: {url}")
+        print(f"🌐 PAYSUITE CLIENT - PAYLOAD: {json.dumps(payload, indent=2)}")
+        print(f"🌐 PAYSUITE CLIENT - HEADERS: {dict(self.session.headers)}")
+        
         resp = self.session.post(url, data=json.dumps(payload), timeout=15)
+        
+        print(f"🌐 PAYSUITE CLIENT - STATUS: {resp.status_code}")
+        print(f"🌐 PAYSUITE CLIENT - RESPONSE: {resp.text}")
+        
         resp.raise_for_status()
         return resp.json()
 

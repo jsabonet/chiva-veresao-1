@@ -70,6 +70,9 @@ export default function OrderConfirmation() {
   }, [isFinal]);
 
   const statusInfo = useMemo(() => {
+    const lastPayment = payments[0];
+    const isMobilePayment = lastPayment?.method === 'mpesa' || lastPayment?.method === 'emola';
+    
     switch (status) {
       case 'paid':
         return { icon: <CheckCircle2 className="h-6 w-6 text-green-600" />, title: 'Pagamento confirmado', desc: 'Seu pedido foi pago com sucesso. Obrigado!' };
@@ -80,9 +83,17 @@ export default function OrderConfirmation() {
       case 'processing':
       case 'pending':
       default:
+        if (isMobilePayment) {
+          const methodName = lastPayment?.method === 'mpesa' ? 'M-Pesa' : 'Emola';
+          return { 
+            icon: <Clock className="h-6 w-6 text-blue-600 animate-pulse" />, 
+            title: `Aguardando confirmação ${methodName}`, 
+            desc: `📱 Verifique o seu telefone para a notificação de pagamento ${methodName}. Se não recebeu, pode finalizar pelo link de checkout.` 
+          };
+        }
         return { icon: <Clock className="h-6 w-6 text-blue-600 animate-pulse" />, title: 'Aguardando confirmação', desc: 'Estamos confirmando seu pagamento. Isso pode levar alguns instantes.' };
     }
-  }, [status]);
+  }, [status, payments]);
 
   const lastPayment = payments[0];
 
@@ -133,6 +144,13 @@ export default function OrderConfirmation() {
                 {status !== 'paid' && (
                   <Button asChild>
                     <Link to="/carrinho">Tentar novamente</Link>
+                  </Button>
+                )}
+                {status !== 'paid' && lastPayment?.raw_response?.data?.checkout_url && (
+                  <Button asChild variant="outline">
+                    <a href={lastPayment.raw_response.data.checkout_url} target="_blank" rel="noopener noreferrer">
+                      Finalizar no Checkout
+                    </a>
                   </Button>
                 )}
               </div>

@@ -21,4 +21,10 @@ urlpatterns = [
     path('payments/initiate/', views.initiate_payment, name='payments-initiate'),
     path('payments/webhook/', views.paysuite_webhook, name='payments-webhook'),
     path('payments/status/<int:order_id>/', views.payment_status, name='payments-status'),
+    # Debug endpoints
+    path('debug/add-item/', views.debug_add_to_cart, name='debug-add-to-cart'),
+    path('debug/clear-carts/', views.debug_clear_carts, name='debug-clear-carts'),
+    path('debug/list-carts/', views.debug_list_carts, name='debug-list-carts'),
+    path('debug/fix-cart-prices/', views.debug_fix_all_cart_prices, name='debug-fix-cart-prices'),
+    path('debug/set-low-prices/', views.debug_set_low_prices, name='debug-set-low-prices'),
 ]

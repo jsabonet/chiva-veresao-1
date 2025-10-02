@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { useMemo, useState } from 'react';
 import { Trash2, Plus, Minus, ShoppingBag, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,12 +10,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import { formatPrice } from '@/lib/formatPrice';
 import { useCart } from '@/contexts/CartContext';
 import { usePayments } from '@/hooks/usePayments';
+import PaymentMethodSelector from '@/components/payment/PaymentMethodSelector';
 
 const Cart = () => {
   const { items, updateQuantity, removeItem, subtotal } = useCart();
   const { initiatePayment } = usePayments();
-  const paymentMethodRef = useRef<'mpesa' | 'emola' | 'card' | 'transfer'>('mpesa');
   const navigate = useNavigate();
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const shipping = 2500; // TODO: calcular dinamicamente no futuro
   const total = useMemo(() => subtotal + shipping, [subtotal, shipping]);
 
@@ -170,46 +171,8 @@ const Cart = () => {
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardContent className="p-6 space-y-4">
-                  <h3 className="font-semibold">Métodos de Pagamento</h3>
-                  <div className="space-y-2">
-                    <label className="flex items-center space-x-2">
-                      <input type="radio" name="payment" value="mpesa" defaultChecked onChange={() => (paymentMethodRef.current = 'mpesa')} />
-                      <span>M-Pesa</span>
-                    </label>
-                    <label className="flex items-center space-x-2">
-                      <input type="radio" name="payment" value="emola" onChange={() => (paymentMethodRef.current = 'emola')} />
-                      <span>e-Mola</span>
-                    </label>
-                    <label className="flex items-center space-x-2">
-                      <input type="radio" name="payment" value="card" onChange={() => (paymentMethodRef.current = 'card')} />
-                      <span>Cartão de Crédito/Débito</span>
-                    </label>
-                    <label className="flex items-center space-x-2">
-                      <input type="radio" name="payment" value="transfer" onChange={() => (paymentMethodRef.current = 'transfer')} />
-                      <span>Transferência Bancária</span>
-                    </label>
-                  </div>
-                </CardContent>
-              </Card>
-
               <div className="space-y-3">
-                <Button size="lg" className="w-full" onClick={async () => {
-                  try {
-                    const { order_id, payment } = await initiatePayment(paymentMethodRef.current as any);
-                    // If gateway provides redirect URL, navigate there
-                    const redirectUrl = payment?.redirect_url || payment?.payment_url;
-                    if (redirectUrl) {
-                      window.location.href = redirectUrl;
-                      return;
-                    }
-                    // Otherwise, show reference or instructions (basic UX)
-                    navigate(`/order/${order_id}/confirmation`);
-                  } catch (e: any) {
-                    alert(e?.message || 'Falha ao iniciar pagamento');
-                  }
-                }}>
+                <Button size="lg" className="w-full" onClick={() => setShowPaymentModal(true)}>
                   Finalizar Compra
                 </Button>
                 <Button variant="quote" size="lg" className="w-full">
@@ -230,6 +193,46 @@ const Cart = () => {
             </div>
           </div>
         </div>
+        
+        <PaymentMethodSelector
+          isOpen={showPaymentModal}
+          onClose={() => setShowPaymentModal(false)}
+          totalAmount={total}
+          onSubmit={async (paymentData) => {
+            try {
+              // Ensure the API receives exactly the total shown to the user
+              const { order_id, payment } = await initiatePayment(paymentData.method, {
+                ...paymentData,
+                amount: total,
+                shipping_amount: shipping,
+                currency: 'MZN',
+              });
+              setShowPaymentModal(false);
+              
+              // Check if backend indicates this is a direct payment
+              if (payment?.is_direct) {
+                // Direct mobile payment - show processing message and redirect to confirmation
+                const methodName = payment.method === 'mpesa' ? 'M-Pesa' : 'Emola';
+                const phone = payment.phone || paymentData.phone;
+                alert(`✅ Pagamento ${methodName} iniciado!\n\n📱 Número: ${phone}\n\n⏳ Aguarde: Você pode receber uma notificação no telefone OU ser redirecionado para completar o pagamento.\n\n� Verificando o melhor método disponível...`);
+                navigate(`/order/${order_id}/confirmation`);
+                return;
+              }
+              
+              // For other methods, check if gateway provides redirect URL
+              const redirectUrl = payment?.checkout_url || payment?.redirect_url || payment?.payment_url;
+              if (redirectUrl) {
+                window.location.href = redirectUrl;
+                return;
+              }
+              
+              // Otherwise, show reference or instructions (basic UX)
+              navigate(`/order/${order_id}/confirmation`);
+            } catch (e: any) {
+              alert(e?.message || 'Falha ao iniciar pagamento');
+            }
+          }}
+        />
       </main>
       
       <Footer />

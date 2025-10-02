@@ -3,6 +3,7 @@ from django.contrib.auth.models import User
 from django.db import transaction
 from django.utils import timezone
 from rest_framework import status
+import os
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -16,6 +17,7 @@ from .serializers import (
     CartHistorySerializer, AbandonedCartSerializer, CartMergeSerializer
 )
 import logging
+from decimal import Decimal, ROUND_HALF_UP
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +58,25 @@ class CartAPIView(APIView):
         """Get current cart contents"""
         try:
             cart = self.get_cart(request)
+            
+            # ALWAYS refresh cart item prices when accessing cart
+            refreshed_items = 0
+            try:
+                for item in cart.items.select_related('product').all():
+                    if item.product and item.product.status == 'active':
+                        old_price = item.price
+                        new_price = item.product.price
+                        if old_price != new_price:
+                            logger.info(f"🔄 CART ACCESS PRICE REFRESH: {item.product.name} {old_price} -> {new_price}")
+                            item.price = new_price
+                            item.save(update_fields=['price', 'updated_at'])
+                            refreshed_items += 1
+                if refreshed_items > 0:
+                    cart.calculate_totals()
+                    logger.info(f"🎯 REFRESHED {refreshed_items} cart item prices on cart access")
+            except Exception as e:
+                logger.error(f'Error refreshing prices on cart access: {str(e)}')
+            
             cart.last_activity = timezone.now()
             cart.save(update_fields=['last_activity'])
             
@@ -543,20 +564,142 @@ def abandoned_carts(request):
 def initiate_payment(request):
     """Initiate a payment via Paysuite for the current cart"""
     try:
-        # Get current cart
-        cart = Cart.objects.filter(user=request.user, status='active').first()
-        if not cart:
+        # Determine the correct cart to use: prefer merging session cart into user cart when both exist
+        # Ensure session exists
+        session_key = request.session.session_key
+        if not session_key:
+            request.session.create()
+            session_key = request.session.session_key
+
+        user_cart = Cart.objects.filter(user=request.user, status='active').first()
+        session_cart = Cart.objects.filter(session_key=session_key, status='active').first()
+
+        # If both carts exist and session cart has items, merge into user cart
+        if request.user.is_authenticated and user_cart and session_cart and session_cart.items.exists():
+            logger.info(f"🧩 Merging session cart {session_cart.id} into user cart {user_cart.id} for user {request.user}")
+            with transaction.atomic():
+                for item in session_cart.items.select_related('product', 'color').all():
+                    try:
+                        existing = CartItem.objects.get(cart=user_cart, product=item.product, color=item.color)
+                        existing.quantity += item.quantity
+                        existing.save(update_fields=['quantity', 'updated_at'])
+                    except CartItem.DoesNotExist:
+                        CartItem.objects.create(
+                            cart=user_cart,
+                            product=item.product,
+                            color=item.color,
+                            quantity=item.quantity,
+                            price=item.price,
+                        )
+                # Mark session cart as converted and clear items
+                session_cart.items.all().delete()
+                session_cart.status = 'converted'
+                session_cart.save(update_fields=['status'])
+                CartHistory.objects.create(
+                    cart=user_cart,
+                    event='cart_merged_for_checkout',
+                    description=f'Merged session cart {session_cart.id} into user cart {user_cart.id}',
+                    metadata={'session_cart_id': session_cart.id, 'user_cart_id': user_cart.id}
+                )
+            cart = user_cart
+        else:
+            # Choose the cart that actually has items
+            preferred = None
+            if user_cart and user_cart.items.exists():
+                preferred = user_cart
+            elif session_cart and session_cart.items.exists():
+                preferred = session_cart
+
+            # If only session cart has items, attach it to the user so payment is correct
+            if request.user.is_authenticated and preferred is session_cart:
+                logger.info(f"🔗 Attaching session cart {session_cart.id} to user {request.user}")
+                session_cart.user = request.user
+                session_cart.session_key = None
+                session_cart.save(update_fields=['user', 'session_key'])
+                cart = session_cart
+            else:
+                cart = preferred or user_cart or session_cart
+
+        if not cart or not cart.items.exists():
             return Response({'error': 'No active cart'}, status=status.HTTP_404_NOT_FOUND)
 
-        # Recalculate totals
+        # ALWAYS refresh cart item prices from current product prices before checkout
+        # This ensures duplicated/old items get the latest defined values
+        refreshed_items = 0
+        try:
+            for item in cart.items.select_related('product').all():
+                if item.product and item.product.status == 'active':
+                    old_price = item.price
+                    new_price = item.product.price
+                    if old_price != new_price:
+                        logger.info(f"🔄 PRICE REFRESH: {item.product.name} {old_price} -> {new_price}")
+                        item.price = new_price
+                        # Update item without changing quantity; save triggers totals recalculation
+                        item.save(update_fields=['price', 'updated_at'])
+                        refreshed_items += 1
+                        try:
+                            CartHistory.objects.create(
+                                cart=cart,
+                                event='item_price_refreshed',
+                                description=f"Updated price for {item.product.name}: {old_price} -> {new_price}",
+                                metadata={'product_id': item.product.id, 'old_price': str(old_price), 'new_price': str(new_price)}
+                            )
+                        except Exception:
+                            # Logging-only path; avoid breaking checkout
+                            logger.warning('Failed to record price refresh history entry')
+            if refreshed_items > 0:
+                logger.info(f"🎯 REFRESHED {refreshed_items} cart item prices before checkout")
+        except Exception:
+            logger.exception('Failed to refresh cart item prices prior to checkout')
+
+        # Recalculate totals after potential price refresh
         cart.calculate_totals()
 
+        # Optional: Validate client-sent amount against server total to prevent mismatches
+        client_amount = request.data.get('amount')
+        client_shipping = request.data.get('shipping_amount')
+        client_currency = request.data.get('currency') or 'MZN'
+        if client_amount is not None:
+            try:
+                # Normalize to Decimal with 2 places
+                from decimal import Decimal, ROUND_HALF_UP
+                sent = Decimal(str(client_amount)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                if sent != cart.total:
+                    logger.warning(f"Client amount mismatch: sent={sent} vs server_total={cart.total}")
+                    return Response({
+                        'error': 'amount_mismatch',
+                        'message': f'O total enviado pelo cliente ({sent} {client_currency}) não corresponde ao total calculado ({cart.total} MZN).',
+                        'sent': str(sent),
+                        'calculated': str(cart.total),
+                    }, status=status.HTTP_400_BAD_REQUEST)
+            except Exception:
+                logger.warning('Could not parse client amount for validation')
+        
         # Create order
         from .models import Order, Payment
         order = Order.objects.create(cart=cart, user=request.user, total_amount=cart.total, status='pending')
+        
+        # Mark cart as converted to prevent reuse
+        cart.status = 'converted'
+        cart.save(update_fields=['status'])
 
-        # Payment method requested
+        # Payment method and data requested
         method = request.data.get('method', 'mpesa')
+        payment_data = request.data
+        
+        # Extract method-specific data
+        phone = payment_data.get('phone')  # For mpesa/emola
+        card_data = {
+            'cardNumber': payment_data.get('cardNumber'),
+            'expiryDate': payment_data.get('expiryDate'),
+            'cvv': payment_data.get('cvv'),
+            'cardholderName': payment_data.get('cardholderName')
+        } if method == 'card' else None
+        
+        bank_data = {
+            'accountNumber': payment_data.get('accountNumber'),
+            'bankName': payment_data.get('bankName')
+        } if method == 'transfer' else None
 
         # Create payment record
         payment = Payment.objects.create(order=order, method=method, amount=cart.total, currency='MZN', status='initiated')
@@ -566,22 +709,180 @@ def initiate_payment(request):
         client = PaysuiteClient()
         # Correct API path for webhook lives under /api/cart/
         callback_url = request.build_absolute_uri('/api/cart/payments/webhook/')
-        resp = client.create_payment(
-            amount=payment.amount,
-            currency=payment.currency,
-            method=method,
-            customer={'email': request.user.email},
-            metadata={'order_id': order.id},
-            callback_url=callback_url,
-        )
+        return_url = request.build_absolute_uri(f'/order/{order.id}/confirmation')
+        # Create a unique reference for this order/payment (<=50 chars per docs)
+        reference = f"ORD{order.id:06d}"
+
+        # Prepare payment creation data with validation
+        payment_creation_data = {
+            'amount': float(payment.amount),  # Ensure float format
+            'method': method,
+            'reference': reference,
+            'description': f"Order {order.id} payment",
+            'return_url': return_url,
+            'callback_url': callback_url,
+            # Help correlate checkout with our order/cart during debugging
+            'metadata': {
+                'order_id': order.id,
+                'cart_id': cart.id,
+                'user': getattr(request.user, 'username', None) or 'anonymous',
+                # Echo some client context for traceability
+                'ui_total_sent': str(client_amount) if client_amount is not None else None,
+                'ui_shipping_sent': str(client_shipping) if client_shipping is not None else None,
+                'ui_currency': client_currency,
+            }
+        }
+        
+        # Validate and format amount for PaySuite
+        if payment.amount <= 0:
+            return Response({'error': 'Invalid amount'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Use the payment amount directly (already in MZN)
+        formatted_amount = float(payment.amount)
+        print(f"💰 PAYMENT AMOUNT: {formatted_amount} MZN")
+        
+        # Update payment creation data with amount
+        payment_creation_data['amount'] = formatted_amount
+
+        # Enforce amount limit only for E-Mola (default 100,000 MZN unless overridden by env)
+        if method == 'emola':
+            try:
+                emola_max = Decimal(os.getenv('EMOLA_MAX_AMOUNT', '100000'))
+            except Exception:
+                emola_max = Decimal('100000')
+            total_dec = Decimal(str(formatted_amount))
+            if total_dec > emola_max:
+                return Response({
+                    'error': 'amount_exceeds_method_limit',
+                    'message': f'O valor total {total_dec} MZN excede o limite para EMOLA: {emola_max} MZN.',
+                    'method': method,
+                    'limit': str(emola_max),
+                    'total': str(total_dec),
+                    'suggestions': [
+                        'Escolha outro método (Cartão/Transferência Bancária)',
+                        'Divida a compra em parcelas menores abaixo do limite'
+                    ]
+                }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Log order details for debugging
+        print(f"💰 ORDER DETAILS: ID={order.id}, Original={payment.amount}, Formatted={formatted_amount}, Method={method}")
+        print(f"🛒 CART DETAILS: Items={cart.items.count()}, Total={cart.total}")
+        
+        # Add method-specific data
+        if method in ['mpesa', 'emola'] and phone:
+            # Validate and format phone number
+            try:
+                from cart.utils.phone_validation import validate_mozambique_phone, get_payment_method_from_phone
+                
+                phone_validation = validate_mozambique_phone(phone)
+                if not phone_validation['valid']:
+                    return Response({'error': f"Invalid phone number: {phone_validation['error']}"}, 
+                                  status=status.HTTP_400_BAD_REQUEST)
+                
+                # Use recommended format for PaySuite
+                formatted_phone = phone_validation['recommended']
+                carrier = phone_validation['carrier']
+                
+                # Auto-detect payment method based on carrier
+                suggested_method = get_payment_method_from_phone(phone)
+                if method != suggested_method:
+                    print(f"⚠️  METHOD MISMATCH: User selected {method}, but phone {phone} suggests {suggested_method} (carrier: {carrier})")
+                
+                payment_creation_data['msisdn'] = formatted_phone
+                
+                print(f"📱 PHONE VALIDATION: Original={phone}, Formatted={formatted_phone}, Carrier={carrier}, Method={method}")
+                
+                # Test mode: try without any "direct" flags first
+                test_mode = os.getenv('PAYSUITE_TEST_MODE', 'clean')
+                if test_mode == 'clean':
+                    # Only send msisdn, no additional flags
+                    pass  
+                else:
+                    payment_creation_data['direct_payment'] = True
+                    # For direct mobile payments, we don't want checkout redirect
+                    # Remove return_url to indicate direct processing
+                    payment_creation_data.pop('return_url', None)
+                    
+            except ImportError:
+                # Fallback to old method if validation module not available
+                clean_phone = phone.replace('+', '').replace(' ', '').replace('-', '')
+                payment_creation_data['msisdn'] = clean_phone
+                print(f"📱 PHONE FALLBACK: Original={phone}, Clean={clean_phone}")
+        elif method == 'card' and card_data and card_data.get('cardNumber'):
+            payment_creation_data.update(card_data)
+        elif method == 'transfer' and bank_data and bank_data.get('accountNumber'):
+            payment_creation_data.update(bank_data)
+        
+        # Log the payment creation data for debugging
+        logger.info(f"Creating payment with data: {payment_creation_data}")
+        print(f"🔄 PAYSUITE REQUEST: {payment_creation_data}")
+        
+        api_resp = client.create_payment(**payment_creation_data)
+        
+        # Log the PaySuite response
+        logger.info(f"PaySuite response: {api_resp}")
+        print(f"📥 PAYSUITE RESPONSE: {api_resp}")
+
+        # Expect response: { status: 'success'|'error', data?: {...}, message?: str }
+        status_str = api_resp.get('status')
+        if status_str != 'success':
+            msg = api_resp.get('message') or 'Gateway error'
+            payment.status = 'failed'
+            payment.raw_response = api_resp
+            payment.save(update_fields=['status', 'raw_response'])
+            return Response({'error': msg}, status=status.HTTP_502_BAD_GATEWAY)
+
+        data = api_resp.get('data') or {}
+        external_id = data.get('id')
+        external_ref = data.get('reference')
+        checkout_url = data.get('checkout_url')
 
         # Store reference and raw response
-        payment.paysuite_reference = resp.get('reference') or resp.get('id')
-        payment.raw_response = resp
+        payment.paysuite_reference = external_id or external_ref
+        payment.raw_response = api_resp
         payment.status = 'pending'
-        payment.save()
+        payment.save(update_fields=['paysuite_reference', 'raw_response', 'status'])
 
-        return Response({'order_id': order.id, 'payment': resp})
+        # Prepare response
+        response_data = {
+            'order_id': order.id, 
+            'payment': {
+                'id': external_id, 
+                'reference': external_ref,
+                'is_direct': method in ['mpesa', 'emola'] and phone is not None,
+                'method': method,
+                'phone': phone if method in ['mpesa', 'emola'] else None
+            }
+        }
+        
+        # For mobile payments with phone, force direct processing
+        # even if PaySuite returns checkout_url (API limitation workaround)
+        if method in ['mpesa', 'emola'] and phone:
+            print(f"🔄 FORCING DIRECT PAYMENT for {method} with phone {phone}")
+            # Don't include checkout_url to prevent frontend redirect
+            # The actual payment processing will happen via PaySuite's backend
+        else:
+            response_data['payment']['checkout_url'] = checkout_url
+            
+        # Optionally clear cart immediately after initiating payment (useful for test flows)
+        try:
+            clear_on_initiate = os.getenv('CART_CLEAR_ON_INITIATE', '1').lower() in ['1', 'true', 'yes']
+            if clear_on_initiate:
+                # Clear items and convert the cart so subsequent attempts don't reuse stale data
+                if cart and cart.items.exists():
+                    cart.items.all().delete()
+                cart.status = 'converted'
+                cart.save(update_fields=['status'])
+                CartHistory.objects.create(
+                    cart=cart,
+                    event='cart_cleared_on_initiate',
+                    description=f'Cart cleared on initiate for order {order.id}',
+                    metadata={'order_id': order.id}
+                )
+        except Exception:
+            logger.warning('Failed to clear cart on initiate (non-fatal)')
+
+        return Response(response_data)
 
     except Exception as e:
         logger.exception('Error initiating payment')
@@ -598,11 +899,11 @@ def paysuite_webhook(request):
         client = PaysuiteClient()
 
         payload = request.body
-        # Accept multiple common header names; prioritize Paysuite's documented one if available
+        # Per docs: 'X-Webhook-Signature' carries HMAC-SHA256 of raw body
         signature = (
-            request.headers.get('X-Paysuite-Signature')
+            request.headers.get('X-Webhook-Signature')
+            or request.headers.get('X-Paysuite-Signature')
             or request.headers.get('X-Signature')
-            or request.headers.get('Stripe-Signature')  # in case provider mimics Stripe format
         )
 
         # Verify signature when possible (best-effort; adjust to Paysuite docs)
@@ -616,9 +917,12 @@ def paysuite_webhook(request):
 
         # DRF provides parsed data in request.data; keep raw body for signature
         data = request.data
+        # Docs structure: { event: 'payment.success'|'payment.failed', data: { id, amount, reference, ... } }
+        event_name = data.get('event')
+        data_block = data.get('data') if isinstance(data.get('data'), dict) else {}
 
-        # Find payment by reference or metadata
-        reference = data.get('reference') or data.get('id') or data.get('data', {}).get('reference')
+        # Find payment by external id or reference
+        reference = data_block.get('id') or data_block.get('reference')
         from .models import Payment, Order
         payment = None
         if reference:
@@ -635,25 +939,43 @@ def paysuite_webhook(request):
             logger.warning('Paysuite webhook: payment not found for payload')
             return Response({'error': 'Payment not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        # Update payment status based on payload
-        status_map = {
-            'success': 'paid',
-            'completed': 'paid',
-            'failed': 'failed',
-            'pending': 'pending'
-        }
-        event_status = (data.get('status') or data.get('payment_status') or '').lower()
-        mapped = status_map.get(event_status)
-        if mapped:
-            payment.status = mapped
-            payment.raw_response = data
-            payment.save()
+        # Update payment status based on event name
+        if event_name == 'payment.success':
+            payment.status = 'paid'
+        elif event_name == 'payment.failed':
+            payment.status = 'failed'
+        else:
+            payment.status = 'pending'
 
-            # Update order
-            order = payment.order
-            if mapped == 'paid':
-                order.status = 'paid'
-                order.save()
+        payment.raw_response = data
+        payment.save(update_fields=['status', 'raw_response'])
+
+        # Update order
+        order = payment.order
+        if payment.status == 'paid':
+            order.status = 'paid'
+            order.save(update_fields=['status'])
+            
+            # Clear the cart after successful payment
+            try:
+                cart = order.cart
+                if cart and cart.status == 'active':
+                    # Clear all cart items
+                    cart.items.all().delete()
+                    # Mark cart as converted
+                    cart.status = 'converted'
+                    cart.save(update_fields=['status'])
+                    
+                    # Log the cart clearing
+                    CartHistory.objects.create(
+                        cart=cart,
+                        event='cart_cleared_after_payment',
+                        description=f'Cart cleared after successful payment for order {order.id}',
+                        metadata={'order_id': order.id, 'payment_id': payment.id}
+                    )
+                    logger.info(f'Cart {cart.id} cleared after successful payment for order {order.id}')
+            except Exception as e:
+                logger.error(f'Error clearing cart after payment: {str(e)}')
 
         return Response({'ok': True})
 
@@ -680,3 +1002,242 @@ def payment_status(request, order_id: int):
     except Exception:
         logger.exception('Error fetching payment status')
         return Response({'error': 'Failed to fetch payment status'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def debug_fix_all_cart_prices(request):
+    """Debug endpoint to fix all cart item prices to match current product prices"""
+    try:
+        fixed_carts = 0
+        fixed_items = 0
+        
+        # Get all active carts
+        active_carts = Cart.objects.filter(status='active').prefetch_related('items__product')
+        
+        for cart in active_carts:
+            cart_fixed = False
+            for item in cart.items.all():
+                if item.product and item.product.status == 'active':
+                    old_price = item.price
+                    new_price = item.product.price
+                    if old_price != new_price:
+                        logger.info(f"🔧 FIXING CART {cart.id}: {item.product.name} {old_price} -> {new_price}")
+                        item.price = new_price
+                        item.save(update_fields=['price', 'updated_at'])
+                        fixed_items += 1
+                        cart_fixed = True
+            
+            if cart_fixed:
+                cart.calculate_totals()
+                fixed_carts += 1
+                
+        return Response({
+            'message': f'Fixed prices in {fixed_carts} carts, updated {fixed_items} items',
+            'fixed_carts': fixed_carts,
+            'fixed_items': fixed_items
+        })
+        
+    except Exception as e:
+        logger.error(f"Error fixing cart prices: {str(e)}")
+        return Response({'error': 'Failed to fix cart prices'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def debug_set_low_prices(request):
+    """Debug endpoint to set all products to low prices for easy testing"""
+    try:
+        from products.models import Product
+        from decimal import Decimal
+        
+        target_price = Decimal(request.data.get('price'))  # Use provided price, no default
+        
+        # Update all active products to the target price
+        updated = Product.objects.filter(status='active').update(price=target_price)
+        
+        return Response({
+            'message': f'Updated {updated} products to price {target_price} MZN',
+            'updated_count': updated,
+            'new_price': str(target_price)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error setting low prices: {str(e)}")
+        return Response({'error': 'Failed to set low prices'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def debug_list_carts(request):
+    """Debug endpoint to list all carts"""
+    try:
+        from django.contrib.auth.models import User
+        
+        # Get all carts with their totals
+        carts = Cart.objects.all().order_by('-updated_at')[:20]  # Last 20 carts
+        
+        cart_data = []
+        for cart in carts:
+            cart_info = {
+                'id': cart.id,
+                'user': cart.user.username if cart.user else 'Anonymous',
+                'session_key': cart.session_key[:8] if cart.session_key else None,
+                'status': cart.status,
+                'total': str(cart.total),
+                'items_count': cart.items.count(),
+                'updated_at': cart.updated_at.isoformat(),
+                'items': []
+            }
+            
+            for item in cart.items.all():
+                cart_info['items'].append({
+                    'product_name': item.product.name,
+                    'quantity': item.quantity,
+                    'price': str(item.price),
+                    'total': str(item.get_total_price())
+                })
+            
+            cart_data.append(cart_info)
+        
+        return Response({
+            'total_carts': Cart.objects.count(),
+            'active_carts': Cart.objects.filter(status='active').count(),
+            'recent_carts': cart_data
+        })
+        
+    except Exception as e:
+        logger.error(f"Error listing debug carts: {str(e)}")
+        return Response({'error': 'Failed to list carts'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def debug_clear_carts(request):
+    """Debug endpoint to clear all carts for a user or all active carts"""
+    try:
+        username = request.data.get('username')
+        clear_all = request.data.get('clear_all', False)
+        
+        if clear_all:
+            # Clear ALL active carts
+            active_carts = Cart.objects.filter(status='active')
+            count = active_carts.count()
+            
+            for cart in active_carts:
+                cart.items.all().delete()
+                cart.status = 'expired'
+                cart.save()
+                
+                CartHistory.objects.create(
+                    cart=cart,
+                    event='debug_all_carts_cleared',
+                    description=f'All carts cleared via debug endpoint',
+                    metadata={'cleared_by': 'debug_endpoint_all'}
+                )
+            
+            return Response({
+                'message': f'Cleared {count} active carts (all users)',
+                'carts_cleared': count
+            })
+        
+        elif username:
+            # Clear carts for specific user
+            from django.contrib.auth.models import User
+            user, _ = User.objects.get_or_create(
+                username=username,
+                defaults={'email': f'{username}@test.com'}
+            )
+            
+            active_carts = Cart.objects.filter(user=user, status='active')
+            count = active_carts.count()
+            
+            for cart in active_carts:
+                cart.items.all().delete()
+                cart.status = 'expired'
+                cart.save()
+                
+                CartHistory.objects.create(
+                    cart=cart,
+                    event='debug_cart_cleared',
+                    description=f'Cart cleared via debug endpoint',
+                    metadata={'cleared_by': 'debug_endpoint'}
+                )
+            
+            return Response({
+                'message': f'Cleared {count} active carts for user {username}',
+                'carts_cleared': count
+            })
+        
+        else:
+            return Response({'error': 'Provide username or set clear_all=true'}, status=status.HTTP_400_BAD_REQUEST)
+        
+    except Exception as e:
+        logger.error(f"Error clearing debug carts: {str(e)}")
+        return Response({'error': 'Failed to clear carts'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def debug_add_to_cart(request):
+    """Debug endpoint to quickly add items to cart for testing"""
+    try:
+        # Use dev bypass for quick testing
+        username = request.data.get('username', 'test-uid')
+        # Use specified product or default to original laptop
+        product_id = request.data.get('product_id', 21)  # Default to original product
+        
+        from django.contrib.auth.models import User
+        user, _ = User.objects.get_or_create(
+            username=username,
+            defaults={'email': f'{username}@test.com'}
+        )
+        
+        from decimal import Decimal
+        
+        # Get or create cart (only active status)
+        cart, created = Cart.objects.get_or_create(
+            user=user,
+            status='active',
+            defaults={'subtotal': Decimal('0.00'), 'total': Decimal('0.00')}
+        )
+        
+        if created:
+            logger.info(f'Created new cart {cart.id} for user {username}')
+        else:
+            logger.info(f'Using existing cart {cart.id} for user {username} - Total: {cart.total}')
+            
+        # Clear existing items to ensure fresh pricing
+        if not created and cart.items.exists():
+            logger.info(f'Clearing existing items from cart {cart.id} to refresh pricing')
+            cart.items.all().delete()
+            cart.subtotal = Decimal('0.00')
+            cart.total = Decimal('0.00')
+            cart.save(update_fields=['subtotal', 'total'])
+        
+        # Add product
+        product = get_object_or_404(Product, id=product_id, status='active')
+        cart_item, created = CartItem.objects.get_or_create(
+            cart=cart,
+            product=product,
+            defaults={'quantity': 1, 'price': product.price}
+        )
+        
+        if not created:
+            cart_item.quantity += 1
+            cart_item.save()
+        
+        cart.calculate_totals()
+        
+        return Response({
+            'message': 'Item added to cart',
+            'user': username,
+            'cart_items': cart.items.count(),
+            'total': str(cart.total)
+        })
+        
+    except Exception as e:
+        logger.exception('Error in debug add to cart')
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+

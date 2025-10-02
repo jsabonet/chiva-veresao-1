@@ -22,8 +22,10 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, Sp
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("api/", include("products.urls")),
+    # IMPORTANT: Put more specific prefixes like 'api/cart/' BEFORE the generic 'api/' includes
+    # Otherwise, 'api/' will match first and delegate, causing 404s for 'api/cart/...'
     path("api/cart/", include("cart.urls")),
+    path("api/", include("products.urls")),
     path("api/", include("customers.urls")),
     path("api/", include("promotions.urls")),
     
@@ -37,3 +39,5 @@ urlpatterns = [
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+
+
