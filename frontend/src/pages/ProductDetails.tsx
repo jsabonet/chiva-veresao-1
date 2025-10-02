@@ -61,8 +61,8 @@ const ProductDetails = () => {
   // Navigation functions for image gallery
   const navigateImage = (direction: 'prev' | 'next') => {
     const images = [
-      product?.main_image,
-      ...(product?.images?.map(img => img.image_url) || [])
+      product?.main_image_url || product?.main_image,
+      ...(product?.images?.map(img => img.image || img.image_url) || [])
     ].filter(Boolean);
 
     if (images.length === 0) return;
@@ -88,7 +88,7 @@ const ProductDetails = () => {
     if (product && !selectedImage) {
       const images = [
         product.main_image_url || product.main_image,
-        ...(product.images?.map(img => img.image_url) || [])
+        ...(product.images?.map(img => img.image || img.image_url) || [])
       ].filter(Boolean);
       
       if (images.length > 0) {
@@ -128,7 +128,7 @@ const ProductDetails = () => {
     const original = product.original_price ? (typeof product.original_price === 'number' ? product.original_price : parseFloat(product.original_price as any)) : null;
     const selectedColor = product.colors?.find(c => c.id === selectedColorId);
     
-    const imageUrl = product.main_image_url || product.main_image || (product.images?.[0]?.image_url) || undefined;
+    const imageUrl = product.main_image_url || product.main_image || (product.images?.[0]?.image || product.images?.[0]?.image_url) || undefined;
     
     addItem({
       id: product.id,
@@ -161,7 +161,7 @@ const ProductDetails = () => {
       slug: product.slug,
       price: unitPrice,
       original_price: original ?? undefined,
-      image: product.main_image || (product.images?.[0]?.image_url) || undefined,
+      image: product.main_image_url || product.main_image || (product.images?.[0]?.image || product.images?.[0]?.image_url) || undefined,
       category: product.category?.name || undefined,
       color_id: selectedColor ? selectedColor.id : undefined,
       color_name: selectedColor ? selectedColor.name : undefined,
@@ -234,8 +234,8 @@ const ProductDetails = () => {
   }
 
   const images = [
-    product.main_image,
-    ...(product.images?.map(img => img.image_url) || [])
+    product.main_image_url || product.main_image,
+    ...(product.images?.map(img => img.image || img.image_url) || [])
   ].filter(Boolean);
 
   // Prepare breadcrumb info
