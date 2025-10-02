@@ -240,7 +240,11 @@ const CustomersManagement = () => {
 
     try {
       setSaving(true);
-      const created = await customersApi.createAdmin(newCustomer);
+      const payload = {
+        ...newCustomer,
+        status: newCustomer.status as CustomerProfile['status']
+      };
+      const created = await customersApi.createAdmin(payload);
       setCustomers(prev => [created, ...prev]);
       setNewCustomer({
         name: '', email: '', phone: '', address: '', 
@@ -260,7 +264,11 @@ const CustomersManagement = () => {
 
     try {
       setSaving(true);
-      const updated = await customersApi.updateAdmin(editingCustomer.id, editingCustomer);
+      const payload = {
+        ...editingCustomer,
+        status: editingCustomer.status as CustomerProfile['status']
+      };
+      const updated = await customersApi.updateAdmin(editingCustomer.id, payload);
       setCustomers(prev => prev.map(c => c.id === updated.id ? updated : c));
       setEditingCustomer(null);
       setIsEditModalOpen(false);
