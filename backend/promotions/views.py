@@ -21,4 +21,11 @@ class PromotionPublicListView(generics.ListAPIView):
     permission_classes = [permissions.AllowAny]
 
     def get_queryset(self):
-        return [p for p in Promotion.objects.all() if p.is_active_now]
+        user = getattr(self.request, 'user', None)
+        # Evaluate promotions and return only those active and applicable to the user
+        return [p for p in Promotion.objects.all() if p.applies_to_user(user)]
+
+    def get_serializer_context(self):
+        ctx = super().get_serializer_context()
+        ctx['request'] = self.request
+        return ctx

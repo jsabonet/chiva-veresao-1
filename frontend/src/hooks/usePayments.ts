@@ -37,8 +37,8 @@ export function usePayments() {
   };
 
   const getAuthHeaders = async () => {
-    // Force dev bypass during development
-    if (process.env.NODE_ENV === 'development' || import.meta.env.DEV) {
+    // Force dev bypass during development — use import.meta.env which is replaced by Vite.
+    if ((import.meta as any).env?.DEV) {
       console.log('🔧 Using dev bypass token for payment request (forced)');
       return { Authorization: 'Bearer fake.eyJzdWIiOiJ0ZXN0LXVpZCJ9.fake' } as Record<string, string>;
     }

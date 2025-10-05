@@ -109,3 +109,21 @@ class AdminCustomerWriteSerializer(serializers.Serializer):
     def to_representation(self, instance):
         # Return read serializer shape for UI
         return CustomerProfileSerializer(instance).data
+
+
+# ---- Role / ExternalAuthUser serializers ----
+from .models import Role, ExternalAuthUser
+
+
+class RoleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Role
+        fields = ['id', 'name', 'description']
+
+
+class ExternalAuthUserSerializer(serializers.ModelSerializer):
+    roles = RoleSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = ExternalAuthUser
+        fields = ['firebase_uid', 'email', 'display_name', 'providers', 'roles', 'is_admin', 'last_seen']

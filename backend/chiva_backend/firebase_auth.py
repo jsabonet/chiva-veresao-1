@@ -229,25 +229,31 @@ class FirebaseAuthentication(authentication.BaseAuthentication):
             
             # Determine admin status
             is_admin = is_admin_email or is_admin_claim
-            
+
+            # Import local mirror model
             try:
-                # Try to find existing user
+                from customers.models import ExternalAuthUser, Role
+            except Exception as e:
+                print(f"[FirebaseAuth] Could not import ExternalAuthUser: {e}")
+                ExternalAuthUser = None
+
+            try:
+                # Try to find existing Django user
                 user = User.objects.get(username=firebase_uid)
-                
-                # Update email if changed
+                # Update basic fields
+                changed = False
                 if user.email != email and email:
                     user.email = email
-                
-                # Update admin status
-                if is_admin != user.is_staff:
+                    changed = True
+                # Sync admin flags
+                if user.is_staff != is_admin:
                     user.is_staff = is_admin
                     user.is_superuser = is_admin
-                
-                if user.is_modified:
+                    changed = True
+                if changed:
                     user.save()
-                    
             except User.DoesNotExist:
-                # Create new user
+                # Create new Django user (local mirror user will be created below)
                 user = User.objects.create_user(
                     username=firebase_uid,
                     email=email,
@@ -256,7 +262,39 @@ class FirebaseAuthentication(authentication.BaseAuthentication):
                     is_staff=is_admin,
                     is_superuser=is_admin
                 )
-            
+
+            # Create or update ExternalAuthUser mirror in PostgreSQL
+            try:
+                if ExternalAuthUser:
+                    ext, created = ExternalAuthUser.objects.get_or_create(firebase_uid=firebase_uid)
+                    ext.user = user
+                    ext.email = email or ext.email
+                    ext.display_name = name or ext.display_name
+                    # providers and custom claims
+                    try:
+                        ext.providers = list(custom_claims.get('providers', ext.providers) or ext.providers)
+                    except Exception:
+                        pass
+                    ext.is_admin = bool(is_admin)
+                    from django.utils import timezone
+                    ext.last_seen = timezone.now()
+                    ext.save()
+                    # Optionally map admin role
+                    if is_admin:
+                        # Ensure there is an 'admin' role and assign
+                        role, _ = Role.objects.get_or_create(name='admin')
+                        ext.roles.add(role)
+                    else:
+                        # Remove admin role if present
+                        try:
+                            admin_role = Role.objects.filter(name='admin').first()
+                            if admin_role:
+                                ext.roles.remove(admin_role)
+                        except Exception:
+                            pass
+            except Exception as e:
+                print(f"[FirebaseAuth] Failed to sync ExternalAuthUser: {e}")
+
             print(f"[FirebaseAuth] User {email} admin status: {is_admin} (email_match={is_admin_email}, claim={is_admin_claim})")
             return user
             

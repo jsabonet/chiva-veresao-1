@@ -38,6 +38,11 @@ class Cart(models.Model):
     
     # Applied coupon
     applied_coupon = models.ForeignKey('Coupon', on_delete=models.SET_NULL, null=True, blank=True)
+    # Applied promotion (global site promotions)
+    applied_promotion = models.ForeignKey(
+        'promotions.Promotion', on_delete=models.SET_NULL, null=True, blank=True,
+        help_text='Optional site-wide promotion applied to this cart'
+    )
     
     # Recovery tracking
     recovery_email_sent = models.BooleanField(default=False)
@@ -69,8 +74,26 @@ class Cart(models.Model):
             self.discount_amount = self.applied_coupon.calculate_discount(self.subtotal)
         else:
             self.discount_amount = Decimal('0.00')
-            
-        self.total = self.subtotal - self.discount_amount
+        # Base total after coupon
+        base_total = self.subtotal - self.discount_amount
+
+        # Apply promotion (if present and active)
+        promo_discount = Decimal('0.00')
+        try:
+            if self.applied_promotion and self.applied_promotion.is_active_now:
+                # Calculate promotion discount based on its type
+                if self.applied_promotion.discount_type == 'percentage':
+                    promo_discount = (base_total * (self.applied_promotion.discount_value / Decimal('100'))).quantize(Decimal('0.01'))
+                else:
+                    promo_discount = Decimal(str(self.applied_promotion.discount_value))
+                # Don't allow negative totals
+                if promo_discount > base_total:
+                    promo_discount = base_total
+        except Exception:
+            # Fail-safe: if promotion lookup fails, ignore promotion
+            promo_discount = Decimal('0.00')
+
+        self.total = (base_total - promo_discount)
         self.save(update_fields=['subtotal', 'discount_amount', 'total', 'updated_at'])
     
     def get_total_items(self):

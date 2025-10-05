@@ -6,4 +6,12 @@ urlpatterns = [
     path('admin/customers/create/', views.CustomerCreateAdminView.as_view(), name='admin-customer-create'),
     path('admin/customers/<str:user__username>/', views.CustomerDetailAdminView.as_view(), name='admin-customer-detail'),
     path('me/profile/', views.me_profile, name='me-profile'),
+    # Roles and external user management
+    path('admin/roles/', views.RoleListCreateAdminView.as_view(), name='admin_roles'),
+    path('roles/', views.RoleListPublicView.as_view(), name='roles_list'),
+    path('admin/external/<str:firebase_uid>/', views.external_user_detail, name='external_user_detail'),
+    path('admin/external/<str:firebase_uid>/roles/', views.external_user_add_roles, name='external_user_add_roles'),
+    path('admin/external/<str:firebase_uid>/roles/<int:role_id>/', views.external_user_remove_role, name='external_user_remove_role'),
+    # Debug-only endpoint to inspect request.user and auth payload
+    path('admin/debug/whoami/', views.debug_whoami, name='debug-whoami'),
 ]

@@ -235,6 +235,8 @@ class ApiClient {
         authHeaders = {
           'Authorization': `Bearer ${token}`,
         };
+        // Debug: indicate that a token was attached (do not print full token)
+        console.debug('apiClient: attaching Firebase token for request to', url, 'token_present: true');
       }
     } catch (error) {
       console.warn('Could not get Firebase token:', error);

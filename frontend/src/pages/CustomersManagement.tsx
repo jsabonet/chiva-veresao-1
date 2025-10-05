@@ -34,7 +34,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { formatPrice } from '@/lib/formatPrice';
-import { customersApi, type CustomerProfile } from '@/lib/api';
+import { customersApi } from '@/lib/api/customers';
+import type { CustomerProfile, PermissionChangeLog } from '@/lib/api/types';
 
 // Modal base ultra-estável
 const Modal = ({ isOpen, onClose, children, className = '' }) => {
@@ -148,10 +149,12 @@ const StableInput = ({ value, onChange, type = 'text', placeholder = '', classNa
 
 const CustomersManagement = () => {
   // Estados principais
-  const [customers, setCustomers] = useState([]);
+  const [customers, setCustomers] = useState<CustomerProfile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [permissionHistory, setPermissionHistory] = useState<PermissionChangeLog[]>([]);
+  const [totalCustomers, setTotalCustomers] = useState(0);
 
   // Estados de filtros
   const [searchTerm, setSearchTerm] = useState('');
@@ -194,11 +197,14 @@ const CustomersManagement = () => {
       try {
         setLoading(true);
         setError(null);
-        const response = await customersApi.listAdmin();
-        const customersList = Array.isArray(response) ? response : (response?.results || []);
-        setCustomers(customersList);
+  const response = await customersApi.listAdmin();
+  // Some API clients return a raw array, others return a paginated ApiResponse.
+  const respAny = response as any;
+  const list = Array.isArray(respAny) ? respAny : (respAny?.results || respAny || []);
+  setCustomers(list);
+  setTotalCustomers(respAny?.count || list.length || 0);
       } catch (err) {
-        setError(err?.message || 'Erro ao carregar clientes');
+        setError(err instanceof Error ? err.message : 'Erro ao carregar clientes');
         setCustomers([]);
       } finally {
         setLoading(false);
@@ -292,10 +298,23 @@ const CustomersManagement = () => {
     setIsEditModalOpen(true);
   }, []);
 
-  const openViewModal = useCallback((customer) => {
+  const loadPermissionHistory = useCallback(async (customerId: string) => {
+    try {
+      const history = await customersApi.getPermissionHistory(customerId);
+      setPermissionHistory(history);
+    } catch (err) {
+      console.error('Erro ao carregar histórico de permissões:', err);
+      setPermissionHistory([]);
+    }
+  }, []);
+
+  const openViewModal = useCallback((customer: CustomerProfile) => {
     setViewingCustomer(customer);
     setIsViewModalOpen(true);
-  }, []);
+    if (customer.isFirebaseUser) {
+      loadPermissionHistory(customer.id);
+    }
+  }, [loadPermissionHistory]);
 
   const closeCreateModal = useCallback(() => {
     setIsCreateModalOpen(false);
@@ -813,6 +832,7 @@ const CustomersManagement = () => {
                   <TabsTrigger value="info">Informações</TabsTrigger>
                   <TabsTrigger value="orders">Pedidos</TabsTrigger>
                   <TabsTrigger value="stats">Estatísticas</TabsTrigger>
+                  <TabsTrigger value="permissions">Permissões</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="info" className="space-y-6">
@@ -935,6 +955,117 @@ const CustomersManagement = () => {
                       </CardContent>
                     </Card>
                   </div>
+                </TabsContent>
+
+                <TabsContent value="permissions">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Permissões do Usuário</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-6">
+                        {viewingCustomer.isFirebaseUser ? (
+                          <>
+                            <div className="flex items-center justify-between border-b pb-4">
+                              <div>
+                                <p className="font-medium">Status Firebase</p>
+                                <p className="text-sm text-muted-foreground">
+                                  Usuário vinculado ao Firebase ID: {viewingCustomer.firebaseUid}
+                                </p>
+                              </div>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={async () => {
+                                  try {
+                                    const updated = await customersApi.syncFirebaseUser(viewingCustomer.id);
+                                    setViewingCustomer(updated);
+                                    setCustomers(prev => 
+                                      prev.map(c => c.id === updated.id ? updated : c)
+                                    );
+                                  } catch (err) {
+                                    // TODO: Add error handling
+                                    console.error('Erro ao sincronizar com Firebase:', err);
+                                  }
+                                }}
+                              >
+                                Sincronizar com Firebase
+                              </Button>
+                            </div>
+
+                            <div className="flex items-center justify-between border-b pb-4">
+                              <div>
+                                <p className="font-medium">Permissões de Admin</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {viewingCustomer.isAdmin 
+                                    ? 'Este usuário tem acesso de administrador' 
+                                    : 'Este usuário não tem acesso de administrador'}
+                                </p>
+                              </div>
+                              <Button
+                                variant={viewingCustomer.isAdmin ? "destructive" : "default"}
+                                size="sm"
+                                onClick={async () => {
+                                  try {
+                                    const updated = viewingCustomer.isAdmin
+                                      ? await customersApi.revokeAdmin(viewingCustomer.id)
+                                      : await customersApi.grantAdmin(viewingCustomer.id);
+                                    
+                                    setViewingCustomer(updated);
+                                    setCustomers(prev => 
+                                      prev.map(c => c.id === updated.id ? updated : c)
+                                    );
+                                  } catch (err) {
+                                    // TODO: Add error handling
+                                    console.error('Erro ao alterar permissões:', err);
+                                  }
+                                }}
+                              >
+                                {viewingCustomer.isAdmin ? 'Remover Admin' : 'Tornar Admin'}
+                              </Button>
+                            </div>
+
+                            <div>
+                              <div className="flex items-center justify-between mb-4">
+                                <h4 className="text-sm font-medium">Histórico de Alterações</h4>
+                              </div>
+                              <div className="space-y-3">
+                                {permissionHistory.length > 0 ? (
+                                  permissionHistory.map((change) => (
+                                    <div key={change.id} className="flex justify-between text-sm">
+                                      <div>
+                                        <span className="font-medium">
+                                          {change.changeType === 'grant_admin' ? 'Acesso Admin Concedido' :
+                                           change.changeType === 'revoke_admin' ? 'Acesso Admin Removido' :
+                                           change.changeType === 'grant_super_admin' ? 'Acesso Super Admin Concedido' :
+                                           'Acesso Super Admin Removido'}
+                                        </span>
+                                        {change.notes && (
+                                          <p className="text-muted-foreground mt-1">{change.notes}</p>
+                                        )}
+                                      </div>
+                                      <div className="text-muted-foreground">
+                                        <p>{formatDate(change.timestamp)}</p>
+                                        <p className="text-right">por {change.changedBy}</p>
+                                      </div>
+                                    </div>
+                                  ))
+                                ) : (
+                                  <p className="text-sm text-muted-foreground">
+                                    Nenhuma alteração de permissão registrada.
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="text-center py-6 text-muted-foreground">
+                            <p>Este usuário não está vinculado ao Firebase.</p>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
                 </TabsContent>
               </Tabs>
             </>
