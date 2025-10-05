@@ -108,9 +108,9 @@ class CartAPIView(APIView):
                 color = get_object_or_404(Color, id=color_id, is_active=True)
             
             # Check stock availability
-            if product.stock < quantity:
+            if product.stock_quantity < quantity:
                 return Response(
-                    {'error': f'Insufficient stock. Available: {product.stock}'},
+                    {'error': f'Insufficient stock. Available: {product.stock_quantity}'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
@@ -122,9 +122,9 @@ class CartAPIView(APIView):
                     )
                     # Update quantity if item exists
                     new_quantity = cart_item.quantity + quantity
-                    if new_quantity > product.stock:
+                    if new_quantity > product.stock_quantity:
                         return Response(
-                            {'error': f'Total quantity exceeds stock. Available: {product.stock}'},
+                            {'error': f'Total quantity exceeds stock. Available: {product.stock_quantity}'},
                             status=status.HTTP_400_BAD_REQUEST
                         )
                     cart_item.quantity = new_quantity
@@ -247,8 +247,8 @@ def sync_cart(request):
                         logger.warning(f"Product {product_id} not found or inactive, skipping")
                         continue
                         
-                    if product.stock is not None and quantity > product.stock:
-                        quantity = product.stock
+                    if product.stock_quantity is not None and quantity > product.stock_quantity:
+                        quantity = product.stock_quantity
 
                     color = None
                     if color_id:
@@ -317,9 +317,9 @@ class CartItemAPIView(APIView):
             new_quantity = serializer.validated_data['quantity']
             
             # Check stock availability
-            if new_quantity > cart_item.product.stock:
+            if new_quantity > cart_item.product.stock_quantity:
                 return Response(
-                    {'error': f'Insufficient stock. Available: {cart_item.product.stock}'},
+                    {'error': f'Insufficient stock. Available: {cart_item.product.stock_quantity}'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
@@ -648,7 +648,7 @@ def abandoned_carts(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def initiate_payment(request):
-    """Initiate a payment via Paysuite for the current cart"""
+    """Initiate a payment via Paysuite for the current cart with modern checkout support"""
     try:
         # Determine the correct cart to use: prefer merging session cart into user cart when both exist
         # Ensure session exists
@@ -700,7 +700,7 @@ def initiate_payment(request):
                 preferred = user_cart if request.user.is_authenticated else session_cart
 
             # If only session cart exists, attach it to the user so payment is correct
-            if request.user.is_authenticated and preferred is session_cart:
+            if request.user.is_authenticated and preferred is session_cart and session_cart:
                 logger.info(f"🔗 Attaching session cart {session_cart.id} to user {request.user}")
                 session_cart.user = request.user
                 session_cart.session_key = None
@@ -709,11 +709,29 @@ def initiate_payment(request):
             else:
                 cart = preferred or user_cart or session_cart
 
-        if not cart:
-            return Response({'error': 'No active cart found'}, status=status.HTTP_404_NOT_FOUND)
-        
         # Get client amount early for validation
         client_amount = request.data.get('amount')
+        
+        if not cart:
+            # Create a new cart if none exists
+            if request.user.is_authenticated:
+                cart = Cart.objects.create(
+                    user=request.user,
+                    status='active',
+                    last_activity=timezone.now()
+                )
+                logger.info(f"🆕 Created new user cart {cart.id} for {request.user}")
+            else:
+                cart = Cart.objects.create(
+                    session_key=session_key,
+                    status='active',
+                    last_activity=timezone.now()
+                )
+                logger.info(f"🆕 Created new session cart {cart.id}")
+            
+            # If no cart and no client amount, it's definitely empty
+            if not client_amount:
+                return Response({'error': 'Cart is empty'}, status=status.HTTP_400_BAD_REQUEST)
         
         # If cart is empty but client provided amount, allow payment (they may have items in frontend)
         if not cart.items.exists() and not client_amount:
@@ -788,7 +806,26 @@ def initiate_payment(request):
         
         # Create order
         from .models import Order, Payment
-        order = Order.objects.create(cart=cart, user=request.user, total_amount=charge_total, status='pending')
+        
+        # Extract checkout data
+        shipping_address = request.data.get('shipping_address', {})
+        billing_address = request.data.get('billing_address', shipping_address)
+        shipping_method = request.data.get('shipping_method', 'standard')
+        customer_notes = request.data.get('customer_notes', '')
+        shipping_cost = Decimal(str(request.data.get('shipping_amount', 0)))
+        
+        # Create order with enhanced data
+        order = Order.objects.create(
+            cart=cart, 
+            user=request.user, 
+            total_amount=charge_total,
+            shipping_cost=shipping_cost,
+            status='pending',
+            shipping_method=shipping_method,
+            shipping_address=shipping_address,
+            billing_address=billing_address,
+            customer_notes=customer_notes
+        )
         
         # Mark cart as converted to prevent reuse
         cart.status = 'converted'
@@ -815,9 +852,14 @@ def initiate_payment(request):
         # Create payment record
         payment = Payment.objects.create(order=order, method=method, amount=charge_total, currency='MZN', status='initiated')
 
-        # Call Paysuite
-        from .payments.paysuite import PaysuiteClient
-        client = PaysuiteClient()
+        # Call Paysuite - use safe client in test mode
+        test_mode = os.getenv('PAYSUITE_TEST_MODE', 'production')
+        if test_mode in ['sandbox', 'mock', 'development']:
+            from .payments.safe_paysuite import SafePaysuiteClient
+            client = SafePaysuiteClient()
+        else:
+            from .payments.paysuite import PaysuiteClient
+            client = PaysuiteClient()
         # Correct API path for webhook lives under /api/cart/
         callback_url = request.build_absolute_uri('/api/cart/payments/webhook/')
         return_url = request.build_absolute_uri(f'/order/{order.id}/confirmation')
@@ -938,10 +980,13 @@ def initiate_payment(request):
         status_str = api_resp.get('status')
         if status_str != 'success':
             msg = api_resp.get('message') or 'Gateway error'
+            err_code = (api_resp.get('error_code') or '').upper()
             payment.status = 'failed'
             payment.raw_response = api_resp
             payment.save(update_fields=['status', 'raw_response'])
-            return Response({'error': msg}, status=status.HTTP_502_BAD_GATEWAY)
+            # Mapear erro de validação de valor (limite de teste) para 400 em vez de 502
+            http_status = status.HTTP_400_BAD_REQUEST if err_code in ['AMOUNT_INVALID'] else status.HTTP_502_BAD_GATEWAY
+            return Response({'error': msg, 'code': err_code or None}, status=http_status)
 
         data = api_resp.get('data') or {}
         external_id = data.get('id')
@@ -1061,11 +1106,21 @@ def paysuite_webhook(request):
         payment.raw_response = data
         payment.save(update_fields=['status', 'raw_response'])
 
-        # Update order
+        # Update order using OrderManager for proper stock handling
         order = payment.order
         if payment.status == 'paid':
-            order.status = 'paid'
-            order.save(update_fields=['status'])
+            from .stock_management import OrderManager
+            try:
+                OrderManager.update_order_status(
+                    order=order,
+                    new_status='paid',
+                    user=None,  # Webhook - no specific user
+                    notes=f"Pagamento confirmado via webhook - {event_name}"
+                )
+                logger.info(f"Order {order.order_number} marked as paid and stock reduced")
+            except Exception as e:
+                logger.error(f"Error updating order status after payment: {e}")
+                # Continue processing - payment was successful even if stock update failed
             
             # Clear the cart after successful payment
             try:

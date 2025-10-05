@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Search, ShoppingCart, User, Menu, X, Settings, ChevronDown, ChevronUp, Heart } from 'lucide-react';
+import { Search, ShoppingCart, User, Menu, X, Settings, ChevronDown, ChevronUp, Heart, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NavigationMenu, NavigationMenuContent, NavigationMenuItem, NavigationMenuList, NavigationMenuTrigger } from '@/components/ui/navigation-menu';
@@ -145,11 +145,13 @@ const Header = () => {
           {/* Actions */}
           <div className="flex items-center space-x-2">
             {currentUser ? (
-              <Button variant="ghost" size="icon" asChild title="Minha Conta">
-                <Link to="/account">
-                  <User className="h-5 w-5" />
-                </Link>
-              </Button>
+              <>
+                <Button variant="ghost" size="icon" asChild title="Minha Conta">
+                  <Link to="/account">
+                    <User className="h-5 w-5" />
+                  </Link>
+                </Button>
+              </>
             ) : (
               <Button variant="ghost" size="icon" asChild title="Entrar ou Registrar">
                 <Link to="/login">

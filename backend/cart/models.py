@@ -349,30 +349,193 @@ class AbandonedCart(models.Model):
 
 class Order(models.Model):
     """
-    Minimal Order model to record checkout attempts and final orders
+    Complete Order model for modern e-commerce functionality
     """
     STATUS_CHOICES = [
         ('pending', 'Pendente'),
+        ('confirmed', 'Confirmado'),
         ('processing', 'Processando'),
-        ('paid', 'Pago'),
-        ('failed', 'Falhou'),
+        ('shipped', 'Enviado'),
+        ('delivered', 'Entregue'),
         ('cancelled', 'Cancelado'),
+        ('refunded', 'Reembolsado'),
+        ('paid', 'Pago'),  # Manter para compatibilidade
+        ('failed', 'Falhou'),  # Manter para compatibilidade
     ]
 
+    SHIPPING_METHODS = [
+        ('standard', 'Entrega Padrão'),
+        ('express', 'Entrega Expressa'),
+        ('pickup', 'Retirada na Loja'),
+        ('same_day', 'Entrega no Mesmo Dia'),
+    ]
+
+    # Basic Order Info
     cart = models.ForeignKey(Cart, on_delete=models.SET_NULL, null=True, blank=True, related_name='orders')
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    order_number = models.CharField(max_length=50, unique=True, null=True, blank=True, verbose_name="Número do Pedido")
+    
+    # Financial Info
     total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    shipping_cost = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'), verbose_name="Custo de Entrega")
+    
+    # Status & Timeline
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    delivered_at = models.DateTimeField(null=True, blank=True, verbose_name="Entregue em")
+    
+    # Shipping Info
+    shipping_method = models.CharField(max_length=50, choices=SHIPPING_METHODS, default='standard', verbose_name="Método de Entrega")
+    shipping_address = models.JSONField(default=dict, blank=True, verbose_name="Endereço de Entrega")
+    billing_address = models.JSONField(default=dict, blank=True, verbose_name="Endereço de Cobrança")
+    tracking_number = models.CharField(max_length=100, null=True, blank=True, verbose_name="Número de Rastreamento")
+    estimated_delivery = models.DateField(null=True, blank=True, verbose_name="Previsão de Entrega")
+    
+    # Notes
+    notes = models.TextField(blank=True, verbose_name="Observações Internas")
+    customer_notes = models.TextField(blank=True, verbose_name="Observações do Cliente")
 
     class Meta:
         verbose_name = "Pedido"
         verbose_name_plural = "Pedidos"
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status', 'created_at']),
+            models.Index(fields=['user', 'status']),
+            models.Index(fields=['order_number']),
+            models.Index(fields=['tracking_number']),
+        ]
 
     def __str__(self):
-        return f"Order {self.id} - {self.get_status_display()}"
+        return f"Pedido {self.order_number or self.id} - {self.get_status_display()}"
+
+    def save(self, *args, **kwargs):
+        # Generate order number if not provided
+        if not self.order_number:
+            import datetime
+            today = datetime.date.today()
+            prefix = f"CHV{today.strftime('%Y%m%d')}"
+            
+            # Find the next number for today
+            last_order = Order.objects.filter(
+                order_number__startswith=prefix
+            ).order_by('-order_number').first()
+            
+            if last_order and last_order.order_number:
+                try:
+                    last_number = int(last_order.order_number[-4:])
+                    next_number = last_number + 1
+                except (ValueError, IndexError):
+                    next_number = 1
+            else:
+                next_number = 1
+                
+            self.order_number = f"{prefix}{next_number:04d}"
+            
+        super().save(*args, **kwargs)
+
+    @property
+    def subtotal(self):
+        """Calculate subtotal (total - shipping)"""
+        return self.total_amount - self.shipping_cost
+
+    @property
+    def is_delivered(self):
+        """Check if order is delivered"""
+        return self.status == 'delivered'
+
+    @property
+    def is_shipped(self):
+        """Check if order is shipped or delivered"""
+        return self.status in ['shipped', 'delivered']
+
+    @property
+    def can_be_cancelled(self):
+        """Check if order can be cancelled"""
+        return self.status in ['pending', 'confirmed']
+
+    def get_shipping_address_display(self):
+        """Get formatted shipping address"""
+        if not self.shipping_address:
+            return ""
+        
+        addr = self.shipping_address
+        parts = [
+            addr.get('address', ''),
+            addr.get('city', ''),
+            addr.get('province', ''),
+            addr.get('postal_code', '')
+        ]
+        return ', '.join(filter(None, parts))
+
+    def get_customer_info(self):
+        """Get customer information"""
+        if self.user:
+            return {
+                'name': f"{self.user.first_name} {self.user.last_name}".strip() or self.user.username,
+                'email': self.user.email,
+                'phone': self.shipping_address.get('phone', '') if self.shipping_address else ''
+            }
+        elif self.shipping_address:
+            return {
+                'name': self.shipping_address.get('name', ''),
+                'email': self.shipping_address.get('email', ''),
+                'phone': self.shipping_address.get('phone', '')
+            }
+        return {'name': 'Cliente Anônimo', 'email': '', 'phone': ''}
+
+
+class OrderStatusHistory(models.Model):
+    """
+    Track order status changes for audit and customer notifications
+    """
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='status_history')
+    old_status = models.CharField(max_length=20, choices=Order.STATUS_CHOICES, null=True, blank=True)
+    new_status = models.CharField(max_length=20, choices=Order.STATUS_CHOICES)
+    changed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    notes = models.TextField(blank=True, verbose_name="Observações")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Histórico de Status"
+        verbose_name_plural = "Históricos de Status"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Pedido {self.order.order_number}: {self.old_status} → {self.new_status}"
+
+
+class StockMovement(models.Model):
+    """
+    Track stock movements for inventory management
+    """
+    MOVEMENT_TYPES = [
+        ('sale', 'Venda'),
+        ('return', 'Devolução'),
+        ('restock', 'Reposição'),
+        ('adjustment', 'Ajuste'),
+        ('damage', 'Dano/Perda'),
+    ]
+
+    product = models.ForeignKey('products.Product', on_delete=models.CASCADE, related_name='stock_movements')
+    color = models.ForeignKey('products.Color', on_delete=models.SET_NULL, null=True, blank=True)
+    order = models.ForeignKey(Order, on_delete=models.SET_NULL, null=True, blank=True)
+    movement_type = models.CharField(max_length=20, choices=MOVEMENT_TYPES)
+    quantity = models.IntegerField()  # Pode ser negativo para saídas
+    previous_stock = models.IntegerField()
+    new_stock = models.IntegerField()
+    notes = models.TextField(blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Movimentação de Estoque"
+        verbose_name_plural = "Movimentações de Estoque"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.product.name} - {self.get_movement_type_display()}: {self.quantity}"
 
 
 class Payment(models.Model):

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste API Frontend</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        button { padding: 10px 20px; margin: 10px; font-size: 16px; }
+        .result { background: #f5f5f5; padding: 20px; margin: 20px 0; border-radius: 5px; }
+        .error { background: #ffebee; color: #c62828; }
+        .success { background: #e8f5e8; color: #2e7d32; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Teste API Chiva Frontend</h1>
+    
+    <button onclick="testarAPI()">Testar API de Pedidos</button>
+    <button onclick="testarAPIComToken()">Testar com Token Fake</button>
+    
+    <div id="resultado"></div>
+
+    <script>
+        // Token fake para teste (mesmo que usamos nos scripts Python)
+        const tokenFake = 'eyJhbGciOiAiUlMyNTYiLCAidHlwIjogIkpXVCJ9.eyJzdWIiOiAiN25QTzZzUWFzNWh3SkpTY2RTcnk4MUt6MzZFMiIsICJ1aWQiOiAiN25QTzZzUWFzNWh3SkpTY2RTcnk4MUt6MzZFMiIsICJlbWFpbCI6ICJqc2Fib25ldGUwOUBnbWFpbC5jb20iLCAibmFtZSI6ICJVc3XDoXJpbyBGcm9udGVuZCIsICJpc3MiOiAiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL2NoaXZhLXZlcnNpb24tMSIsICJhdWQiOiAiY2hpdmEtdmVyc2lvbi0xIiwgImF1dGhfdGltZSI6IDE3MDAwMDAwMDAsICJ1c2VyX2lkIjogIjduUE82c1FhczVod0pKU2NkU3J5ODFLejM2RTIiLCAiZmlyZWJhc2UiOiB7ImlkZW50aXRpZXMiOiB7ImVtYWlsIjogWyJqc2Fib25ldGUwOUBnbWFpbC5jb20iXX0sICJzaWduX2luX3Byb3ZpZGVyIjogInBhc3N3b3JkIn0sICJpYXQiOiAxNzAwMDAwMDAwLCAiZXhwIjogMTgwMDAwMDAwMH0.fake_signature_for_dev_mode';
+
+        async function testarAPI() {
+            const resultado = document.getElementById('resultado');
+            resultado.innerHTML = '<p>🔄 Testando API...</p>';
+            
+            try {
+                const response = await fetch('/api/cart/orders/', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                resultado.innerHTML = `
+                    <div class="result">
+                        <h3>📡 Resposta da API (sem token):</h3>
+                        <p><strong>Status:</strong> ${response.status}</p>
+                        <p><strong>Status Text:</strong> ${response.statusText}</p>
+                        <p><strong>Headers:</strong> ${JSON.stringify(Object.fromEntries(response.headers), null, 2)}</p>
+                        <p><strong>Body:</strong> ${await response.text()}</p>
+                    </div>
+                `;
+                
+            } catch (error) {
+                resultado.innerHTML = `
+                    <div class="result error">
+                        <h3>❌ Erro:</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function testarAPIComToken() {
+            const resultado = document.getElementById('resultado');
+            resultado.innerHTML = '<p>🔄 Testando API com token...</p>';
+            
+            try {
+                const response = await fetch('/api/cart/orders/', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${tokenFake}`
+                    }
+                });
+                
+                const responseText = await response.text();
+                let responseData;
+                try {
+                    responseData = JSON.parse(responseText);
+                } catch {
+                    responseData = responseText;
+                }
+                
+                resultado.innerHTML = `
+                    <div class="result ${response.ok ? 'success' : 'error'}">
+                        <h3>📡 Resposta da API (com token):</h3>
+                        <p><strong>Status:</strong> ${response.status}</p>
+                        <p><strong>Status Text:</strong> ${response.statusText}</p>
+                        <p><strong>Pedidos encontrados:</strong> ${responseData.orders ? responseData.orders.length : 'N/A'}</p>
+                        <details>
+                            <summary>Dados completos</summary>
+                            <pre>${JSON.stringify(responseData, null, 2)}</pre>
+                        </details>
+                    </div>
+                `;
+                
+            } catch (error) {
+                resultado.innerHTML = `
+                    <div class="result error">
+                        <h3>❌ Erro:</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -172,8 +172,11 @@ const Cart = () => {
               </Card>
 
               <div className="space-y-3">
-                <Button size="lg" className="w-full" onClick={() => setShowPaymentModal(true)}>
-                  Finalizar Compra
+                <Button size="lg" className="w-full" onClick={() => navigate('/checkout')}>
+                  Ir para Checkout
+                </Button>
+                <Button size="lg" variant="outline" className="w-full" onClick={() => setShowPaymentModal(true)}>
+                  Pagamento Rápido
                 </Button>
                 <Button variant="quote" size="lg" className="w-full">
                   Solicitar Orçamento

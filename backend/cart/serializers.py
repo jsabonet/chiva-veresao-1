@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Cart, CartItem, Coupon, CouponUsage, CartHistory, AbandonedCart
+from .models import Cart, CartItem, Coupon, CouponUsage, CartHistory, AbandonedCart, Order, OrderStatusHistory, StockMovement, Payment
 from products.serializers import ProductListSerializer, ColorSerializer
 
 
@@ -179,14 +179,51 @@ class CartMergeSerializer(serializers.Serializer):
 
 
 class OrderSerializer(serializers.ModelSerializer):
+    subtotal = serializers.ReadOnlyField()
+    is_delivered = serializers.ReadOnlyField()
+    is_shipped = serializers.ReadOnlyField()
+    can_be_cancelled = serializers.ReadOnlyField()
+    shipping_address_display = serializers.CharField(source='get_shipping_address_display', read_only=True)
+    customer_info = serializers.DictField(source='get_customer_info', read_only=True)
+    
     class Meta:
-        model = __import__('cart.models', fromlist=['Order']).Order
-        fields = ['id', 'cart', 'user', 'total_amount', 'status', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        model = Order
+        fields = [
+            'id', 'order_number', 'cart', 'user', 'total_amount', 'shipping_cost', 
+            'subtotal', 'status', 'shipping_method', 'shipping_address', 'billing_address',
+            'tracking_number', 'estimated_delivery', 'delivered_at', 'notes', 'customer_notes',
+            'created_at', 'updated_at', 'is_delivered', 'is_shipped', 'can_be_cancelled',
+            'shipping_address_display', 'customer_info'
+        ]
+        read_only_fields = ['id', 'order_number', 'created_at', 'updated_at']
+
+
+class OrderStatusHistorySerializer(serializers.ModelSerializer):
+    changed_by_name = serializers.CharField(source='changed_by.username', read_only=True)
+    
+    class Meta:
+        model = OrderStatusHistory
+        fields = ['id', 'order', 'old_status', 'new_status', 'changed_by', 'changed_by_name', 'notes', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+
+class StockMovementSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='product.name', read_only=True)
+    color_name = serializers.CharField(source='color.name', read_only=True)
+    created_by_name = serializers.CharField(source='created_by.username', read_only=True)
+    
+    class Meta:
+        model = StockMovement
+        fields = [
+            'id', 'product', 'product_name', 'color', 'color_name', 'order', 
+            'movement_type', 'quantity', 'previous_stock', 'new_stock', 
+            'notes', 'created_by', 'created_by_name', 'created_at'
+        ]
+        read_only_fields = ['id', 'created_at']
 
 
 class PaymentSerializer(serializers.ModelSerializer):
     class Meta:
-        model = __import__('cart.models', fromlist=['Payment']).Payment
+        model = Payment
         fields = ['id', 'order', 'method', 'amount', 'currency', 'paysuite_reference', 'status', 'raw_response', 'created_at']
         read_only_fields = ['id', 'created_at', 'raw_response']
