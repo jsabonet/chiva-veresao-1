@@ -19,6 +19,11 @@ services:
       - .env
     environment:
       - DJANGO_DEBUG=${DEBUG}
+      - DB_HOST=db
+      - DB_NAME=${DB_NAME:-chiva_db}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+
     depends_on:
       - db
     volumes:
