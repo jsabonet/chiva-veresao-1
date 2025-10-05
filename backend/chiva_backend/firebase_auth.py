@@ -211,24 +211,55 @@ class FirebaseAuthentication(authentication.BaseAuthentication):
     def get_or_create_user(self, firebase_uid, email, name):
         """
         Get or create a Django user based on Firebase UID
+        Also syncs admin status based on Firebase custom claims or admin email list
         """
         try:
-            # Try to find user by username (firebase_uid)
-            user = User.objects.get(username=firebase_uid)
+            # Check if email is in admin list
+            admin_emails = config('FIREBASE_ADMIN_EMAILS', default='').split(',')
+            is_admin_email = email and email.strip().lower() in [e.strip().lower() for e in admin_emails if e.strip()]
             
-            # Update email if it has changed
-            if user.email != email and email:
-                user.email = email
-                user.save()
+            # Try to get custom claims from Firebase
+            try:
+                user_record = auth.get_user(firebase_uid)
+                custom_claims = user_record.custom_claims or {}
+                is_admin_claim = custom_claims.get('admin', False)
+            except Exception as e:
+                print(f"[FirebaseAuth] Failed to get custom claims: {e}")
+                is_admin_claim = False
+            
+            # Determine admin status
+            is_admin = is_admin_email or is_admin_claim
+            
+            try:
+                # Try to find existing user
+                user = User.objects.get(username=firebase_uid)
                 
+                # Update email if changed
+                if user.email != email and email:
+                    user.email = email
+                
+                # Update admin status
+                if is_admin != user.is_staff:
+                    user.is_staff = is_admin
+                    user.is_superuser = is_admin
+                
+                if user.is_modified:
+                    user.save()
+                    
+            except User.DoesNotExist:
+                # Create new user
+                user = User.objects.create_user(
+                    username=firebase_uid,
+                    email=email,
+                    first_name=name.split(' ')[0] if name else '',
+                    last_name=' '.join(name.split(' ')[1:]) if name and len(name.split(' ')) > 1 else '',
+                    is_staff=is_admin,
+                    is_superuser=is_admin
+                )
+            
+            print(f"[FirebaseAuth] User {email} admin status: {is_admin} (email_match={is_admin_email}, claim={is_admin_claim})")
             return user
             
-        except User.DoesNotExist:
-            # Create new user
-            user = User.objects.create_user(
-                username=firebase_uid,
-                email=email,
-                first_name=name.split(' ')[0] if name else '',
-                last_name=' '.join(name.split(' ')[1:]) if name and len(name.split(' ')) > 1 else ''
-            )
-            return user
+        except Exception as e:
+            print(f"[FirebaseAuth] Error in get_or_create_user: {e}")
+            raise

@@ -40,5 +40,30 @@ class CustomerDetailAdminView(generics.RetrieveUpdateAPIView):
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])
 def me_profile(request):
-    profile, _ = CustomerProfile.objects.get_or_create(user=request.user)
-    return Response(CustomerProfileSerializer(profile).data)
+    try:
+        # Garantir que o usuário está autenticado
+        if not request.user.is_authenticated:
+            return Response({'detail': 'Authentication required'}, status=403)
+            
+        # Tentar obter ou criar o perfil com tratamento de erro
+        try:
+            profile = CustomerProfile.objects.get(user=request.user)
+        except CustomerProfile.DoesNotExist:
+            # Criar perfil com dados básicos
+            profile = CustomerProfile.objects.create(
+                user=request.user,
+                status='active'
+            )
+        
+        # Serializar e retornar os dados
+        serializer = CustomerProfileSerializer(profile)
+        return Response(serializer.data)
+        
+    except Exception as e:
+        import traceback
+        print(f"Error in me_profile: {str(e)}")
+        print(traceback.format_exc())
+        return Response(
+            {'detail': 'Internal server error', 'message': str(e)},
+            status=500
+        )
