@@ -1,7 +1,10 @@
-// API Configuration - respect Vite env var VITE_API_BASE_URL, otherwise default to same origin /api
-const API_BASE_URL = typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE_URL
+// API Configuration - respect Vite env var VITE_API_BASE_URL. When not provided,
+// default to the backend running at http://127.0.0.1:8000/api which matches
+// the Django development server used by this project. If you deploy or run
+// the API on a different host, set VITE_API_BASE_URL in your environment.
+const API_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE_URL)
   ? import.meta.env.VITE_API_BASE_URL
-  : (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}${window.location.port ? ':'+window.location.port : ''}/api` : 'http://127.0.0.1:8000/api');
+  : 'http://127.0.0.1:8000/api';
 
 // Types for our API responses
 export interface Category {

@@ -1,8 +1,11 @@
+import logging
 import requests
 import os
 import hmac
 import hashlib
 import json
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 # Default base URL per docs: https://paysuite.tech/api
 PAYSUITE_BASE_URL = os.getenv('PAYSUITE_BASE_URL', 'https://paysuite.tech/api')
@@ -26,6 +29,21 @@ class PaysuiteClient:
         self.api_secret = api_secret or None
         self.webhook_secret = webhook_secret or PAYSUITE_WEBHOOK_SECRET
         self.session = requests.Session()
+        # Configure a conservative retry strategy for network/connectivity errors.
+        # Note: we don't retry POST by default because it may not be idempotent.
+        try:
+            retries = Retry(
+                total=int(os.getenv('PAYSUITE_RETRY_TOTAL', '2')),
+                backoff_factor=float(os.getenv('PAYSUITE_RETRY_BACKOFF', '0.5')),
+                status_forcelist=[502, 503, 504],
+                allowed_methods=frozenset(['GET', 'HEAD', 'OPTIONS'])
+            )
+            adapter = HTTPAdapter(max_retries=retries)
+            self.session.mount('https://', adapter)
+            self.session.mount('http://', adapter)
+        except Exception:
+            # If urllib3/requests versions differ or Retry not available, skip mounting retries.
+            pass
         if self.api_key:
             self.session.headers.update({'Authorization': f'Bearer {self.api_key}'})
         self.session.headers.update({'Content-Type': 'application/json'})
@@ -85,13 +103,30 @@ class PaysuiteClient:
         print(f"🌐 PAYSUITE CLIENT - PAYLOAD: {json.dumps(payload, indent=2)}")
         print(f"🌐 PAYSUITE CLIENT - HEADERS: {dict(self.session.headers)}")
         
-        resp = self.session.post(url, data=json.dumps(payload), timeout=15)
-        
-        print(f"🌐 PAYSUITE CLIENT - STATUS: {resp.status_code}")
-        print(f"🌐 PAYSUITE CLIENT - RESPONSE: {resp.text}")
-        
-        resp.raise_for_status()
-        return resp.json()
+        timeout = float(os.getenv('PAYSUITE_TIMEOUT', '15'))
+        try:
+            resp = self.session.post(url, data=json.dumps(payload), timeout=timeout)
+            logging.debug("🌐 PAYSUITE CLIENT - STATUS: %s", resp.status_code)
+            logging.debug("🌐 PAYSUITE CLIENT - RESPONSE: %s", resp.text)
+            resp.raise_for_status()
+            return resp.json()
+        except requests.exceptions.ConnectTimeout as e:
+            logging.error("Failed to initiate payment (connect timeout): %s", e)
+            raise
+        except requests.exceptions.ReadTimeout as e:
+            logging.error("Failed to initiate payment (read timeout): %s", e)
+            raise
+        except requests.exceptions.ConnectionError as e:
+            logging.error("Failed to initiate payment (connection error): %s", e)
+            raise
+        except requests.exceptions.HTTPError as e:
+            # Non-2xx response from Paysuite
+            logging.error("Paysuite returned HTTP error: %s - response: %s", e, getattr(e.response, 'text', None))
+            raise
+        except requests.exceptions.RequestException as e:
+            # Catch-all for other requests-related errors
+            logging.error("Failed to initiate payment: %s", e)
+            raise
 
     def verify_signature(self, payload_body: bytes, signature_header: str) -> bool:
         """Verify HMAC signature using webhook secret.

@@ -35,6 +35,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { formatPrice } from '@/lib/formatPrice';
 import { customersApi } from '@/lib/api/customers';
+import { auth } from '@/lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 import type { CustomerProfile, PermissionChangeLog } from '@/lib/api/types';
 
 // Modal base ultra-estável
@@ -160,6 +162,9 @@ const CustomersManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [provinceFilter, setProvinceFilter] = useState('all');
+  // Pagination
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(20);
 
   // Estados de modals
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -191,28 +196,51 @@ const CustomersManagement = () => {
     'Manica', 'Tete', 'Zambézia', 'Nampula', 'Cabo Delgado', 'Niassa'
   ];
 
-  // Carregamento inicial
-  useEffect(() => {
-    const loadCustomers = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-  const response = await customersApi.listAdmin();
-  // Some API clients return a raw array, others return a paginated ApiResponse.
-  const respAny = response as any;
-  const list = Array.isArray(respAny) ? respAny : (respAny?.results || respAny || []);
-  setCustomers(list);
-  setTotalCustomers(respAny?.count || list.length || 0);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Erro ao carregar clientes');
-        setCustomers([]);
-      } finally {
-        setLoading(false);
+  // Loader (stable) - supports pagination and filters
+  const loadCustomers = useCallback(async (pageToLoad = page) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const params: Record<string, string> = { page: String(pageToLoad), page_size: String(pageSize) };
+      // Add filters if set
+      if (statusFilter && statusFilter !== 'all') params.status = statusFilter;
+      if (provinceFilter && provinceFilter !== 'all') params.province = provinceFilter;
+      if (searchTerm) params.search = searchTerm;
+      const response = await customersApi.listAdmin(params);
+      // Handle both paginated responses and direct arrays
+      if (Array.isArray(response)) {
+        setCustomers(response);
+        setTotalCustomers(response.length);
+      } else {
+        // Paginated response from DRF
+        setCustomers(response.results);
+        setTotalCustomers(response.count);
       }
-    };
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao carregar clientes');
+      setCustomers([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [page, pageSize, statusFilter, provinceFilter, searchTerm]);
 
-    loadCustomers();
-  }, []);
+  // Initial load once auth state resolves (so apiClient can attach token), then
+  // reload whenever page / filters / search change
+  useEffect(() => {
+    let unsub: () => void | null = null;
+    try {
+      unsub = onAuthStateChanged(auth, (user) => {
+        loadCustomers(page);
+        if (unsub) unsub();
+      });
+    } catch (e) {
+      loadCustomers(page);
+    }
+
+    return () => {
+      if (unsub) unsub();
+    };
+  }, [loadCustomers, page]);
 
   // Filtros
   const filteredCustomers = customers.filter((customer) => {
@@ -229,7 +257,7 @@ const CustomersManagement = () => {
 
   // Estatísticas
   const stats = {
-    total: customers.length,
+    total: totalCustomers,
     active: customers.filter(c => c.status === 'active').length,
     inactive: customers.filter(c => c.status === 'inactive').length,
     blocked: customers.filter(c => c.status === 'blocked').length,
@@ -264,6 +292,36 @@ const CustomersManagement = () => {
     }
   }, [newCustomer]);
 
+              {/* Pagination controls */}
+              <div className="flex items-center justify-between p-4">
+                <div className="text-sm text-muted-foreground">Mostrando página {page}</div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={async () => {
+                      if (page <= 1) return;
+                      const nextPage = page - 1;
+                      setPage(nextPage);
+                      await loadCustomers(nextPage);
+                    }}
+                    disabled={page <= 1}
+                  >
+                    Anterior
+                  </Button>
+                  <Button
+                    onClick={async () => {
+                      // Simple next page; disable only when we've loaded all items
+                      const nextPage = page + 1;
+                      setPage(nextPage);
+                      await loadCustomers(nextPage);
+                    }}
+                    variant="outline"
+                    disabled={customers.length === 0 || customers.length < pageSize}
+                  >
+                    Próxima
+                  </Button>
+                </div>
+              </div>
   const handleEditCustomer = useCallback(async (e) => {
     e.preventDefault();
     if (!editingCustomer) return;

@@ -3,8 +3,9 @@ import { apiClient } from '../api';
 
 export const customersApi = {
   // Existing endpoints (use apiClient which injects Firebase token when available)
-  listAdmin: async (): Promise<ApiResponse<CustomerProfile> | CustomerProfile[]> =>
-    apiClient.get<ApiResponse<CustomerProfile>>('/admin/customers/'),
+  // Accept optional query params for pagination and filtering
+  listAdmin: async (params?: Record<string, string>): Promise<ApiResponse<CustomerProfile> | CustomerProfile[]> =>
+    apiClient.get<ApiResponse<CustomerProfile>>('/admin/customers/', params),
 
   createAdmin: async (data: Partial<CustomerProfile>): Promise<CustomerProfile> =>
     apiClient.post<CustomerProfile>('/admin/customers/', data),
