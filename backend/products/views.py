@@ -237,21 +237,28 @@ def duplicate_product(request, pk: int):
     serializer = ProductDetailSerializer(new_product, context={'request': request})
     return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+from django.views.decorators.cache import cache_page
+from django.utils.decorators import method_decorator
+
 @api_view(['GET'])
+@cache_page(60 * 5)  # Cache for 5 minutes
 def featured_products(request):
     """
-    Get featured products
+    Get featured products with caching
     """
     products = Product.objects.filter(
-        is_featured=True
-    ).select_related('category')[:8]
-    
-    # Debug info sobre produtos
-    total_products = Product.objects.count()
-    featured_products = Product.objects.filter(is_featured=True).count()
-    active_featured = Product.objects.filter(is_featured=True, status='active').count()
-    
-    print(f"[Products][DEBUG] Total: {total_products}, Featured: {featured_products}, Active Featured: {active_featured}")
+        is_featured=True,
+        status='active'
+    ).select_related(
+        'category',
+        'subcategory'
+    ).prefetch_related(
+        'colors'
+    ).only(
+        'id', 'name', 'slug', 'price', 'original_price',
+        'is_on_sale', 'stock_quantity', 'status', 'main_image',
+        'min_stock_level', 'category__name', 'subcategory__name'
+    )[:8]
     
     serializer = ProductListSerializer(products, many=True, context={'request': request})
     return Response(serializer.data)

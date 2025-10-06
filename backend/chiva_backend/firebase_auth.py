@@ -98,7 +98,18 @@ class FirebaseAuthentication(authentication.BaseAuthentication):
         Validate Firebase token and get/create Django user
         """
         try:
-            print('[FirebaseAuth][DEBUG] Processing token (first 25 chars):', token[:25])
+            # Minimal processing log; verbose/debug prints are gated behind ENABLE_TOKEN_PAYLOAD_DEBUG
+            token_debug_flag = False
+            try:
+                token_debug_flag = config('ENABLE_TOKEN_PAYLOAD_DEBUG', default='0', cast=bool)
+            except Exception:
+                token_debug_flag = os.getenv('ENABLE_TOKEN_PAYLOAD_DEBUG', '0').lower() in ['1', 'true']
+
+            def _debug_print(*a, **kw):
+                if token_debug_flag:
+                    print(*a, **kw)
+
+            _debug_print('[FirebaseAuth][DEBUG] Processing token (first 25 chars):', token[:25])
             
             # Verifica se o bypass está ativo (leitura via python-decouple para garantir .env)
             try:
@@ -113,23 +124,22 @@ class FirebaseAuthentication(authentication.BaseAuthentication):
             except Exception:
                 raw_dev = os.getenv('DEV_FIREBASE_ACCEPT_UNVERIFIED')
 
-            try:
-                token_debug_flag = config('ENABLE_TOKEN_PAYLOAD_DEBUG', default='0', cast=bool)
-            except Exception:
-                token_debug_flag = os.getenv('ENABLE_TOKEN_PAYLOAD_DEBUG', '0').lower() in ['1', 'true']
+            _debug_print('[FirebaseAuth][DEBUG] DEV_FIREBASE_ACCEPT_UNVERIFIED (decouple) =', raw_dev)
+            _debug_print('[FirebaseAuth][DEBUG] DEV_FIREBASE_ACCEPT_UNVERIFIED (effective bool) =', dev_bypass)
+            _debug_print('[FirebaseAuth][DEBUG] ENABLE_TOKEN_PAYLOAD_DEBUG =', token_debug_flag)
 
-            print('[FirebaseAuth][DEBUG] DEV_FIREBASE_ACCEPT_UNVERIFIED (decouple) =', raw_dev)
-            print('[FirebaseAuth][DEBUG] DEV_FIREBASE_ACCEPT_UNVERIFIED (effective bool) =', dev_bypass)
-            print('[FirebaseAuth][DEBUG] ENABLE_TOKEN_PAYLOAD_DEBUG =', token_debug_flag)
+            # If dev bypass is active but token debug is not requested, emit a concise informational line
+            if dev_bypass and not token_debug_flag:
+                print('[FirebaseAuth][DEV BYPASS] Using unverified token decode (details suppressed). Set ENABLE_TOKEN_PAYLOAD_DEBUG=1 to enable verbose output.)')
 
             if dev_bypass:
-                print('[FirebaseAuth][DEBUG] Starting unverified decode')
+                _debug_print('[FirebaseAuth][DEBUG] Starting unverified decode')
                 import base64, json
                 try:
                     # Divide o token e pega o payload
                     parts = token.split('.')
                     if len(parts) != 3:
-                        print('[FirebaseAuth][ERROR] Malformed JWT - need 3 parts')
+                        _debug_print('[FirebaseAuth][ERROR] Malformed JWT - need 3 parts')
                         return None
                         
                     # Decodifica payload com padding correto
@@ -142,10 +152,10 @@ class FirebaseAuthentication(authentication.BaseAuthentication):
                     try:
                         payload_bytes = base64.urlsafe_b64decode(payload_b64)
                         decoded_token = json.loads(payload_bytes.decode('utf-8'))
-                        print('[FirebaseAuth][DEV BYPASS] Successfully decoded payload')
-                        print('[FirebaseAuth][DEV BYPASS] Available fields:', list(decoded_token.keys()))
+                        _debug_print('[FirebaseAuth][DEV BYPASS] Successfully decoded payload')
+                        _debug_print('[FirebaseAuth][DEV BYPASS] Available fields:', list(decoded_token.keys()))
                     except Exception as e:
-                        print('[FirebaseAuth][DEV BYPASS] JSON decode failed:', str(e))
+                        _debug_print('[FirebaseAuth][DEV BYPASS] JSON decode failed:', str(e))
                         return None
                     
                     # Procura UID nos campos possíveis
@@ -153,11 +163,11 @@ class FirebaseAuthentication(authentication.BaseAuthentication):
                     for field in ['sub', 'user_id', 'uid']:
                         if field in decoded_token:
                             firebase_uid = decoded_token[field]
-                            print(f'[FirebaseAuth][DEV BYPASS] Found UID in {field}:', firebase_uid)
+                            _debug_print(f'[FirebaseAuth][DEV BYPASS] Found UID in {field}:', firebase_uid)
                             break
                     
                     if not firebase_uid:
-                        print('[FirebaseAuth][DEV BYPASS] No UID field found in token')
+                        _debug_print('[FirebaseAuth][DEV BYPASS] No UID field found in token')
                         return None
                     
                     # Cria/obtém usuário e retorna
@@ -169,7 +179,7 @@ class FirebaseAuthentication(authentication.BaseAuthentication):
                     return user, decoded_token
                     
                 except Exception as e:
-                    print('[FirebaseAuth][DEV BYPASS] Error:', str(e))
+                    _debug_print('[FirebaseAuth][DEV BYPASS] Error:', str(e))
                     return None
                     
             else:
@@ -224,7 +234,10 @@ class FirebaseAuthentication(authentication.BaseAuthentication):
                 custom_claims = user_record.custom_claims or {}
                 is_admin_claim = custom_claims.get('admin', False)
             except Exception as e:
-                print(f"[FirebaseAuth] Failed to get custom claims: {e}")
+                # Only log ADC warning if we're not in dev bypass mode
+                dev_bypass = os.getenv('DEV_FIREBASE_ACCEPT_UNVERIFIED', '0').lower() in ['1', 'true']
+                if not dev_bypass:
+                    print(f"[FirebaseAuth] Failed to get custom claims: {e}")
                 is_admin_claim = False
             
             # Determine admin status
@@ -295,7 +308,12 @@ class FirebaseAuthentication(authentication.BaseAuthentication):
             except Exception as e:
                 print(f"[FirebaseAuth] Failed to sync ExternalAuthUser: {e}")
 
-            print(f"[FirebaseAuth] User {email} admin status: {is_admin} (email_match={is_admin_email}, claim={is_admin_claim})")
+            # Only log admin status details if debug enabled
+            if os.getenv('ENABLE_TOKEN_PAYLOAD_DEBUG', '0').lower() in ['1', 'true']:
+                print(f"[FirebaseAuth] User {email} admin status: {is_admin} (email_match={is_admin_email}, claim={is_admin_claim})")
+            elif is_admin:
+                # For admins, just log a short confirmation
+                print(f"[FirebaseAuth] Confirmed admin access for {email}")
             return user
             
         except Exception as e:

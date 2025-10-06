@@ -852,12 +852,16 @@ def initiate_payment(request):
         # Create payment record
         payment = Payment.objects.create(order=order, method=method, amount=charge_total, currency='MZN', status='initiated')
 
-        # Call Paysuite - use safe client in test mode
+        # Call Paysuite - prefer the real Paysuite client by default.
+        # Legacy behavior used a SafePaysuiteClient when PAYSUITE_TEST_MODE was set to 'mock'/'sandbox'.
+        # Per request, switch to real checkout by default; keep an explicit override to use the mock for local testing.
         test_mode = os.getenv('PAYSUITE_TEST_MODE', 'production')
-        if test_mode in ['sandbox', 'mock', 'development']:
+        # Only use the SafePaysuiteClient when explicitly requested via PAYSUITE_TEST_MODE=mock
+        if test_mode == 'mock':
             from .payments.safe_paysuite import SafePaysuiteClient
             client = SafePaysuiteClient()
         else:
+            # Default: use the real Paysuite client (sandbox vs production handled by its config)
             from .payments.paysuite import PaysuiteClient
             client = PaysuiteClient()
         # Correct API path for webhook lives under /api/cart/
