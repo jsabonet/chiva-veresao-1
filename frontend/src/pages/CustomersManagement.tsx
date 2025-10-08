@@ -173,8 +173,8 @@ const CustomersManagement = () => {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
 
   // Estados de dados dos modals
-  const [viewingCustomer, setViewingCustomer] = useState<CustomerProfile | null>(null);
-  const [editingCustomer, setEditingCustomer] = useState<CustomerProfile | null>(null);
+  const [viewingCustomer, setViewingCustomer] = useState(null);
+  const [editingCustomer, setEditingCustomer] = useState(null);
   const [newCustomer, setNewCustomer] = useState({
     name: '',
     email: '',
@@ -387,6 +387,7 @@ const CustomersManagement = () => {
   }, []);
 
   const openViewModal = useCallback((customer: CustomerProfile) => {
+    console.log('Abrindo modal para cliente:', customer);
     setViewingCustomer(customer);
     setIsViewModalOpen(true);
     if (customer.isFirebaseUser) {
@@ -1133,12 +1134,13 @@ const CustomersManagement = () => {
                               <div>
                                 <p className="font-medium">Permissões de Admin</p>
                                 <p className="text-sm text-muted-foreground">
-                                  {viewingCustomer.isAdmin 
+                                  {viewingCustomer?.isAdmin 
                                     ? 'Este usuário tem acesso de administrador' 
                                     : 'Este usuário não tem acesso de administrador'}
                                 </p>
                               </div>
-                              <Button
+                              {viewingCustomer && (
+                                <Button
                                 variant={viewingCustomer.isAdmin ? "destructive" : "default"}
                                 size="sm"
                                 onClick={async () => {
@@ -1159,6 +1161,7 @@ const CustomersManagement = () => {
                               >
                                 {viewingCustomer.isAdmin ? 'Remover Admin' : 'Tornar Admin'}
                               </Button>
+                              )}
                             </div>
 
                             {/* Modal de Confirmação Admin */}
