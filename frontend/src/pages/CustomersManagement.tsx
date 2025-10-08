@@ -15,6 +15,7 @@ import {
   ShoppingBag,
   DollarSign,
   MoreHorizontal,
+  Shield,
   X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -172,8 +173,8 @@ const CustomersManagement = () => {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
 
   // Estados de dados dos modals
-  const [viewingCustomer, setViewingCustomer] = useState(null);
-  const [editingCustomer, setEditingCustomer] = useState(null);
+  const [viewingCustomer, setViewingCustomer] = useState<CustomerProfile | null>(null);
+  const [editingCustomer, setEditingCustomer] = useState<CustomerProfile | null>(null);
   const [newCustomer, setNewCustomer] = useState({
     name: '',
     email: '',
@@ -224,18 +225,37 @@ const CustomersManagement = () => {
     }
   }, [page, pageSize, statusFilter, provinceFilter, searchTerm]);
 
+  // Estados para ações de admin
+  const [isAdminConfirmOpen, setIsAdminConfirmOpen] = useState(false);
+  const [adminActionTarget, setAdminActionTarget] = useState<CustomerProfile | null>(null);
+  const [adminActionNotes, setAdminActionNotes] = useState('');
+  const [adminActionLoading, setAdminActionLoading] = useState(false);
+
   // Initial load once auth state resolves (so apiClient can attach token), then
   // reload whenever page / filters / search change
   useEffect(() => {
     let unsub: () => void | null = null;
     try {
-      unsub = onAuthStateChanged(auth, (user) => {
-        loadCustomers(page);
+      unsub = onAuthStateChanged(auth, async (user) => {
+        if (user) {
+          // Force refresh token to ensure we have latest claims
+          await user.getIdToken(true);
+          console.debug('[Auth] Logged in as:', user.email);
+          loadCustomers(page);
+        } else {
+          console.debug('[Auth] No user logged in');
+          setError('Você precisa estar logado como admin para acessar esta página');
+        }
         if (unsub) unsub();
       });
     } catch (e) {
-      loadCustomers(page);
+      console.error('[Auth] Error:', e);
+      setError('Erro ao verificar autenticação');
     }
+
+    return () => {
+      if (unsub) unsub();
+    };
 
     return () => {
       if (unsub) unsub();
@@ -416,6 +436,32 @@ const CustomersManagement = () => {
       year: 'numeric',
     });
   };
+
+  // Perform grant/revoke admin action
+  const performAdminAction = useCallback(async () => {
+    if (!adminActionTarget) return;
+    try {
+      setAdminActionLoading(true);
+      const id = adminActionTarget.id;
+      const updated = adminActionTarget.isAdmin
+        ? await customersApi.revokeAdmin(id, adminActionNotes)
+        : await customersApi.grantAdmin(id, adminActionNotes);
+
+      // Update lists and viewing/edited states
+      setCustomers(prev => prev.map(c => c.id === updated.id ? updated : c));
+      if (viewingCustomer && viewingCustomer.id === updated.id) {
+        setViewingCustomer(updated);
+      }
+      setIsAdminConfirmOpen(false);
+      setAdminActionTarget(null);
+      setAdminActionNotes('');
+    } catch (err) {
+      console.error('Erro ao alterar permissões de admin:', err);
+      // TODO: show toast/error UI
+    } finally {
+      setAdminActionLoading(false);
+    }
+  }, [adminActionTarget, adminActionNotes, viewingCustomer]);
 
 
 
@@ -621,6 +667,15 @@ const CustomersManagement = () => {
                               <Edit className="h-4 w-4 mr-2" />
                               Editar
                             </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => {
+                                    // Open confirm modal for grant/revoke
+                                    setAdminActionTarget(customer);
+                                    setAdminActionNotes('');
+                                    setIsAdminConfirmOpen(true);
+                                  }}>
+                                    <Shield className="h-4 w-4 mr-2" />
+                                    {customer.isAdmin ? 'Remover Admin' : 'Tornar Admin'}
+                                  </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-red-600">
                               <Trash2 className="h-4 w-4 mr-2" />
@@ -755,6 +810,24 @@ const CustomersManagement = () => {
               </Button>
             </div>
           </form>
+        </div>
+      </Modal>
+
+      {/* Admin confirm modal */}
+      <Modal isOpen={isAdminConfirmOpen} onClose={() => { setIsAdminConfirmOpen(false); setAdminActionTarget(null); }}>
+        <div className="p-6">
+          <h2 className="text-lg font-semibold mb-2">{adminActionTarget?.isAdmin ? 'Remover Acesso de Admin' : 'Conceder Acesso de Admin'}</h2>
+          <p className="text-sm text-muted-foreground mb-4">{adminActionTarget ? `Tem certeza que deseja ${adminActionTarget.isAdmin ? 'remover' : 'conceder'} acesso de administrador para ${adminActionTarget.name || adminActionTarget.email}?` : ''}</p>
+          <div className="mb-4">
+            <Label>Notas (opcional)</Label>
+            <StableInput value={adminActionNotes} onChange={(v) => setAdminActionNotes(v)} placeholder="Motivo ou anotações" />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => { setIsAdminConfirmOpen(false); setAdminActionTarget(null); }}>Cancelar</Button>
+            <Button onClick={performAdminAction} disabled={adminActionLoading}>
+              {adminActionLoading ? 'Processando...' : (adminActionTarget?.isAdmin ? 'Remover Admin' : 'Tornar Admin')}
+            </Button>
+          </div>
         </div>
       </Modal>
 
@@ -1038,6 +1111,11 @@ const CustomersManagement = () => {
                                   try {
                                     const updated = await customersApi.syncFirebaseUser(viewingCustomer.id);
                                     setViewingCustomer(updated);
+                                    
+                                    // Atualiza a lista principal também
+                                    setCustomers(prev =>
+                                      prev.map(c => c.id === updated.id ? updated : c)
+                                    );
                                     setCustomers(prev => 
                                       prev.map(c => c.id === updated.id ? updated : c)
                                     );
@@ -1082,6 +1160,85 @@ const CustomersManagement = () => {
                                 {viewingCustomer.isAdmin ? 'Remover Admin' : 'Tornar Admin'}
                               </Button>
                             </div>
+
+                            {/* Modal de Confirmação Admin */}
+                            <Modal
+                              isOpen={!!adminActionTarget}
+                              onClose={() => {
+                                setAdminActionTarget(null);
+                                setAdminActionNotes('');
+                              }}
+                              className="max-w-md"
+                            >
+                              <div className="p-6">
+                                <h3 className="text-lg font-medium mb-4">
+                                  {adminActionTarget?.isAdmin ? 'Remover Acesso Admin' : 'Conceder Acesso Admin'}
+                                </h3>
+                                <p className="text-sm text-muted-foreground mb-4">
+                                  {adminActionTarget?.isAdmin
+                                    ? `Tem certeza que deseja remover os privilégios de administrador de ${adminActionTarget.name || adminActionTarget.email}?`
+                                    : `Tem certeza que deseja conceder privilégios de administrador para ${adminActionTarget?.name || adminActionTarget?.email}?`}
+                                </p>
+
+                                <div className="space-y-4">
+                                  <div className="space-y-2">
+                                    <Label>Observações (opcional)</Label>
+                                    <StableInput
+                                      value={adminActionNotes}
+                                      onChange={setAdminActionNotes}
+                                      placeholder="Motivo da alteração..."
+                                    />
+                                  </div>
+
+                                  <div className="flex justify-end gap-2">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      onClick={() => {
+                                        setAdminActionTarget(null);
+                                        setAdminActionNotes('');
+                                      }}
+                                      disabled={adminActionLoading}
+                                    >
+                                      Cancelar
+                                    </Button>
+                                    <Button
+                                      onClick={async () => {
+                                        if (!adminActionTarget) return;
+                                        
+                                        try {
+                                          setAdminActionLoading(true);
+                                          const updated = adminActionTarget.isAdmin
+                                            ? await customersApi.revokeAdmin(adminActionTarget.id, adminActionNotes)
+                                            : await customersApi.grantAdmin(adminActionTarget.id, adminActionNotes);
+                                          
+                                          // Atualiza a lista de clientes e o cliente em visualização
+                                          setCustomers(prev =>
+                                            prev.map(c => c.id === updated.id ? updated : c)
+                                          );
+                                          setViewingCustomer(updated);
+                                          
+                                          // Recarrega histórico
+                                          const history = await customersApi.getPermissionHistory(updated.id);
+                                          setPermissionHistory(history);
+                                          
+                                          // Limpa estado do modal
+                                          setAdminActionTarget(null);
+                                          setAdminActionNotes('');
+                                        } catch (error) {
+                                          console.error('Erro ao alterar permissões:', error);
+                                        } finally {
+                                          setAdminActionLoading(false);
+                                        }
+                                      }}
+                                      disabled={adminActionLoading}
+                                    >
+                                      {adminActionLoading ? 'Processando...' : 'Confirmar'}
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            </Modal>
 
                             <div>
                               <div className="flex items-center justify-between mb-4">

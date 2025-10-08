@@ -221,25 +221,54 @@ class ApiClient {
     this.baseURL = baseURL;
   }
 
+  private async waitForAuth(): Promise<string | null> {
+    const { auth } = await import('./firebase');
+    
+    // Se já temos um usuário, retorna o token
+    if (auth.currentUser) {
+      return auth.currentUser.getIdToken(true);
+    }
+    
+    // Espera até 5 segundos pela autenticação
+    return new Promise((resolve) => {
+      const unsubscribe = auth.onAuthStateChanged(async (user) => {
+        unsubscribe(); // Remove o listener
+        if (user) {
+          const token = await user.getIdToken(true);
+          resolve(token);
+        } else {
+          resolve(null);
+        }
+      });
+      
+      // Timeout após 5 segundos
+      setTimeout(() => {
+        unsubscribe();
+        resolve(null);
+      }, 5000);
+    });
+  }
+
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
     
-    // Get Firebase token if user is authenticated
+    // Espera a autenticação estar pronta e pega o token
     let authHeaders = {};
     try {
-      // Import Firebase auth here to avoid circular imports
-      const { auth } = await import('./firebase');
-      const user = auth.currentUser;
-      if (user) {
-        const token = await user.getIdToken();
+      const token = await this.waitForAuth();
+      if (token) {
         authHeaders = {
           'Authorization': `Bearer ${token}`,
         };
-        // Debug: indicate that a token was attached (do not print full token)
-        console.debug('apiClient: attaching Firebase token for request to', url, 'token_present: true');
+        console.log('[Auth] Request authorized:', {
+          endpoint,
+          tokenPrefix: token.substring(0, 10) + '...'
+        });
+      } else {
+        console.warn('[Auth] No auth token available for request:', endpoint);
       }
     } catch (error) {
       console.warn('Could not get Firebase token:', error);
