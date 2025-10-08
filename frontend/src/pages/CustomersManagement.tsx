@@ -39,6 +39,7 @@ import { customersApi } from '@/lib/api/customers';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import type { CustomerProfile, PermissionChangeLog } from '@/lib/api/types';
+import { useAdminStatus } from '@/hooks/useAdminStatus';
 
 // Modal base ultra-estável
 const Modal = ({ isOpen, onClose, children, className = '' }) => {
@@ -151,6 +152,9 @@ const StableInput = ({ value, onChange, type = 'text', placeholder = '', classNa
 };
 
 const CustomersManagement = () => {
+  // Hook de status de admin
+  const { isAdmin, isProtectedAdmin, canManageAdmins, loading: adminStatusLoading } = useAdminStatus();
+  
   // Estados principais
   const [customers, setCustomers] = useState<CustomerProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -200,6 +204,7 @@ const CustomersManagement = () => {
   // Loader (stable) - supports pagination and filters
   const loadCustomers = useCallback(async (pageToLoad = page) => {
     try {
+      console.debug('[CustomersManagement] adminStatus at loadCustomers:', { isAdmin, isProtectedAdmin, canManageAdmins, adminStatusLoading });
       setLoading(true);
       setError(null);
       const params: Record<string, string> = { page: String(pageToLoad), page_size: String(pageSize) };
@@ -207,7 +212,8 @@ const CustomersManagement = () => {
       if (statusFilter && statusFilter !== 'all') params.status = statusFilter;
       if (provinceFilter && provinceFilter !== 'all') params.province = provinceFilter;
       if (searchTerm) params.search = searchTerm;
-      const response = await customersApi.listAdmin(params);
+  const response = await customersApi.listAdmin(params);
+  console.debug('[CustomersManagement] customersApi.listAdmin returned:', response);
       // Handle both paginated responses and direct arrays
       if (Array.isArray(response)) {
         setCustomers(response);
@@ -441,6 +447,16 @@ const CustomersManagement = () => {
   // Perform grant/revoke admin action
   const performAdminAction = useCallback(async () => {
     if (!adminActionTarget) return;
+    
+    // Verificar se é um admin protegido
+    if (adminActionTarget.isProtectedAdmin) {
+      alert('Este usuário é um administrador protegido e não pode ter suas permissões alteradas.');
+      setIsAdminConfirmOpen(false);
+      setAdminActionTarget(null);
+      setAdminActionNotes('');
+      return;
+    }
+
     try {
       setAdminActionLoading(true);
       const id = adminActionTarget.id;
@@ -456,9 +472,9 @@ const CustomersManagement = () => {
       setIsAdminConfirmOpen(false);
       setAdminActionTarget(null);
       setAdminActionNotes('');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro ao alterar permissões de admin:', err);
-      // TODO: show toast/error UI
+      alert(err.response?.data?.detail || 'Erro ao alterar permissões do usuário');
     } finally {
       setAdminActionLoading(false);
     }
@@ -668,15 +684,24 @@ const CustomersManagement = () => {
                               <Edit className="h-4 w-4 mr-2" />
                               Editar
                             </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => {
-                                    // Open confirm modal for grant/revoke
-                                    setAdminActionTarget(customer);
-                                    setAdminActionNotes('');
-                                    setIsAdminConfirmOpen(true);
-                                  }}>
-                                    <Shield className="h-4 w-4 mr-2" />
-                                    {customer.isAdmin ? 'Remover Admin' : 'Tornar Admin'}
-                                  </DropdownMenuItem>
+                                  {canManageAdmins && (
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        // If the target is protected, do nothing (frontend guard)
+                                        if (customer.isProtectedAdmin) {
+                                          alert('Este usuário é um administrador protegido e não pode ser alterado.');
+                                          return;
+                                        }
+                                        // Open confirm modal for grant/revoke
+                                        setAdminActionTarget(customer);
+                                        setAdminActionNotes('');
+                                        setIsAdminConfirmOpen(true);
+                                      }}
+                                    >
+                                      <Shield className="h-4 w-4 mr-2" />
+                                      {customer.isAdmin ? 'Remover Admin' : 'Tornar Admin'}
+                                    </DropdownMenuItem>
+                                  )}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-red-600">
                               <Trash2 className="h-4 w-4 mr-2" />
@@ -1138,11 +1163,18 @@ const CustomersManagement = () => {
                                     ? 'Este usuário tem acesso de administrador' 
                                     : 'Este usuário não tem acesso de administrador'}
                                 </p>
+                                {viewingCustomer?.isProtectedAdmin && (
+                                  <p className="text-sm text-yellow-600 mt-1">
+                                    <Shield className="h-4 w-4 inline-block mr-1" />
+                                    Este é um administrador protegido definido no arquivo .env
+                                  </p>
+                                )}
                               </div>
-                              {viewingCustomer && (
+                              {viewingCustomer && canManageAdmins && !viewingCustomer.isProtectedAdmin && (
                                 <Button
                                 variant={viewingCustomer.isAdmin ? "destructive" : "default"}
                                 size="sm"
+                                title={viewingCustomer.isProtectedAdmin ? "Este usuário é um administrador protegido" : undefined}
                                 onClick={async () => {
                                   try {
                                     const updated = viewingCustomer.isAdmin
@@ -1153,9 +1185,10 @@ const CustomersManagement = () => {
                                     setCustomers(prev => 
                                       prev.map(c => c.id === updated.id ? updated : c)
                                     );
-                                  } catch (err) {
-                                    // TODO: Add error handling
+                                  } catch (err: any) {
                                     console.error('Erro ao alterar permissões:', err);
+                                    // Mostrar mensagem de erro
+                                    alert(err.response?.data?.detail || 'Erro ao alterar permissões do usuário');
                                   }
                                 }}
                               >

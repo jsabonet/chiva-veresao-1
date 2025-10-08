@@ -26,6 +26,7 @@ export interface CustomerProfile {
   isFirebaseUser: boolean;
   isAdmin: boolean;
   isSuperAdmin: boolean;
+  isProtectedAdmin?: boolean;  // Indica se o usuário está protegido no .env
   lastPermissionChange?: string;
   permissionChangeBy?: string;
 }

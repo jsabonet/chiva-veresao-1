@@ -1,6 +1,8 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
+from decouple import config
 from .models import CustomerProfile
+from .models import ExternalAuthUser
 
 class UserSummarySerializer(serializers.ModelSerializer):
     class Meta:
@@ -17,12 +19,13 @@ class CustomerProfileSerializer(serializers.ModelSerializer):
     totalSpent = serializers.DecimalField(source='total_spent', max_digits=12, decimal_places=2)
 
     isStaff = serializers.SerializerMethodField()
+    isProtectedAdmin = serializers.SerializerMethodField()
 
     class Meta:
         model = CustomerProfile
         fields = [
             'id','name','email','phone','address','city','province','registrationDate',
-            'lastOrderDate','totalOrders','totalSpent','status','notes','avatar','isStaff'
+            'lastOrderDate','totalOrders','totalSpent','status','notes','avatar','isStaff', 'isProtectedAdmin'
         ]
 
     def get_name(self, obj):
@@ -32,6 +35,34 @@ class CustomerProfileSerializer(serializers.ModelSerializer):
 
     def get_isStaff(self, obj):
         return bool(obj.user and obj.user.is_staff)
+
+    def get_isProtectedAdmin(self, obj):
+        """Return True if this customer corresponds to an ExternalAuthUser whose
+        email is listed in FIREBASE_ADMIN_EMAILS or whose ExternalAuthUser.is_protected_admin is True.
+        """
+        try:
+            # Try to find an ExternalAuthUser linked to this user
+            ext = ExternalAuthUser.objects.filter(user=obj.user).first()
+            if not ext:
+                # Fallback: try by firebase_uid stored in username
+                username = getattr(obj.user, 'username', None)
+                if username:
+                    ext = ExternalAuthUser.objects.filter(firebase_uid=username).first()
+
+            if ext and getattr(ext, 'is_protected_admin', False):
+                return True
+
+            # If no ExternalAuthUser or not flagged, check env list
+            try:
+                admin_emails = config('FIREBASE_ADMIN_EMAILS', default='').split(',')
+                admin_emails = [e.strip().lower() for e in admin_emails if e and e.strip()]
+            except Exception:
+                admin_emails = []
+
+            email = (getattr(obj.user, 'email', '') or '').lower()
+            return email in admin_emails
+        except Exception:
+            return False
 
 class CustomerAdminListSerializer(CustomerProfileSerializer):
     pass

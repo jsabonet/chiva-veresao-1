@@ -16,6 +16,7 @@ urlpatterns = [
     path('admin/debug/whoami/', views.debug_whoami, name='debug-whoami'),
     # Admin check endpoint
     path('admin/check/', views.admin_check, name='admin-check'),
+    path('admin/check-status/', views.check_current_user_admin_status, name='admin-check-status'),
     # Admin permission management (frontend expects these endpoints)
     path('admin/customers/<str:customer_id>/grant-admin/', views.customer_grant_admin, name='customer-grant-admin'),
     path('admin/customers/<str:customer_id>/revoke-admin/', views.customer_revoke_admin, name='customer-revoke-admin'),

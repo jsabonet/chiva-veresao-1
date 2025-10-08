@@ -12,6 +12,33 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 
 from .serializers import CustomerProfileSerializer, CustomerAdminListSerializer, AdminCustomerWriteSerializer
+
+@api_view(['GET'])
+def check_current_user_admin_status(request):
+    """
+    Retorna o status de admin do usuário atual, incluindo se é um admin protegido.
+    """
+    if not request.user.is_authenticated:
+        return Response({'detail': 'Não autenticado'}, status=status.HTTP_401_UNAUTHORIZED)
+    
+    # Tenta encontrar o usuário externo
+    ext_user = ExternalAuthUser.objects.filter(firebase_uid=request.user.username).first()
+    
+    # Verificar se o email está na lista de admins protegidos
+    try:
+        admin_emails = config('FIREBASE_ADMIN_EMAILS', default='').split(',')
+        admin_emails = [e.strip().lower() for e in admin_emails if e.strip()]
+    except Exception:
+        admin_emails = []
+    
+    user_email = getattr(request.user, 'email', '').lower()
+    is_protected_admin = user_email in admin_emails
+    
+    return Response({
+        'isAdmin': bool(ext_user and ext_user.is_admin) if ext_user else False,
+        'isProtectedAdmin': is_protected_admin,
+        'canManageAdmins': is_protected_admin,  # Apenas admins protegidos podem gerenciar outros admins
+    })
 from .serializers import ExternalAuthUserSerializer
 from django.shortcuts import get_object_or_404
 try:
@@ -23,6 +50,7 @@ except Exception:
 def _to_frontend_customer(profile: CustomerProfile | None = None, ext: ExternalAuthUser | None = None) -> dict:
     """Return a JSON object shaped like the frontend CustomerProfile interface.
     Prefers values from profile but augments with external auth meta when available.
+    Also includes information about protected admin status.
     """
     data = {}
     if profile:
@@ -37,6 +65,7 @@ def _to_frontend_customer(profile: CustomerProfile | None = None, ext: ExternalA
         data['firebaseUid'] = getattr(ext, 'firebase_uid', None)
         data['isFirebaseUser'] = True
         data['isAdmin'] = bool(getattr(ext, 'is_admin', False))
+        data['isProtectedAdmin'] = bool(ext.is_protected_admin if hasattr(ext, 'is_protected_admin') else False)
         # If profile exists, also reflect Django user flags
         if profile and getattr(profile, 'user', None):
             data['isSuperAdmin'] = bool(getattr(profile.user, 'is_superuser', False))
