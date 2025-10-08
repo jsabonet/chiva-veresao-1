@@ -76,3 +76,46 @@ class ExternalAuthUser(models.Model):
             for r in self.roles.all():
                 if r.name not in keep_set:
                     self.roles.remove(r)
+
+    def promote_to_admin(self, save=True):
+        """
+        Promove usuário para admin, atualizando is_admin e adicionando role admin
+        """
+        self.is_admin = True
+        if save:
+            self.save()
+        
+        # Garante que a role admin existe e associa ao usuário
+        admin_role, _ = Role.objects.get_or_create(name='admin')
+        self.roles.add(admin_role)
+
+        # Se tiver User associado, atualiza flags de admin
+        if self.user:
+            self.user.is_staff = True
+            self.user.is_superuser = True
+            self.user.save()
+        
+        return True
+
+    def revoke_admin(self, save=True):
+        """
+        Remove privilégios de admin do usuário
+        """
+        self.is_admin = False
+        if save:
+            self.save()
+
+        # Remove role admin
+        try:
+            admin_role = Role.objects.get(name='admin')
+            self.roles.remove(admin_role)
+        except Role.DoesNotExist:
+            pass
+
+        # Se tiver User associado, remove flags de admin
+        if self.user:
+            self.user.is_staff = False
+            self.user.is_superuser = False
+            self.user.save()
+        
+        return True

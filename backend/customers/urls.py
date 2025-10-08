@@ -14,4 +14,11 @@ urlpatterns = [
     path('admin/external/<str:firebase_uid>/roles/<int:role_id>/', views.external_user_remove_role, name='external_user_remove_role'),
     # Debug-only endpoint to inspect request.user and auth payload
     path('admin/debug/whoami/', views.debug_whoami, name='debug-whoami'),
+    # Admin check endpoint
+    path('admin/check/', views.admin_check, name='admin-check'),
+    # Admin permission management (frontend expects these endpoints)
+    path('admin/customers/<str:customer_id>/grant-admin/', views.customer_grant_admin, name='customer-grant-admin'),
+    path('admin/customers/<str:customer_id>/revoke-admin/', views.customer_revoke_admin, name='customer-revoke-admin'),
+    path('admin/customers/<str:customer_id>/permission-history/', views.customer_permission_history, name='customer-permission-history'),
+    path('admin/customers/<str:customer_id>/sync-firebase/', views.customer_sync_firebase, name='customer-sync-firebase'),
 ]

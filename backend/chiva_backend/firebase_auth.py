@@ -5,7 +5,7 @@ Validates Firebase ID tokens and creates/gets Django users
 import firebase_admin
 from firebase_admin import auth, credentials
 from django.contrib.auth.models import User
-from rest_framework import authentication, exceptions
+from rest_framework import authentication, exceptions, permissions
 from django.conf import settings
 from decouple import config
 import os
@@ -71,24 +71,31 @@ class FirebaseAuthentication(authentication.BaseAuthentication):
         """
         Authenticate the request using Firebase ID token
         """
+        print("\n[FirebaseAuth] Starting authentication...")
         auth_header = authentication.get_authorization_header(request)
         
         if not auth_header:
+            print("[FirebaseAuth] No Authorization header found")
             return None
         
         try:
             # Expected format: "Bearer <token>"
             auth_header_decoded = auth_header.decode('utf-8')
+            print(f"[FirebaseAuth] Auth header found: {auth_header_decoded[:20]}...")
+            
             if not auth_header_decoded.startswith('Bearer '):
+                print("[FirebaseAuth] Invalid header format - expected 'Bearer '")
                 return None
                 
             token = auth_header_decoded.split(' ')[1]
             if not token.strip():
+                print("[FirebaseAuth] Empty token")
                 return None
             
-        except (UnicodeDecodeError, IndexError):
-            # Return None instead of raising exception for malformed headers
-            # This allows other authentication classes to handle the request
+            print(f"[FirebaseAuth] Token extracted (first 20 chars): {token[:20]}...")
+            
+        except (UnicodeDecodeError, IndexError) as e:
+            print(f"[FirebaseAuth] Error processing header: {str(e)}")
             return None
         
         return self.authenticate_credentials(token)
@@ -98,12 +105,15 @@ class FirebaseAuthentication(authentication.BaseAuthentication):
         Validate Firebase token and get/create Django user
         """
         try:
-            # Minimal processing log; verbose/debug prints are gated behind ENABLE_TOKEN_PAYLOAD_DEBUG
-            token_debug_flag = False
+            print("[FirebaseAuth] Starting token verification...")
+            
+            # Always enable debug for troubleshooting
+            token_debug_flag = True
             try:
-                token_debug_flag = config('ENABLE_TOKEN_PAYLOAD_DEBUG', default='0', cast=bool)
+                dev_mode = config('DEV_FIREBASE_ACCEPT_UNVERIFIED', default='1', cast=bool)
+                print(f"[FirebaseAuth] DEV_FIREBASE_ACCEPT_UNVERIFIED = {dev_mode}")
             except Exception:
-                token_debug_flag = os.getenv('ENABLE_TOKEN_PAYLOAD_DEBUG', '0').lower() in ['1', 'true']
+                dev_mode = os.getenv('DEV_FIREBASE_ACCEPT_UNVERIFIED', '1').lower() in ['1', 'true']
 
             def _debug_print(*a, **kw):
                 if token_debug_flag:
@@ -220,35 +230,58 @@ class FirebaseAuthentication(authentication.BaseAuthentication):
     
     def get_or_create_user(self, firebase_uid, email, name):
         """
-        Get or create a Django user based on Firebase UID
-        Also syncs admin status based on Firebase custom claims or admin email list
+        Get or create a Django user based on Firebase UID.
+        Admin status is managed entirely by ExternalAuthUser.is_admin field.
         """
         try:
             # Check if email is in admin list
             admin_emails = config('FIREBASE_ADMIN_EMAILS', default='').split(',')
             is_admin_email = email and email.strip().lower() in [e.strip().lower() for e in admin_emails if e.strip()]
             
-            # Try to get custom claims from Firebase
+            # Try to get and sync custom claims from Firebase
             try:
                 user_record = auth.get_user(firebase_uid)
                 custom_claims = user_record.custom_claims or {}
-                is_admin_claim = custom_claims.get('admin', False)
+                current_admin_claim = custom_claims.get('admin', False)
+                
+                # Check if claims need to be updated
+                if is_admin_email != current_admin_claim:
+                    new_claims = {**custom_claims, 'admin': is_admin_email}
+                    auth.set_custom_claims(firebase_uid, new_claims)
+                    print(f"[FirebaseAuth] Updated admin claim for {email} to {is_admin_email}")
+                
+                is_admin_claim = is_admin_email  # Use email-based admin status
+                
             except Exception as e:
                 # Only log ADC warning if we're not in dev bypass mode
                 dev_bypass = os.getenv('DEV_FIREBASE_ACCEPT_UNVERIFIED', '0').lower() in ['1', 'true']
                 if not dev_bypass:
-                    print(f"[FirebaseAuth] Failed to get custom claims: {e}")
+                    print(f"[FirebaseAuth] Failed to sync claims: {e}")
                 is_admin_claim = False
             
-            # Determine admin status
-            is_admin = is_admin_email or is_admin_claim
-
+            # Check DEV_TREAT_ALL_AUTH_AS_ADMIN (now disabled by default)
+            dev_treat_all_as_admin = config('DEV_TREAT_ALL_AUTH_AS_ADMIN', default='0', cast=bool)
+            
             # Import local mirror model
             try:
                 from customers.models import ExternalAuthUser, Role
+                # Check if user is already admin in ExternalAuthUser
+                existing_ext = ExternalAuthUser.objects.filter(firebase_uid=firebase_uid).first()
+                is_already_admin = bool(existing_ext and existing_ext.is_admin)
             except Exception as e:
-                print(f"[FirebaseAuth] Could not import ExternalAuthUser: {e}")
-                ExternalAuthUser = None
+                print(f"[FirebaseAuth] Could not check ExternalAuthUser admin status: {e}")
+                is_already_admin = False
+
+            # Determine admin status (based on email OR existing admin status)
+            is_admin = is_admin_email or is_already_admin
+
+            # Debugging: log how admin was determined
+            try:
+                print(f"[FirebaseAuth][TRACE] uid={firebase_uid} email={email} is_admin_email={is_admin_email} is_admin_claim={is_admin_claim} is_already_admin={is_already_admin} dev_all_admin={dev_treat_all_as_admin} -> is_admin={is_admin}")
+            except Exception:
+                pass
+
+            # ExternalAuthUser já foi importado acima
 
             try:
                 # Try to find existing Django user
@@ -258,11 +291,17 @@ class FirebaseAuthentication(authentication.BaseAuthentication):
                 if user.email != email and email:
                     user.email = email
                     changed = True
-                # Sync admin flags
-                if user.is_staff != is_admin:
-                    user.is_staff = is_admin
-                    user.is_superuser = is_admin
-                    changed = True
+                # Sync admin flags based on ExternalAuthUser status
+                try:
+                    ext_user = ExternalAuthUser.objects.filter(firebase_uid=firebase_uid).first()
+                    if ext_user:
+                        if user.is_staff != ext_user.is_admin:
+                            user.is_staff = ext_user.is_admin
+                            user.is_superuser = ext_user.is_admin
+                            changed = True
+                except Exception as e:
+                    print(f"[FirebaseAuth] Error syncing admin flags: {e}")
+                
                 if changed:
                     user.save()
             except User.DoesNotExist:
@@ -288,23 +327,39 @@ class FirebaseAuthentication(authentication.BaseAuthentication):
                         ext.providers = list(custom_claims.get('providers', ext.providers) or ext.providers)
                     except Exception:
                         pass
-                    ext.is_admin = bool(is_admin)
+                        
+                    # Admin status management:
+                    # 1. For new users: Use email-based admin status
+                    # 2. For existing users: Preserve current admin status, only update if they're in admin emails
+                    if created:
+                        ext.is_admin = bool(is_admin_email)
+                    elif is_admin_email:  # If they're in admin emails list, make them admin
+                        ext.is_admin = True
+                    # else: preserve existing admin status
+                        
                     from django.utils import timezone
                     ext.last_seen = timezone.now()
                     ext.save()
+                    print(f"[FirebaseAuth][TRACE] ExternalAuthUser {'created' if created else 'updated'} firebase_uid={ext.firebase_uid} is_admin={ext.is_admin}")
                     # Optionally map admin role
-                    if is_admin:
+                    if ext.is_admin:
                         # Ensure there is an 'admin' role and assign
                         role, _ = Role.objects.get_or_create(name='admin')
-                        ext.roles.add(role)
+                        # Log before adding
+                        try:
+                            print(f"[FirebaseAuth][TRACE] Assigning role 'admin' to external user {ext.firebase_uid}")
+                            ext.roles.add(role)
+                        except Exception as e:
+                            print(f"[FirebaseAuth][ERROR] Failed to assign admin role: {e}")
                     else:
                         # Remove admin role if present
                         try:
                             admin_role = Role.objects.filter(name='admin').first()
-                            if admin_role:
+                            if admin_role and admin_role in ext.roles.all():
+                                print(f"[FirebaseAuth][TRACE] Removing role 'admin' from external user {ext.firebase_uid}")
                                 ext.roles.remove(admin_role)
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            print(f"[FirebaseAuth][ERROR] Failed to remove admin role: {e}")
             except Exception as e:
                 print(f"[FirebaseAuth] Failed to sync ExternalAuthUser: {e}")
 
