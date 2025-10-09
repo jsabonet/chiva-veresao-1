@@ -64,28 +64,37 @@ const Header = () => {
         return;
       }
 
-  const delta = currentY - lastScrollY.current;
-  const threshold = 12; // slightly larger threshold to avoid jitter/pulsing
-      if (Math.abs(delta) < threshold) return;
+      const delta = currentY - lastScrollY.current;
+      const hideThreshold = 14; // require larger downward movement to hide
+      const showThreshold = 6;  // smaller upward movement to show
 
-      if (delta > 0 && currentY > 50) {
-        // scrolling down -> hide
+      // Scrolling down: if delta exceeds hideThreshold and scrolled past top guard
+      if (delta > hideThreshold && currentY > 50) {
         if (isHeaderVisible) {
           setIsHeaderVisible(false);
-          // Lock scroll handling for the animation duration to avoid pulsation
-          ignoreScrollUntil.current = Date.now() + 360; // slightly > transition(300ms)
+          ignoreScrollUntil.current = Date.now() + 360;
+          // record the point where header was hidden
+          lastScrollY.current = currentY;
+        } else {
           lastScrollY.current = currentY;
         }
-      } else if (delta < 0) {
-        // scrolling up -> show
+        return;
+      }
+
+      // Scrolling up: if upward movement exceeds showThreshold, show header
+      if (delta < -showThreshold) {
         if (!isHeaderVisible) {
           setIsHeaderVisible(true);
           ignoreScrollUntil.current = Date.now() + 360;
           lastScrollY.current = currentY;
+        } else {
+          lastScrollY.current = currentY;
         }
-      } else {
-        lastScrollY.current = currentY;
+        return;
       }
+
+      // Not enough movement: just update lastScrollY for future deltas
+      lastScrollY.current = currentY;
     };
 
     window.addEventListener('scroll', onScroll, { passive: true });
