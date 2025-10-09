@@ -364,7 +364,7 @@ const EditProduct = () => {
     <AdminLayout>
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center space-x-4">
             <Button 
               variant="ghost" 
@@ -380,7 +380,7 @@ const EditProduct = () => {
               </p>
             </div>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex w-full sm:w-auto flex-col sm:flex-row gap-2">
             <Button variant="outline" onClick={() => navigate('/admin/products')}>
               Cancelar
             </Button>

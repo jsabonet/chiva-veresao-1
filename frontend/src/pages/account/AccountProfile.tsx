@@ -36,7 +36,7 @@ const AccountProfile = () => {
           <CardTitle className="text-sm font-medium flex items-center gap-2"><User className="h-4 w-4" /> Informações do Perfil</CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSave} className="space-y-4 max-w-md">
+          <form onSubmit={handleSave} className="space-y-4 max-w-full sm:max-w-md">
             <div className="space-y-2">
               <Label htmlFor="displayName">Nome</Label>
               <Input id="displayName" value={displayName} onChange={(e)=>setDisplayName(e.target.value)} placeholder="Seu nome" />
@@ -45,7 +45,7 @@ const AccountProfile = () => {
               <Label>Email</Label>
               <Input value={currentUser?.email || ''} disabled />
             </div>
-            <Button type="submit" disabled={saving}>Salvar</Button>
+            <Button type="submit" disabled={saving} className="w-full sm:w-auto">Salvar</Button>
             {message && <p className="text-xs text-muted-foreground">{message}</p>}
           </form>
         </CardContent>

@@ -180,22 +180,23 @@ const ProductsManagement = () => {
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-bold">Gerenciamento de Produtos</h1>
           <p className="text-muted-foreground">
             Gerencie o catálogo de produtos da loja
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex w-full sm:w-auto flex-col sm:flex-row gap-2">
           <Button 
             variant="outline" 
             onClick={() => navigate('/admin/categories')}
+            className="w-full sm:w-auto"
           >
             <Package className="h-4 w-4 mr-2" />
             Gerenciar Categorias
           </Button>
-          <Button onClick={() => navigate('/admin/products/create')}>
+          <Button onClick={() => navigate('/admin/products/create')} className="w-full sm:w-auto">
             <Plus className="h-4 w-4 mr-2" />
             Adicionar Produto
           </Button>
@@ -272,7 +273,7 @@ const ProductsManagement = () => {
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex items-center space-x-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-3 sm:space-y-0">
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
@@ -320,7 +321,8 @@ const ProductsManagement = () => {
           ) : (
             <>
               <div className="rounded-md border">
-                <table className="w-full">
+                <div className="hidden md:block">
+                  <table className="w-full">
                   <thead>
                     <tr className="border-b">
                       <th className="text-left p-4">Produto</th>
@@ -439,7 +441,53 @@ const ProductsManagement = () => {
                       );
                     })}
                   </tbody>
-                </table>
+                  </table>
+                </div>
+
+                {/* Mobile card list */}
+                <div className="md:hidden p-2 space-y-3">
+                  {products?.map((product) => {
+                    const stock = getStockStatus(product.stock_quantity);
+                    return (
+                      <Card key={product.id}>
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-3">
+                                <img src={product.main_image_url || '/placeholder.svg'} alt={product.name} className="w-12 h-12 rounded-md object-cover" />
+                                <div>
+                                  <p className="font-medium">{product.name}</p>
+                                  <p className="text-sm text-muted-foreground">SKU: {product.sku || 'N/A'}</p>
+                                </div>
+                              </div>
+
+                              <p className="text-sm mt-2">{getCategoryName(product.category_name)}</p>
+                              <p className="text-sm mt-1 font-medium">{product.price !== undefined ? formatPrice(parseFloat(product.price)) : 'Preço não definido'}</p>
+                            </div>
+                            <div className="ml-4 text-right">
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${stock.color}`}>{stock.text}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 mt-3">
+                            <Button variant="ghost" size="sm" onClick={() => handleViewProduct(product.slug)}>
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => handleEditProduct(product)}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => handleDuplicateProduct(product)}>
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => handleDeleteProduct(product.id)} className="text-red-600">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
               </div>
               
               {(!products || products.length === 0) && !productsLoading && (

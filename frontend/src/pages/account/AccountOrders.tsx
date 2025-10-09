@@ -216,7 +216,7 @@ const AccountOrders = () => {
 
     return (
       <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+    <DialogContent className="max-w-full sm:max-w-4xl h-full sm:max-h-[80vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3">
               Pedido {selectedOrder.order_number}
@@ -229,7 +229,7 @@ const AccountOrders = () => {
 
           <div className="grid gap-6">
             {/* Order Info */}
-            <div className="grid md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2">
@@ -309,8 +309,8 @@ const AccountOrders = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {selectedOrder.items.map((item, index) => (
-                      <div key={index} className="flex items-center space-x-4 p-4 border rounded-lg">
+              {selectedOrder.items.map((item, index) => (
+                <div key={index} className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 p-4 border rounded-lg">
                         <img
                           src={item.image || '/placeholder.svg'}
                           alt={item.name}
@@ -330,7 +330,7 @@ const AccountOrders = () => {
                             Quantidade: {item.quantity} × {formatPrice(parseFloat(item.price))}
                           </p>
                         </div>
-                        <div className="text-right">
+                        <div className="w-full sm:w-auto text-right">
                           <p className="font-medium">{formatPrice(parseFloat(item.total))}</p>
                         </div>
                       </div>
@@ -483,22 +483,23 @@ const AccountOrders = () => {
                       )}
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full">
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => fetchOrderDetails(order.id)}
+                        className="w-full sm:w-auto"
                       >
                         <Eye className="w-4 h-4 mr-2" />
                         Ver Detalhes
                       </Button>
-                      
                       {canCancel && (
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => cancelOrder(order.id)}
                           disabled={cancellingOrder === order.id}
+                          className="w-full sm:w-auto"
                         >
                           {cancellingOrder === order.id ? (
                             <>

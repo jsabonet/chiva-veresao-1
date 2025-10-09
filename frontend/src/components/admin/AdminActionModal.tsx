@@ -2,7 +2,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Modal } from '../ui/modal';
-import { StableInput } from '../ui/stable-input';
+import { Input } from '@/components/ui/input';
 import { CustomerProfile } from '@/lib/api/types';
 
 interface AdminActionModalProps {
@@ -45,9 +45,9 @@ export const AdminActionModal: React.FC<AdminActionModalProps> = ({
         <div className="space-y-4">
           <div className="space-y-2">
             <Label>Observações (opcional)</Label>
-            <StableInput
+            <Input
               value={notes}
-              onChange={onNotesChange}
+              onChange={(e) => onNotesChange((e.target as HTMLInputElement).value)}
               placeholder="Motivo da alteração..."
             />
           </div>

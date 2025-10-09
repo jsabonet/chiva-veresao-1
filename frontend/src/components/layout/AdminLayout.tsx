@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -13,6 +13,7 @@ import {
   Star
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { X } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -33,6 +34,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { currentUser, logout } = useAuth();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const handleLogout = async () => {
     try {
@@ -98,7 +100,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
           <div className="flex h-16 shrink-0 items-center">
             <Link to="/" className="flex items-center space-x-2">
               <Home className="h-8 w-8 text-blue-600" />
-              <span className="text-xl font-bold">Chiva Computer</span>
+              <span className="text-xl font-bold">Chiva Computer & Service. Lda</span>
             </Link>
           </div>
           <nav className="flex flex-1 flex-col">
@@ -154,20 +156,57 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
       {/* Mobile menu */}
       <div className="lg:hidden">
         <div className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-gray-200 bg-white px-4 shadow-sm sm:gap-x-6 sm:px-6">
-          <Button variant="ghost" size="sm" className="-m-2.5 p-2.5 text-gray-700">
+          <Button variant="ghost" size="sm" className="-m-2.5 p-2.5 text-gray-700" onClick={() => setMobileOpen(true)} aria-label="Abrir menu">
             <span className="sr-only">Abrir sidebar</span>
             <Menu className="h-6 w-6" aria-hidden="true" />
           </Button>
-          
+
           <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
             <div className="flex items-center gap-x-4 lg:gap-x-6">
               <Link to="/" className="flex items-center space-x-2">
                 <Home className="h-6 w-6 text-blue-600" />
-                <span className="font-bold">Chiva Computer</span>
+                <span className="font-bold">Chiva Computer & Service. Lda</span>
               </Link>
             </div>
           </div>
         </div>
+
+        {/* Drawer */}
+        {mobileOpen && (
+          <div className="fixed inset-0 z-50 lg:hidden">
+            <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} aria-hidden />
+            <aside className="absolute left-0 top-0 bottom-0 w-72 bg-white shadow-lg p-4 overflow-y-auto">
+              <div className="flex items-center justify-between mb-4">
+                <Link to="/" className="flex items-center space-x-2">
+                  <Home className="h-6 w-6 text-blue-600" />
+                  <span className="font-bold">Chiva Computer & Service. Lda</span>
+                </Link>
+                <Button variant="ghost" size="icon" onClick={() => setMobileOpen(false)} aria-label="Fechar menu">
+                  <X className="h-5 w-5" />
+                </Button>
+              </div>
+              <nav>
+                <ul className="space-y-2">
+                  {navigation.map(item => (
+                    <li key={item.name}>
+                      <Link to={item.href} onClick={() => setMobileOpen(false)} className={`flex items-center gap-3 px-2 py-2 rounded-md ${item.current ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50 hover:text-blue-600'}`}>
+                        <item.icon className="h-5 w-5" />
+                        <span>{item.name}</span>
+                        {item.badge && <span className="ml-auto inline-flex items-center rounded-md bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-800">{item.badge}</span>}
+                      </Link>
+                    </li>
+                  ))}
+                  <li className="mt-4">
+                    <Link to="/admin/configuracoes" className="flex items-center gap-3 px-2 py-2 rounded-md text-gray-700 hover:bg-gray-50 hover:text-blue-600">
+                      <Settings className="h-5 w-5" />
+                      <span>Configurações</span>
+                    </Link>
+                  </li>
+                </ul>
+              </nav>
+            </aside>
+          </div>
+        )}
       </div>
 
       {/* Main content */}
@@ -226,7 +265,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
 
         {/* Page content */}
         <div className="px-4 py-8 sm:px-6 lg:px-8">
-          {children}
+          <div className="w-full overflow-x-auto">{children}</div>
         </div>
       </main>
     </div>

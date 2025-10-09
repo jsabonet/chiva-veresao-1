@@ -104,7 +104,7 @@ const AccountFavorites = () => {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {favorites.map((favorite) => {
           const product = favorite.product;
           const hasDiscount = product.original_price && parseFloat(product.original_price) > parseFloat(product.price);
@@ -113,7 +113,7 @@ const AccountFavorites = () => {
             <Card key={favorite.id} className="group hover:shadow-lg transition-shadow">
               <CardContent className="p-4">
                 {/* Product Image */}
-                <div className="relative aspect-square rounded-lg overflow-hidden mb-4 bg-gray-100">
+                <div className="relative aspect-square rounded-lg overflow-hidden mb-4 bg-gray-100 w-full">
                   {product.main_image_url ? (
                     <img
                       src={product.main_image_url}
@@ -185,11 +185,11 @@ const AccountFavorites = () => {
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <Button
                       onClick={() => handleAddToCart(favorite)}
                       disabled={!product.is_in_stock}
-                      className="flex-1"
+                      className="w-full sm:w-auto"
                       size="sm"
                     >
                       <ShoppingCart className="mr-2 h-4 w-4" />
@@ -199,6 +199,7 @@ const AccountFavorites = () => {
                       variant="outline"
                       size="sm"
                       onClick={() => handleRemoveFromFavorites(product.id)}
+                      className="w-full sm:w-auto"
                     >
                       <Heart className="h-4 w-4 fill-current text-red-500" />
                     </Button>

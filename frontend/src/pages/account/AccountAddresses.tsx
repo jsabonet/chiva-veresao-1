@@ -12,7 +12,9 @@ const AccountAddresses = () => {
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground space-y-4">
           <p>Nenhum endereço cadastrado.</p>
-          <Button size="sm">Adicionar Endereço</Button>
+          <div className="flex">
+            <Button size="sm" className="w-full sm:w-auto">Adicionar Endereço</Button>
+          </div>
         </CardContent>
       </Card>
     </div>

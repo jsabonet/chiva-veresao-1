@@ -616,7 +616,8 @@ const CustomersManagement = () => {
             </div>
           ) : (
             <div className="rounded-md border">
-              <table className="w-full">
+              <div className="hidden md:block">
+                <table className="w-full">
                 <thead>
                   <tr className="border-b">
                     <th className="text-left p-4 font-medium">Cliente</th>
@@ -713,7 +714,53 @@ const CustomersManagement = () => {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+                </table>
+              </div>
+
+              {/* Mobile card list */}
+              <div className="md:hidden p-2 space-y-3">
+                {filteredCustomers.map((customer) => (
+                  <Card key={customer.id}>
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3">
+                            <Avatar>
+                              <AvatarImage src={customer.avatar} />
+                              <AvatarFallback>{getInitials(customer.name)}</AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="font-medium">{customer.name}</p>
+                              <p className="text-sm text-muted-foreground">{customer.email}</p>
+                            </div>
+                          </div>
+
+                          <p className="text-sm mt-2">{customer.city} · <span className="text-muted-foreground">{customer.province}</span></p>
+                          <p className="text-sm mt-1">Pedidos: <span className="font-medium">{customer.totalOrders || 0}</span></p>
+                        </div>
+                        <div className="ml-4 text-right">
+                          <p className="font-medium">{formatPrice(Number(customer.totalSpent || 0))}</p>
+                          <Badge className={`mt-2 ${statusConfig[customer.status]?.color || statusConfig.active.color}`}>{statusConfig[customer.status]?.label || 'Ativo'}</Badge>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 mt-3">
+                        <Button variant="ghost" size="sm" onClick={() => openViewModal(customer)}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => openEditModal(customer)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        {canManageAdmins && (
+                          <Button variant="ghost" size="sm" onClick={() => { setAdminActionTarget(customer); setIsAdminConfirmOpen(true); }}>
+                            <Shield className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             </div>
           )}
 

@@ -280,7 +280,7 @@ const CategoriesManagement = () => {
         )}
 
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-2xl font-bold">Gerenciamento de Categorias</h1>
             <p className="text-muted-foreground">
@@ -288,15 +288,15 @@ const CategoriesManagement = () => {
             </p>
           </div>
           
-          <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => navigate('/admin/products')}>
+          <div className="flex w-full sm:w-auto flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => navigate('/admin/products')} className="w-full sm:w-auto">
               <Package className="h-4 w-4 mr-2" />
               Voltar aos Produtos
             </Button>
             
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogTrigger asChild>
-                <Button onClick={() => resetForm()}>
+                <Button onClick={() => resetForm()} className="w-full sm:w-auto">
                   <Plus className="h-4 w-4 mr-2" />
                   Nova Categoria
                 </Button>
@@ -412,14 +412,20 @@ const CategoriesManagement = () => {
             <CardTitle>Pesquisar Categorias</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                placeholder="Buscar por nome ou descrição..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  placeholder="Buscar por nome ou descrição..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <div className="flex gap-2 w-full sm:w-auto">
+                <Button variant="outline" className="w-full sm:w-auto" onClick={() => refreshCategories()}>Atualizar</Button>
+                <Button className="w-full sm:w-auto" onClick={() => setIsCreateDialogOpen(true)}>Nova Categoria</Button>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -430,112 +436,154 @@ const CategoriesManagement = () => {
             <CardTitle>Lista de Categorias</CardTitle>
           </CardHeader>
           <CardContent>
-            {categoriesLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin" />
-                <span className="ml-2">Carregando categorias...</span>
-              </div>
-            ) : filteredCategories.length === 0 ? (
-              <div className="text-center py-8">
-                <FolderOpen className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-muted-foreground">
-                  {searchTerm ? 'Nenhuma categoria encontrada para sua busca.' : 'Nenhuma categoria cadastrada ainda.'}
-                </p>
-              </div>
-            ) : (
-              <Accordion type="multiple" className="w-full">
-                {filteredCategories.map((category) => {
-                  const subs: Subcategory[] = (allSubcategories || []).filter(s => s.category === category.id);
-                  return (
-                    <AccordionItem key={category.id} value={`cat-${category.id}`}>
-                      <div className="flex items-start justify-between gap-3 py-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <AccordionTrigger className="py-0 px-0 hover:no-underline text-left">
-                                <div className="flex items-center gap-2">
-                                  <h3 className="font-medium truncate">{category.name}</h3>
-                                  <Badge variant={(category.product_count || 0) > 0 ? 'default' : 'secondary'}>
-                                    {category.product_count || 0} produto(s)
-                                  </Badge>
-                                  <Badge variant="outline">{subs.length} sub</Badge>
-                                </div>
-                              </AccordionTrigger>
+            {/* Desktop: keep existing accordion */}
+            <div className="hidden md:block">
+              {categoriesLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                  <span className="ml-2">Carregando categorias...</span>
+                </div>
+              ) : filteredCategories.length === 0 ? (
+                <div className="text-center py-8">
+                  <FolderOpen className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-muted-foreground">
+                    {searchTerm ? 'Nenhuma categoria encontrada para sua busca.' : 'Nenhuma categoria cadastrada ainda.'}
+                  </p>
+                </div>
+              ) : (
+                <Accordion type="multiple" className="w-full">
+                  {filteredCategories.map((category) => {
+                    const subs: Subcategory[] = (allSubcategories || []).filter(s => s.category === category.id);
+                    return (
+                      <AccordionItem key={category.id} value={`cat-${category.id}`}>
+                        <div className="flex items-start justify-between gap-3 py-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <AccordionTrigger className="py-0 px-0 hover:no-underline text-left">
+                                  <div className="flex items-center gap-2">
+                                    <h3 className="font-medium truncate">{category.name}</h3>
+                                    <Badge variant={(category.product_count || 0) > 0 ? 'default' : 'secondary'}>
+                                      {category.product_count || 0} produto(s)
+                                    </Badge>
+                                    <Badge variant="outline">{subs.length} sub</Badge>
+                                  </div>
+                                </AccordionTrigger>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <Button variant="outline" size="sm" onClick={() => openSubCreate(category.id)}>
+                                  <Plus className="h-4 w-4" />
+                                </Button>
+                                <Button variant="outline" size="sm" onClick={() => openEditDialog(category)}>
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" size="sm">
+                                      <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent>
+                                    <DropdownMenuItem onClick={() => openEditDialog(category)}>
+                                      <Edit className="h-4 w-4 mr-2" />
+                                      Editar Categoria
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem 
+                                      onClick={() => handleDeleteCategory(category)}
+                                      disabled={(category.product_count || 0) > 0}
+                                      className="text-red-600"
+                                    >
+                                      <Trash2 className="h-4 w-4 mr-2" />
+                                      Deletar Categoria
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              <Button variant="outline" size="sm" onClick={() => openSubCreate(category.id)}>
-                                <Plus className="h-4 w-4" />
-                              </Button>
-                              <Button variant="outline" size="sm" onClick={() => openEditDialog(category)}>
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="outline" size="sm">
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent>
-                                  <DropdownMenuItem onClick={() => openEditDialog(category)}>
-                                    <Edit className="h-4 w-4 mr-2" />
-                                    Editar Categoria
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem 
-                                    onClick={() => handleDeleteCategory(category)}
-                                    disabled={(category.product_count || 0) > 0}
-                                    className="text-red-600"
-                                  >
-                                    <Trash2 className="h-4 w-4 mr-2" />
-                                    Deletar Categoria
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
+                            {category.description && (
+                              <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{category.description}</p>
+                            )}
+                            <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
+                              <div className="flex items-center gap-1"><Calendar className="h-3 w-3"/>Criada em {formatDate(category.created_at)}</div>
                             </div>
-                          </div>
-                          {category.description && (
-                            <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{category.description}</p>
-                          )}
-                          <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
-                            <div className="flex items-center gap-1"><Calendar className="h-3 w-3"/>Criada em {formatDate(category.created_at)}</div>
                           </div>
                         </div>
-                      </div>
-                      <AccordionContent>
-                        {allSubsLoading ? (
-                          <div className="flex items-center gap-2 text-sm py-2"><Loader2 className="h-4 w-4 animate-spin"/> Carregando subcategorias...</div>
-                        ) : subs.length === 0 ? (
-                          <div className="flex items-center justify-between p-3 border rounded-md bg-muted/30">
-                            <div className="text-sm text-muted-foreground">Sem subcategorias</div>
-                            <Button size="sm" variant="outline" onClick={() => openSubCreate(category.id)}>
-                              <Plus className="h-4 w-4 mr-1"/> Adicionar
-                            </Button>
-                          </div>
-                        ) : (
-                          <div className="space-y-2 border-l pl-4">
-                            {subs.map((sub) => (
-                              <div key={sub.id} className="flex items-center justify-between p-3 border rounded-md bg-background hover:bg-accent/40 transition-colors">
-                                <div className="min-w-0">
-                                  <div className="font-medium truncate">{sub.name}</div>
-                                  {sub.description && <div className="text-xs text-muted-foreground line-clamp-2">{sub.description}</div>}
+                        <AccordionContent>
+                          {allSubsLoading ? (
+                            <div className="flex items-center gap-2 text-sm py-2"><Loader2 className="h-4 w-4 animate-spin"/> Carregando subcategorias...</div>
+                          ) : subs.length === 0 ? (
+                            <div className="flex items-center justify-between p-3 border rounded-md bg-muted/30">
+                              <div className="text-sm text-muted-foreground">Sem subcategorias</div>
+                              <Button size="sm" variant="outline" onClick={() => openSubCreate(category.id)}>
+                                <Plus className="h-4 w-4 mr-1"/> Adicionar
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="space-y-2 border-l pl-4">
+                              {subs.map((sub) => (
+                                <div key={sub.id} className="flex items-center justify-between p-3 border rounded-md bg-background hover:bg-accent/40 transition-colors">
+                                  <div className="min-w-0">
+                                    <div className="font-medium truncate">{sub.name}</div>
+                                    {sub.description && <div className="text-xs text-muted-foreground line-clamp-2">{sub.description}</div>}
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <Button variant="outline" size="sm" onClick={() => openSubEdit(sub)}>
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button variant="outline" size="sm" onClick={() => handleDeleteSub(sub)}>
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
                                 </div>
-                                <div className="flex gap-2">
-                                  <Button variant="outline" size="sm" onClick={() => openSubEdit(sub)}>
-                                    <Edit className="h-4 w-4" />
-                                  </Button>
-                                  <Button variant="outline" size="sm" onClick={() => handleDeleteSub(sub)}>
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              </div>
-                            ))}
+                              ))}
+                            </div>
+                          )}
+                        </AccordionContent>
+                      </AccordionItem>
+                    );
+                  })}
+                </Accordion>
+              )}
+            </div>
+
+            {/* Mobile: show cards for each category */}
+            <div className="md:hidden space-y-3 p-2">
+              {categoriesLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                </div>
+              ) : filteredCategories.length === 0 ? (
+                <div className="text-center py-8">
+                  <FolderOpen className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-muted-foreground">{searchTerm ? 'Nenhuma categoria encontrada para sua busca.' : 'Nenhuma categoria cadastrada ainda.'}</p>
+                </div>
+              ) : (
+                filteredCategories.map((category) => {
+                  const subs: Subcategory[] = (allSubcategories || []).filter(s => s.category === category.id);
+                  return (
+                    <Card key={category.id}>
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-medium truncate">{category.name}</h3>
+                              <Badge variant={(category.product_count || 0) > 0 ? 'default' : 'secondary'} className="ml-2">{category.product_count || 0} produto(s)</Badge>
+                            </div>
+                            {category.description && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{category.description}</p>}
+                            <div className="text-xs text-muted-foreground mt-2">{subs.length} sub · Criada em {formatDate(category.created_at)}</div>
                           </div>
-                        )}
-                      </AccordionContent>
-                    </AccordionItem>
+                          <div className="ml-3 flex flex-col gap-2">
+                            <Button size="sm" variant="outline" onClick={() => openSubCreate(category.id)}> <Plus className="h-4 w-4" /> </Button>
+                            <Button size="sm" variant="outline" onClick={() => openEditDialog(category)}> <Edit className="h-4 w-4" /> </Button>
+                            <Button size="sm" variant="ghost" className="text-red-600" onClick={() => handleDeleteCategory(category)} disabled={(category.product_count || 0) > 0}> <Trash2 className="h-4 w-4" /> </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
                   );
-                })}
-              </Accordion>
-            )}
+                })
+              )}
+            </div>
           </CardContent>
         </Card>
 

@@ -838,7 +838,8 @@ const OrdersManagement = () => {
       <Card>
         <CardContent className="pt-6">
           <div className="rounded-md border">
-            <table className="w-full">
+            <div className="hidden md:block">
+              <table className="w-full">
               <thead>
                 <tr className="border-b">
                   <th className="text-left p-4 font-medium">Pedido</th>
@@ -976,7 +977,89 @@ const OrdersManagement = () => {
                   })
                 )}
               </tbody>
-            </table>
+              </table>
+            </div>
+
+            {/* Mobile - card list */}
+            <div className="md:hidden p-2 space-y-3">
+              {loading ? (
+                <div className="p-4 text-center text-muted-foreground">
+                  <div className="flex items-center justify-center gap-2">
+                    <Package className="h-4 w-4 animate-spin" />
+                    Carregando pedidos...
+                  </div>
+                </div>
+              ) : (
+                filteredOrders.map((order) => {
+                  const StatusIcon = statusConfig[order.status]?.icon || Package;
+                  return (
+                    <Card key={order.id}>
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3">
+                              <div>
+                                <p className="font-medium">{order.order_number}</p>
+                                <p className="text-sm text-muted-foreground">ID: {order.id}</p>
+                              </div>
+                              {new Date(order.updated_at).getTime() > Date.now() - 5 * 60 * 1000 && (
+                                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" title="Atualizado recentemente" />
+                              )}
+                            </div>
+
+                            <p className="text-sm mt-2">{order.customer_info.name} · <span className="text-muted-foreground">{order.customer_info.email}</span></p>
+                            <p className="text-sm mt-1">{formatDate(order.created_at)}</p>
+                          </div>
+                          <div className="ml-4 text-right">
+                            <p className="font-medium">{formatPrice(parseFloat(order.total_amount))}</p>
+                            <Badge className={`${statusConfig[order.status]?.color || 'bg-gray-100 text-gray-800'} mt-2 inline-flex items-center`}>
+                              <StatusIcon className="h-3 w-3 mr-1" />
+                              {statusConfig[order.status]?.label || order.status}
+                            </Badge>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 mt-3">
+                          <Button variant="ghost" size="sm" onClick={() => handleViewOrder(order)} title="Ver detalhes">
+                            <Eye className="h-4 w-4" />
+                          </Button>
+
+                          {order.status === 'pending' && (
+                            <Button variant="ghost" size="sm" onClick={() => handleUpdateOrderStatus(order.id, 'confirmed')} className="text-blue-600 hover:text-blue-800">
+                              <CheckCircle className="h-4 w-4" />
+                            </Button>
+                          )}
+
+                          {order.status === 'confirmed' && (
+                            <Button variant="ghost" size="sm" onClick={() => handleUpdateOrderStatus(order.id, 'processing')} className="text-purple-600 hover:text-purple-800">
+                              <Package className="h-4 w-4" />
+                            </Button>
+                          )}
+
+                          {order.status === 'processing' && (
+                            <Button variant="ghost" size="sm" onClick={() => handleUpdateOrderStatus(order.id, 'shipped')} className="text-indigo-600 hover:text-indigo-800">
+                              <Truck className="h-4 w-4" />
+                            </Button>
+                          )}
+
+                          {order.status === 'shipped' && (
+                            <Button variant="ghost" size="sm" onClick={() => handleUpdateOrderStatus(order.id, 'delivered')} className="text-green-600 hover:text-green-800">
+                              <CheckCircle className="h-4 w-4" />
+                            </Button>
+                          )}
+
+                          {order.can_be_cancelled && (
+                            <Button variant="ghost" size="sm" onClick={() => handleUpdateOrderStatus(order.id, 'cancelled')} className="text-red-600 hover:text-red-800">
+                              <XCircle className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })
+              )}
+            </div>
           </div>
           
           {!loading && filteredOrders.length === 0 && (

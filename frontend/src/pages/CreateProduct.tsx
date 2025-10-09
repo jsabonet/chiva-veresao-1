@@ -314,8 +314,8 @@ const CreateProduct = () => {
     <AdminLayout>
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-4">
             <Button 
               variant="ghost" 
               size="icon"
@@ -330,11 +330,11 @@ const CreateProduct = () => {
               </p>
             </div>
           </div>
-          <div className="flex items-center space-x-2">
-            <Button variant="outline" onClick={() => navigate('/admin/products')}>
+          <div className="flex w-full sm:w-auto flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => navigate('/admin/products')} className="w-full sm:w-auto">
               Cancelar
             </Button>
-            <Button onClick={handleSave} disabled={createLoading}>
+            <Button onClick={handleSave} disabled={createLoading} className="w-full sm:w-auto">
               {createLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
