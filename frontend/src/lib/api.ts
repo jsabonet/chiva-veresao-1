@@ -287,8 +287,10 @@ class ApiClient {
       const response = await fetch(url, config);
       
       if (!response.ok) {
-        // If the server explicitly forbids access (admin-only area),
-        // eject the SPA user to the shop home so they cannot remain on admin pages.
+        // If the server explicitly forbids access (admin-only area), clear
+        // cached admin status. Only redirect to the shop home when the user
+        // is currently viewing an admin SPA route (avoid redirect loops during
+        // login or when performing admin-status probes from public pages).
         if (response.status === 403) {
           try {
             if (typeof window !== 'undefined') {
@@ -306,9 +308,13 @@ class ApiClient {
                 // ignore storage errors
               }
 
-              // Replace location to home (no back navigation to forbidden page)
+              // Only force a navigation back to '/' if the user is currently
+              // on an admin SPA path. This prevents the check-status call (and
+              // others) from causing a reload loop during login.
               try {
-                window.location.replace('/');
+                if (window.location && typeof window.location.pathname === 'string' && window.location.pathname.startsWith('/admin')) {
+                  window.location.replace('/');
+                }
               } catch (e) {
                 // if navigation fails for some reason, continue to throw so caller can handle
               }
