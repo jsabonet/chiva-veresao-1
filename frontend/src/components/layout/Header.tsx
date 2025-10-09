@@ -17,6 +17,7 @@ const Header = () => {
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
   const headerRef = useRef<HTMLElement | null>(null);
   const [headerHeight, setHeaderHeight] = useState(0);
+  const [spacerHeight, setSpacerHeight] = useState<number | null>(null);
   const [openCatIds, setOpenCatIds] = useState<Set<number>>(new Set());
   // Number of categories visible before grouping into "Mais" (responsive)
   const [maxVisible, setMaxVisible] = useState<number>(6);
@@ -35,6 +36,8 @@ const Header = () => {
   // Hide header on mobile when scrolling down, show when scrolling up
   const lastScrollY = useRef(0);
   const ignoreScrollUntil = useRef(0);
+  const collapseTimer = useRef<number | null>(null);
+  const TRANSITION_MS = 300;
   useEffect(() => {
     // initialize
     try {
@@ -68,28 +71,36 @@ const Header = () => {
       const hideThreshold = 14; // require larger downward movement to hide
       const showThreshold = 6;  // smaller upward movement to show
 
-      // Scrolling down: if delta exceeds hideThreshold and scrolled past top guard
+      // Scrolling down: hide immediately on a clear downward gesture
       if (delta > hideThreshold && currentY > 50) {
         if (isHeaderVisible) {
           setIsHeaderVisible(false);
-          ignoreScrollUntil.current = Date.now() + 360;
-          // record the point where header was hidden
-          lastScrollY.current = currentY;
-        } else {
-          lastScrollY.current = currentY;
+          ignoreScrollUntil.current = Date.now() + 320;
+          // Collapse spacer after the CSS transition finishes so content doesn't
+          // immediately jump under the header and cause a visual pulse.
+          if (collapseTimer.current) {
+            clearTimeout(collapseTimer.current);
+            collapseTimer.current = null;
+          }
+          collapseTimer.current = window.setTimeout(() => {
+            setSpacerHeight(0);
+            collapseTimer.current = null;
+          }, TRANSITION_MS + 20);
         }
+        lastScrollY.current = currentY;
         return;
       }
 
-      // Scrolling up: if upward movement exceeds showThreshold, show header
+      // Scrolling up: show immediately on upward gesture
       if (delta < -showThreshold) {
         if (!isHeaderVisible) {
+          // When showing, immediately ensure spacer is at header height so
+          // there's no gap/pulse while the header animates into view.
+          setSpacerHeight(headerHeight);
           setIsHeaderVisible(true);
-          ignoreScrollUntil.current = Date.now() + 360;
-          lastScrollY.current = currentY;
-        } else {
-          lastScrollY.current = currentY;
+          ignoreScrollUntil.current = Date.now() + 320;
         }
+        lastScrollY.current = currentY;
         return;
       }
 
@@ -112,7 +123,10 @@ const Header = () => {
       try {
         const el = headerRef.current;
         if (el) {
-          setHeaderHeight(el.offsetHeight);
+          const h = el.offsetHeight;
+          setHeaderHeight(h);
+          // initialize spacerHeight on first measure or when header size changes
+          setSpacerHeight((prev) => (prev === null ? h : h));
         }
       } catch (e) {
         // ignore
@@ -125,6 +139,10 @@ const Header = () => {
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onResize);
       window.removeEventListener('resize', measure);
+      if (collapseTimer.current) {
+        clearTimeout(collapseTimer.current);
+        collapseTimer.current = null;
+      }
     };
   }, [isMenuOpen, isHeaderVisible]);
 
@@ -209,14 +227,14 @@ const Header = () => {
 
   // Compute transform and shadow classes. Use responsive overrides so
   // the transform behavior and transition only apply on mobile (<md).
-  const transformClass = isHeaderVisible ? 'translate-y-0' : '-translate-y-full';
+  const transformClass = isHeaderVisible ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0';
   const shadowClass = isHeaderVisible ? 'shadow-md' : 'shadow-none';
 
   return (
     <>
       {/* Use fixed so header is removed from document flow; spacer controls layout.
           This ensures that when spacer collapses to 0 the next section sits at the very top. */}
-      <header ref={headerRef} className={`fixed top-0 left-0 right-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 transform ${transformClass} md:translate-y-0 transition-transform duration-300 ease-in-out md:transition-none ${shadowClass}`}>
+  <header ref={headerRef} className={`fixed top-0 left-0 right-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 transform ${transformClass} md:translate-y-0 transition-all duration-300 ease-in-out md:transition-none ${shadowClass}`}>
       {/* Top Bar */}
       <div className="bg-primary text-primary-foreground">
         <div className="container mx-auto px-4 py-2">
@@ -453,7 +471,13 @@ const Header = () => {
       <div
         aria-hidden
         className={`w-full transition-[height] duration-300 ease-in-out md:!h-[auto]`}
-        style={{ height: (typeof window !== 'undefined' && window.innerWidth >= 768) ? `${headerHeight}px` : (isHeaderVisible ? `${headerHeight}px` : '0px') }}
+        style={{ height: (() => {
+          // On desktop, always reserve full header height
+          if (typeof window !== 'undefined' && window.innerWidth >= 768) return `${headerHeight}px`;
+          // Use controlled spacerHeight state to avoid layout shift during show/hide
+          if (spacerHeight === null) return `${headerHeight}px`;
+          return `${spacerHeight}px`;
+        })() }}
       />
     </>
   );
