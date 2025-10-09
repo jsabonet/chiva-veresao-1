@@ -14,6 +14,7 @@ from rest_framework.decorators import api_view
 from .serializers import CustomerProfileSerializer, CustomerAdminListSerializer, AdminCustomerWriteSerializer
 
 @api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
 def check_current_user_admin_status(request):
     """
     Retorna o status de admin do usuário atual, incluindo se é um admin protegido.
@@ -21,23 +22,46 @@ def check_current_user_admin_status(request):
     if not request.user.is_authenticated:
         return Response({'detail': 'Não autenticado'}, status=status.HTTP_401_UNAUTHORIZED)
     
-    # Tenta encontrar o usuário externo
+    # Tenta encontrar o usuário externo (primeiro por firebase_uid, depois por user relation)
     ext_user = ExternalAuthUser.objects.filter(firebase_uid=request.user.username).first()
-    
+    if not ext_user:
+        ext_user = ExternalAuthUser.objects.filter(user=request.user).first()
+
     # Verificar se o email está na lista de admins protegidos
     try:
         admin_emails = config('FIREBASE_ADMIN_EMAILS', default='').split(',')
         admin_emails = [e.strip().lower() for e in admin_emails if e.strip()]
     except Exception:
         admin_emails = []
-    
-    user_email = getattr(request.user, 'email', '').lower()
+
+    user_email = (getattr(request.user, 'email', '') or '').lower()
     is_protected_admin = user_email in admin_emails
-    
+
+    # Determine generic admin status (ExternalAuthUser or Django flags)
+    is_admin = False
+    try:
+        is_admin = bool((ext_user and getattr(ext_user, 'is_admin', False)) or getattr(request.user, 'is_staff', False) or getattr(request.user, 'is_superuser', False))
+    except Exception:
+        is_admin = getattr(request.user, 'is_staff', False) or getattr(request.user, 'is_superuser', False)
+
+    # Allow managing admins if protected OR any admin (external/Django)
+    can_manage_admins = bool(is_protected_admin or is_admin)
+
+    # Enforce that this admin-prefixed endpoint is only callable by admins.
+    # We perform a runtime check with the project's IsAdmin permission so that
+    # only true admins (ExternalAuthUser/roles/email list/Django flags) can
+    # access these admin-prefixed routes.
+    try:
+        if not IsAdmin().has_permission(request, None):
+            return Response({'detail': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+    except Exception:
+        # If permission check fails unexpectedly, deny access.
+        return Response({'detail': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+
     return Response({
-        'isAdmin': bool(ext_user and ext_user.is_admin) if ext_user else False,
+        'isAdmin': is_admin,
         'isProtectedAdmin': is_protected_admin,
-        'canManageAdmins': is_protected_admin,  # Apenas admins protegidos podem gerenciar outros admins
+        'canManageAdmins': can_manage_admins,
     })
 from .serializers import ExternalAuthUserSerializer
 from django.shortcuts import get_object_or_404
@@ -97,6 +121,7 @@ def _to_frontend_customer(profile: CustomerProfile | None = None, ext: ExternalA
 
 
 @api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
 def debug_whoami(request):
     """Debug endpoint: returns info about the authenticated user and auth payload.
     Only available when Django DEBUG is True to avoid exposing sensitive info in production.
@@ -104,6 +129,13 @@ def debug_whoami(request):
     try:
         if not getattr(settings, 'DEBUG', False):
             return Response({'detail': 'Not found'}, status=404)
+
+        # Restrict debug whoami under the admin prefix to admins only.
+        try:
+            if not IsAdmin().has_permission(request, None):
+                return Response({'detail': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+        except Exception:
+            return Response({'detail': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
 
         user = request.user
         auth_payload = None
@@ -289,6 +321,7 @@ def me_profile(request):
 
 
 @api_view(['GET'])
+@permission_classes([IsAdmin])
 def admin_check(request):
     """Debug endpoint to check admin status and see why access might be denied"""
     user = request.user
@@ -423,7 +456,7 @@ def admin_check(request):
 
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([IsAdmin])
 def admin_whoami(request):
     """Return the resolved ExternalAuthUser, token payload and whether IsAdmin allows this request.
     This is meant to be called by the frontend when debugging 403s.

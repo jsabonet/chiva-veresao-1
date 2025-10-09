@@ -6,6 +6,7 @@ from rest_framework import status
 import os
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from customers.views import IsAdmin
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.views.decorators.csrf import csrf_exempt
@@ -615,19 +616,12 @@ def merge_cart(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdmin])
+@api_view(['GET'])
 def abandoned_carts(request):
     """Get abandoned carts for current user (admin functionality)"""
     try:
-        if not request.user.is_staff:
-            return Response(
-                {'error': 'Permission denied'},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
         abandoned_carts = AbandonedCart.objects.select_related('cart').prefetch_related('cart__items__product')
-        return Response(AbandonedCartSerializer(abandoned_carts, many=True).data)
-        
         # Filter by date range if provided
         days = request.GET.get('days', 7)
         try:
@@ -636,10 +630,9 @@ def abandoned_carts(request):
             abandoned_carts = abandoned_carts.filter(created_at__gte=from_date)
         except ValueError:
             pass
-        
+
         serializer = AbandonedCartSerializer(abandoned_carts, many=True)
         return Response(serializer.data)
-        
     except Exception as e:
         logger.error(f"Error getting abandoned carts: {str(e)}")
 

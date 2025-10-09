@@ -5,6 +5,7 @@ Modern e-commerce order management endpoints
 
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from customers.views import IsAdmin
 from rest_framework.response import Response
 from rest_framework import status
 from django.shortcuts import get_object_or_404
@@ -138,7 +139,7 @@ def cancel_order(request, order_id):
 # Admin Views
 
 @api_view(['GET'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsAdmin])
 def admin_orders_list(request):
     """
     Admin view to list all orders with filters
@@ -195,7 +196,7 @@ def admin_orders_list(request):
 
 
 @api_view(['PUT', 'PATCH'])
-@permission_classes([IsAuthenticated, IsAdminUser])
+@permission_classes([IsAuthenticated, IsAdmin])
 def admin_update_order_status(request, order_id):
     """
     Admin endpoint to update order status
@@ -249,7 +250,7 @@ def admin_update_order_status(request, order_id):
 
 
 @api_view(['GET'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsAdmin])
 def admin_orders_stats(request):
     """
     Get order statistics for admin dashboard
@@ -293,7 +294,7 @@ def admin_orders_stats(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsAdmin])
 def stock_report(request):
     """
     Get comprehensive stock report
@@ -329,7 +330,7 @@ def stock_report(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsAdmin])
 def adjust_stock(request):
     """
     Manual stock adjustment endpoint
@@ -451,7 +452,7 @@ def order_items(request, order_id):
 
 
 @api_view(['PATCH'])
-@permission_classes([IsAuthenticated, IsAdminUser])
+@permission_classes([IsAuthenticated, IsAdmin])
 def admin_update_order_tracking(request, order_id):
     """
     Update order tracking number
@@ -476,7 +477,7 @@ def admin_update_order_tracking(request, order_id):
 
 
 @api_view(['PATCH'])
-@permission_classes([IsAuthenticated, IsAdminUser])
+@permission_classes([IsAuthenticated, IsAdmin])
 def admin_update_order_notes(request, order_id):
     """
     Update order notes

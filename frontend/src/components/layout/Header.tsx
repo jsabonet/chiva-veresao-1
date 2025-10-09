@@ -5,9 +5,11 @@ import { Input } from '@/components/ui/input';
 import { NavigationMenu, NavigationMenuContent, NavigationMenuItem, NavigationMenuList, NavigationMenuTrigger } from '@/components/ui/navigation-menu';
 import { Link } from 'react-router-dom';
 import { useCategories, useSubcategories } from '@/hooks/useApi';
+import { apiClient } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import { useFavoritesContext } from '@/contexts/FavoritesContext';
+import { useAdminStatus } from '@/hooks/useAdminStatus';
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -41,6 +43,16 @@ const Header = () => {
   const { currentUser } = useAuth();
   const { totalQuantity } = useCart();
   const { favoriteCount } = useFavoritesContext();
+  const { isAdmin, loading: adminStatusLoading } = useAdminStatus();
+
+  // Debug log to help trace why admin gear may be hidden
+  useEffect(() => {
+    try {
+      console.debug('[Header] admin status:', { isAdmin, adminStatusLoading, currentUser: currentUser ? currentUser.email : null });
+    } catch (e) {
+      // ignore
+    }
+  }, [isAdmin, adminStatusLoading, currentUser]);
 
   // Compute responsive limit for visible categories
   useEffect(() => {
@@ -159,11 +171,14 @@ const Header = () => {
                 </Link>
               </Button>
             )}
-            <Button variant="ghost" size="icon" asChild>
-              <Link to="/admin">
-                <Settings className="h-5 w-5" />
-              </Link>
-            </Button>
+            {isAdmin && (
+              <Button variant="ghost" size="icon" asChild>
+                <Link to="/admin">
+                  <Settings className="h-5 w-5" />
+                </Link>
+              </Button>
+            )}
+            
             <Button
               variant="ghost"
               size="icon"

@@ -22,7 +22,6 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, Sp
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    # IMPORTANT: Put more specific prefixes like 'api/cart/' BEFORE the generic 'api/' includes
     # Otherwise, 'api/' will match first and delegate, causing 404s for 'api/cart/...'
     path("api/cart/", include("cart.urls")),
     path("api/", include("products.urls")),

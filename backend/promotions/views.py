@@ -1,15 +1,14 @@
 from rest_framework import generics, permissions
 from .models import Promotion
 from .serializers import PromotionSerializer
+from customers.views import IsAdmin
 
-class IsAdmin(permissions.BasePermission):
-    def has_permission(self, request, view):
-        return bool(request.user and request.user.is_authenticated and request.user.is_staff)
 
 class PromotionListCreateAdminView(generics.ListCreateAPIView):
     queryset = Promotion.objects.all()
     serializer_class = PromotionSerializer
     permission_classes = [IsAdmin]
+
 
 class PromotionDetailAdminView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Promotion.objects.all()

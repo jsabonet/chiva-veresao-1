@@ -24,6 +24,7 @@ import AccountLayout from "./pages/account/AccountLayout";
 import AccountOverview from "./pages/account/AccountOverview";
 import AccountOrders from "./pages/account/AccountOrders";
 import AccountProfile from "./pages/account/AccountProfile";
+import ScrollToTop from "./components/scroll/ScrollToTop";
 import AccountAddresses from "./pages/account/AccountAddresses";
 import AccountFavorites from "./pages/account/AccountFavorites";
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
@@ -54,6 +55,7 @@ const App = () => (
             <Toaster />
             <Sonner />
           <BrowserRouter>
+          <ScrollToTop />
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/produto/:id" element={<ProductDetails />} />

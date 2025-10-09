@@ -22,6 +22,7 @@ from .serializers import (
     FavoriteCreateSerializer,
     ReviewSerializer
 )
+from customers.views import IsAdmin
 
 class ColorListCreateView(generics.ListCreateAPIView):
     """
@@ -29,6 +30,12 @@ class ColorListCreateView(generics.ListCreateAPIView):
     """
     queryset = Color.objects.filter(is_active=True)
     serializer_class = ColorSerializer
+
+    def get_permissions(self):
+        # Allow anyone to list colors, only admins can create
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.AllowAny()]
+        return [IsAdmin()]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['name']
     ordering_fields = ['name', 'created_at']
@@ -41,12 +48,24 @@ class ColorDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Color.objects.all()
     serializer_class = ColorSerializer
 
+    def get_permissions(self):
+        # Allow anyone to retrieve, only admins can update/delete
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.AllowAny()]
+        return [IsAdmin()]
+
 class CategoryListCreateView(generics.ListCreateAPIView):
     """
     List all categories or create a new category
     """
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
+
+    def get_permissions(self):
+        # Public listing, only admins can create
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.AllowAny()]
+        return [IsAdmin()]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['name', 'description']
     ordering_fields = ['name', 'created_at']
@@ -58,6 +77,11 @@ class CategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
+
+    def get_permissions(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.AllowAny()]
+        return [IsAdmin()]
 
 class SubcategoryListCreateView(generics.ListCreateAPIView):
     """
@@ -71,12 +95,23 @@ class SubcategoryListCreateView(generics.ListCreateAPIView):
     ordering = ['name']
     filterset_fields = ['category']
 
+    def get_permissions(self):
+        # public list, admin create
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.AllowAny()]
+        return [IsAdmin()]
+
 class SubcategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
     Retrieve, update or delete a subcategory
     """
     queryset = Subcategory.objects.select_related('category').all()
     serializer_class = SubcategorySerializer
+
+    def get_permissions(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.AllowAny()]
+        return [IsAdmin()]
 
 @api_view(['GET'])
 def subcategories_by_category(request, category_id):
@@ -103,6 +138,12 @@ class ProductListCreateView(generics.ListCreateAPIView):
         if self.request.method == 'POST':
             return ProductCreateUpdateSerializer
         return ProductListSerializer
+
+    def get_permissions(self):
+        # Allow public listing, require admin to create products
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.AllowAny()]
+        return [IsAdmin()]
     
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -151,11 +192,18 @@ class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
 
+    def get_permissions(self):
+        # Public retrieve, admin required for updates/deletes
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.AllowAny()]
+        return [IsAdmin()]
+
 class ProductByIdDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
     Retrieve, update or delete a product by ID (for admin use)
     """
     queryset = Product.objects.select_related('category').all()
+    permission_classes = [IsAdmin]
     
     def get_serializer_class(self):
         if self.request.method in ['PUT', 'PATCH']:
@@ -163,6 +211,7 @@ class ProductByIdDetailView(generics.RetrieveUpdateDestroyAPIView):
         return ProductDetailSerializer
 
 @api_view(['POST'])
+@permission_classes([IsAdmin])
 def duplicate_product(request, pk: int):
     """
     Duplicate a product by ID, copying its fields, colors, and images.
@@ -236,6 +285,7 @@ def duplicate_product(request, pk: int):
 
     serializer = ProductDetailSerializer(new_product, context={'request': request})
     return Response(serializer.data, status=status.HTTP_201_CREATED)
+
 
 from django.views.decorators.cache import cache_page
 from django.utils.decorators import method_decorator
@@ -359,6 +409,7 @@ def search_products(request):
     return Response(serializer.data)
 
 @api_view(['GET'])
+@permission_classes([IsAdmin])
 def product_stats(request):
     """
     Get product statistics for admin dashboard
@@ -401,6 +452,12 @@ class ProductImageViewSet(ModelViewSet):
         if product_id:
             queryset = queryset.filter(product_id=product_id)
         return queryset.order_by('order', 'created_at')
+
+    def get_permissions(self):
+        # Allow public reads, require admin for create/update/delete and bulk operations
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.AllowAny()]
+        return [IsAdmin()]
     
     def perform_create(self, serializer):
         """Set the product when creating an image"""
@@ -733,12 +790,11 @@ class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([IsAdmin])
 def review_admin_list(request):
     """Admin reviews listing used by the SPA admin page.
-    This endpoint now requires authentication (IsAuthenticated). Moderation actions
-    still require admin/staff privileges; this endpoint exposes reviews to any
-    authenticated user so the admin SPA can fetch them after login.
+    This endpoint requires admin permission so only admins can list reviews
+    in the admin SPA.
     """
     status_filter = request.query_params.get('status')
     qs = Review.objects.select_related('user', 'product', 'moderated_by').all()
@@ -766,17 +822,11 @@ def review_admin_list(request):
 
 
 @api_view(['POST'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([IsAdmin])
 def review_moderate(request, pk: int):
     """Admin endpoint to moderate (approve/reject) a review.
-    Moderation requires staff privileges in production, but in DEBUG mode any
-    authenticated user can moderate to simplify local testing of the SPA.
+    Requires IsAdmin permission in all environments.
     """
-    # Authorization check: staff users or any authenticated user when DEBUG
-    if not (getattr(request, 'user', None) and request.user.is_authenticated and (
-        request.user.is_staff or getattr(settings, 'DEBUG', False)
-    )):
-        return Response({'detail': 'You do not have permission to perform this action.'}, status=status.HTTP_403_FORBIDDEN)
 
     action = request.data.get('action')
     notes = request.data.get('notes', '')
