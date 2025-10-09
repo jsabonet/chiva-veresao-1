@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useRef } from 'react';
 import { Search, ShoppingCart, User, Menu, X, Settings, ChevronDown, ChevronUp, Heart, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +14,7 @@ import { useAdminStatus } from '@/hooks/useAdminStatus';
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
   const [openCatIds, setOpenCatIds] = useState<Set<number>>(new Set());
   // Number of categories visible before grouping into "Mais" (responsive)
   const [maxVisible, setMaxVisible] = useState<number>(6);
@@ -27,6 +29,66 @@ const Header = () => {
       };
     }
   }, [isMenuOpen]);
+
+  // Hide header on mobile when scrolling down, show when scrolling up
+  const lastScrollY = useRef(0);
+  useEffect(() => {
+    // initialize
+    try {
+      lastScrollY.current = typeof window !== 'undefined' ? window.scrollY : 0;
+    } catch (e) {
+      lastScrollY.current = 0;
+    }
+
+    const onScroll = () => {
+      if (typeof window === 'undefined') return;
+      const currentY = window.scrollY || 0;
+      const isMobile = window.innerWidth < 768;
+
+      // On desktop, always show header
+      if (!isMobile) {
+        if (!isHeaderVisible) setIsHeaderVisible(true);
+        lastScrollY.current = currentY;
+        return;
+      }
+
+      // If mobile menu is open, keep header visible
+      if (isMenuOpen) {
+        if (!isHeaderVisible) setIsHeaderVisible(true);
+        lastScrollY.current = currentY;
+        return;
+      }
+
+      const delta = currentY - lastScrollY.current;
+      const threshold = 8; // small threshold to avoid jitter
+      if (Math.abs(delta) < threshold) return;
+
+      if (delta > 0 && currentY > 50) {
+        // scrolling down -> hide
+        if (isHeaderVisible) setIsHeaderVisible(false);
+      } else if (delta < 0) {
+        // scrolling up -> show
+        if (!isHeaderVisible) setIsHeaderVisible(true);
+      }
+
+      lastScrollY.current = currentY;
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    // Also update visibility on resize (in case breakpoint changes)
+    const onResize = () => {
+      if (typeof window === 'undefined') return;
+      if (window.innerWidth >= 768) {
+        setIsHeaderVisible(true);
+      }
+    };
+    window.addEventListener('resize', onResize);
+
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onResize);
+    };
+  }, [isMenuOpen, isHeaderVisible]);
 
   // Close menu on Escape key (mobile)
   useEffect(() => {
@@ -107,8 +169,13 @@ const Header = () => {
     });
   };
 
+  // Compute transform and shadow classes. Use responsive overrides so
+  // the transform behavior and transition only apply on mobile (<md).
+  const transformClass = isHeaderVisible ? 'translate-y-0' : '-translate-y-full';
+  const shadowClass = isHeaderVisible ? 'shadow-md' : 'shadow-none';
+
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className={`sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 transform ${transformClass} md:translate-y-0 transition-transform duration-300 ease-in-out md:transition-none ${shadowClass}`}>
       {/* Top Bar */}
       <div className="bg-primary text-primary-foreground">
         <div className="container mx-auto px-4 py-2">
