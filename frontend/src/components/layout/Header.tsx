@@ -15,6 +15,8 @@ import { useAdminStatus } from '@/hooks/useAdminStatus';
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
+  const headerRef = useRef<HTMLElement | null>(null);
+  const [headerHeight, setHeaderHeight] = useState(0);
   const [openCatIds, setOpenCatIds] = useState<Set<number>>(new Set());
   // Number of categories visible before grouping into "Mais" (responsive)
   const [maxVisible, setMaxVisible] = useState<number>(6);
@@ -32,6 +34,7 @@ const Header = () => {
 
   // Hide header on mobile when scrolling down, show when scrolling up
   const lastScrollY = useRef(0);
+  const ignoreScrollUntil = useRef(0);
   useEffect(() => {
     // initialize
     try {
@@ -40,7 +43,9 @@ const Header = () => {
       lastScrollY.current = 0;
     }
 
-    const onScroll = () => {
+  const onScroll = () => {
+  // If we're currently ignoring scrolls (during hide/show animation), skip
+  if (ignoreScrollUntil.current && Date.now() < ignoreScrollUntil.current) return;
       if (typeof window === 'undefined') return;
       const currentY = window.scrollY || 0;
       const isMobile = window.innerWidth < 768;
@@ -59,19 +64,28 @@ const Header = () => {
         return;
       }
 
-      const delta = currentY - lastScrollY.current;
-      const threshold = 8; // small threshold to avoid jitter
+  const delta = currentY - lastScrollY.current;
+  const threshold = 12; // slightly larger threshold to avoid jitter/pulsing
       if (Math.abs(delta) < threshold) return;
 
       if (delta > 0 && currentY > 50) {
         // scrolling down -> hide
-        if (isHeaderVisible) setIsHeaderVisible(false);
+        if (isHeaderVisible) {
+          setIsHeaderVisible(false);
+          // Lock scroll handling for the animation duration to avoid pulsation
+          ignoreScrollUntil.current = Date.now() + 360; // slightly > transition(300ms)
+          lastScrollY.current = currentY;
+        }
       } else if (delta < 0) {
         // scrolling up -> show
-        if (!isHeaderVisible) setIsHeaderVisible(true);
+        if (!isHeaderVisible) {
+          setIsHeaderVisible(true);
+          ignoreScrollUntil.current = Date.now() + 360;
+          lastScrollY.current = currentY;
+        }
+      } else {
+        lastScrollY.current = currentY;
       }
-
-      lastScrollY.current = currentY;
     };
 
     window.addEventListener('scroll', onScroll, { passive: true });
@@ -84,9 +98,24 @@ const Header = () => {
     };
     window.addEventListener('resize', onResize);
 
+    // Measure header height initially and on relevant changes (menu open/close)
+    const measure = () => {
+      try {
+        const el = headerRef.current;
+        if (el) {
+          setHeaderHeight(el.offsetHeight);
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+    measure();
+    window.addEventListener('resize', measure);
+
     return () => {
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onResize);
+      window.removeEventListener('resize', measure);
     };
   }, [isMenuOpen, isHeaderVisible]);
 
@@ -175,7 +204,10 @@ const Header = () => {
   const shadowClass = isHeaderVisible ? 'shadow-md' : 'shadow-none';
 
   return (
-    <header className={`sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 transform ${transformClass} md:translate-y-0 transition-transform duration-300 ease-in-out md:transition-none ${shadowClass}`}>
+    <>
+      {/* Use fixed so header is removed from document flow; spacer controls layout.
+          This ensures that when spacer collapses to 0 the next section sits at the very top. */}
+      <header ref={headerRef} className={`fixed top-0 left-0 right-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 transform ${transformClass} md:translate-y-0 transition-transform duration-300 ease-in-out md:transition-none ${shadowClass}`}>
       {/* Top Bar */}
       <div className="bg-primary text-primary-foreground">
         <div className="container mx-auto px-4 py-2">
@@ -407,6 +439,14 @@ const Header = () => {
         </div>
       </div>
     </header>
+      {/* Spacer to reserve/collapse space so content moves smoothly when header hides on mobile.
+          On desktop we keep the spacer height equal to headerHeight so layout is stable. */}
+      <div
+        aria-hidden
+        className={`w-full transition-[height] duration-300 ease-in-out md:!h-[auto]`}
+        style={{ height: (typeof window !== 'undefined' && window.innerWidth >= 768) ? `${headerHeight}px` : (isHeaderVisible ? `${headerHeight}px` : '0px') }}
+      />
+    </>
   );
 };
 
