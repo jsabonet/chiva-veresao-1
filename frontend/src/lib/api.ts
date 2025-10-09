@@ -287,6 +287,37 @@ class ApiClient {
       const response = await fetch(url, config);
       
       if (!response.ok) {
+        // If the server explicitly forbids access (admin-only area),
+        // eject the SPA user to the shop home so they cannot remain on admin pages.
+        if (response.status === 403) {
+          try {
+            if (typeof window !== 'undefined') {
+              // Clear any cached admin status entries to avoid stale UI
+              try {
+                for (let i = 0; i < sessionStorage.length; i++) {
+                  const key = sessionStorage.key(i);
+                  if (key && key.startsWith('chiva:adminStatus:')) {
+                    sessionStorage.removeItem(key);
+                    // adjust index since we removed an item
+                    i -= 1;
+                  }
+                }
+              } catch (e) {
+                // ignore storage errors
+              }
+
+              // Replace location to home (no back navigation to forbidden page)
+              try {
+                window.location.replace('/');
+              } catch (e) {
+                // if navigation fails for some reason, continue to throw so caller can handle
+              }
+            }
+          } catch (e) {
+            // ignore
+          }
+        }
+
         // Try to get error details from response
         let errorMessage = `HTTP error! status: ${response.status}`;
         try {
