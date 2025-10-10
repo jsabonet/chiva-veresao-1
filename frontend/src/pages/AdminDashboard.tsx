@@ -235,14 +235,35 @@ const AdminDashboard = () => {
 
         {/* Main Content Tabs */}
         <Tabs defaultValue="overview" className="space-y-4">
-          {/* Make the tabs horizontally scrollable on small screens */}
-          <TabsList className="flex gap-2 overflow-x-auto no-scrollbar p-1">
-            <TabsTrigger className="whitespace-nowrap px-3 py-1 text-sm" value="overview">Visão Geral</TabsTrigger>
-            <TabsTrigger className="whitespace-nowrap px-3 py-1 text-sm" value="products">Gestão de Produtos</TabsTrigger>
-            <TabsTrigger className="whitespace-nowrap px-3 py-1 text-sm" value="recent">Produtos Recentes</TabsTrigger>
-            <TabsTrigger className="whitespace-nowrap px-3 py-1 text-sm" value="low-stock">Estoque Baixo</TabsTrigger>
-            <TabsTrigger className="whitespace-nowrap px-3 py-1 text-sm" value="analytics">Analytics</TabsTrigger>
-          </TabsList>
+          {/* Mobile sticky tabs (only visible on xs) */}
+          <div className="sm:hidden sticky top-16 z-40 bg-white/95 backdrop-blur-md">
+            <TabsList className="p-2">
+              {/* allow wrapping of tab triggers on small screens (mobile-first) */}
+              <div className="flex flex-wrap gap-2">
+                <TabsTrigger className="whitespace-normal px-3 py-2 text-sm touch-manipulation rounded-md data-[state=active]:bg-blue-600 data-[state=active]:text-white" value="overview">Visão Geral</TabsTrigger>
+                <TabsTrigger className="whitespace-normal px-3 py-2 text-sm touch-manipulation rounded-md data-[state=active]:bg-blue-600 data-[state=active]:text-white" value="products">Gestão de Produtos</TabsTrigger>
+                <TabsTrigger className="whitespace-normal px-3 py-2 text-sm touch-manipulation rounded-md data-[state=active]:bg-blue-600 data-[state=active]:text-white" value="recent">Produtos Recentes</TabsTrigger>
+                <TabsTrigger className="whitespace-normal px-3 py-2 text-sm touch-manipulation rounded-md data-[state=active]:bg-blue-600 data-[state=active]:text-white" value="low-stock">Estoque Baixo</TabsTrigger>
+                <TabsTrigger className="whitespace-normal px-3 py-2 text-sm touch-manipulation rounded-md data-[state=active]:bg-blue-600 data-[state=active]:text-white" value="analytics">Analytics</TabsTrigger>
+              </div>
+            </TabsList>
+          </div>
+
+          {/* Desktop/Tablet grid tabs */}
+          <div className="hidden sm:block">
+            <TabsList className="p-1">
+              <div className="grid grid-cols-5 gap-3">
+                <TabsTrigger className="px-3 py-1 text-sm" value="overview">Visão Geral</TabsTrigger>
+                <TabsTrigger className="px-3 py-1 text-sm" value="products">Gestão de Produtos</TabsTrigger>
+                <TabsTrigger className="px-3 py-1 text-sm" value="recent">Produtos Recentes</TabsTrigger>
+                <TabsTrigger className="px-3 py-1 text-sm" value="low-stock">Estoque Baixo</TabsTrigger>
+                <TabsTrigger className="px-3 py-1 text-sm" value="analytics">Analytics</TabsTrigger>
+              </div>
+            </TabsList>
+          </div>
+
+          {/* spacer to avoid content being hidden under sticky tabs on mobile; increased to support two wrapped rows */}
+          <div className="sm:hidden h-24" aria-hidden />
 
           <TabsContent value="overview" className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
@@ -490,25 +511,27 @@ const AdminDashboard = () => {
                             <div key={product.id} className="border rounded-lg p-3 bg-white">
                               <div className="flex items-start gap-3">
                                 {product.main_image_url && (
-                                  <img src={getImageUrl(product.main_image_url)} alt={product.name} className="w-12 h-12 object-cover rounded" />
+                                  <img src={getImageUrl(product.main_image_url)} alt={product.name} className="w-12 h-12 object-cover rounded flex-shrink-0" />
                                 )}
-                                <div className="flex-1">
-                                  <div className="flex justify-between items-start">
-                                    <div>
-                                      <p className="font-medium">{product.name}</p>
-                                      <p className="text-xs text-muted-foreground">{product.category_name}</p>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex justify-between items-start gap-2">
+                                    <div className="min-w-0">
+                                      <p className="font-medium line-clamp-2 break-words">{product.name}</p>
+                                      <p className="text-xs text-muted-foreground truncate">{product.category_name}</p>
                                     </div>
-                                    <div className="text-right">
+                                    <div className="text-right flex-shrink-0">
                                       <p className="font-medium">{formatPrice(product.price)}</p>
                                       <p className="text-xs text-muted-foreground">SKU: {product.sku}</p>
                                     </div>
                                   </div>
-                                  <div className="flex items-center justify-between mt-2 gap-2">
-                                    <Badge variant="outline" className="text-xs">{product.category_name}</Badge>
-                                    <Badge variant={product.status === 'active' ? 'default' : 'secondary'} className="text-xs">{product.status === 'active' ? 'Ativo' : 'Inativo'}</Badge>
-                                    <div className="flex items-center gap-2">
-                                      <Button size="sm" variant="outline" onClick={() => navigate(`/admin/products/edit/${product.id}`)}>Editar</Button>
-                                      <Button size="sm" variant="outline" disabled={deleting} onClick={() => handleDeleteProduct(product.id, product.name)}>{deleting ? 'Deletando...' : 'Deletar'}</Button>
+                                  <div className="flex items-center justify-between mt-2 gap-2 flex-wrap">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <Badge variant="outline" className="text-xs max-w-[6rem] truncate">{product.category_name}</Badge>
+                                      <Badge variant={product.status === 'active' ? 'default' : 'secondary'} className="text-xs">{product.status === 'active' ? 'Ativo' : 'Inativo'}</Badge>
+                                    </div>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <Button size="sm" variant="outline" className="whitespace-nowrap" onClick={() => navigate(`/admin/products/edit/${product.id}`)}>Editar</Button>
+                                      <Button size="sm" variant="outline" className="whitespace-nowrap" disabled={deleting} onClick={() => handleDeleteProduct(product.id, product.name)}>{deleting ? 'Deletando...' : 'Deletar'}</Button>
                                     </div>
                                   </div>
                                 </div>
