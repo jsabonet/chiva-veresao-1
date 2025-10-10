@@ -144,7 +144,7 @@ const AdminDashboard = () => {
                 <Download className="h-4 w-4 mr-2" />
                 Exportar
               </Button>
-              <Button variant="outline" size="sm">
+              <Button onClick={() => navigate('/admin/configuracoes')} variant="outline" size="sm">
                 <Settings className="h-4 w-4 mr-2" />
                 Configurações
               </Button>
@@ -202,11 +202,10 @@ const AdminDashboard = () => {
         <div className="grid gap-4 md:grid-cols-2">
           <Card className="border-orange-200 bg-orange-50">
             <CardHeader>
-              <CardTitle className="text-orange-800 flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5" />
-                Produtos com Estoque Baixo
-              </CardTitle>
-            </CardHeader>
+                <CardTitle className="text-orange-800 flex flex-col sm:flex-row sm:items-center gap-2 text-sm sm:text-base">
+                  <span className="flex items-center gap-2"><AlertTriangle className="h-5 w-5" /><span>Produtos com Estoque Baixo</span></span>
+                </CardTitle>
+              </CardHeader>
             <CardContent>
               <div className="flex items-center">
                 <span className="text-2xl font-bold text-orange-800">
@@ -219,9 +218,8 @@ const AdminDashboard = () => {
 
           <Card className="border-blue-200 bg-blue-50">
             <CardHeader>
-              <CardTitle className="text-blue-800 flex items-center gap-2">
-                <Star className="h-5 w-5" />
-                Produtos em Destaque
+              <CardTitle className="text-blue-800 flex flex-col sm:flex-row sm:items-center gap-2 text-sm sm:text-base">
+                <span className="flex items-center gap-2"><Star className="h-5 w-5" /><span>Produtos em Destaque</span></span>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -237,12 +235,13 @@ const AdminDashboard = () => {
 
         {/* Main Content Tabs */}
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="overview">Visão Geral</TabsTrigger>
-            <TabsTrigger value="products">Gestão de Produtos</TabsTrigger>
-            <TabsTrigger value="recent">Produtos Recentes</TabsTrigger>
-            <TabsTrigger value="low-stock">Estoque Baixo</TabsTrigger>
-            <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          {/* Make the tabs horizontally scrollable on small screens */}
+          <TabsList className="flex gap-2 overflow-x-auto no-scrollbar p-1">
+            <TabsTrigger className="whitespace-nowrap px-3 py-1 text-sm" value="overview">Visão Geral</TabsTrigger>
+            <TabsTrigger className="whitespace-nowrap px-3 py-1 text-sm" value="products">Gestão de Produtos</TabsTrigger>
+            <TabsTrigger className="whitespace-nowrap px-3 py-1 text-sm" value="recent">Produtos Recentes</TabsTrigger>
+            <TabsTrigger className="whitespace-nowrap px-3 py-1 text-sm" value="low-stock">Estoque Baixo</TabsTrigger>
+            <TabsTrigger className="whitespace-nowrap px-3 py-1 text-sm" value="analytics">Analytics</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4">
@@ -324,14 +323,16 @@ const AdminDashboard = () => {
           <TabsContent value="products" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center justify-between">
+                <CardTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 w-full">
                   <div className="flex items-center gap-2">
                     <Package className="w-5 h-5" />
-                    Gestão de Produtos
+                    <span className="font-medium">Gestão de Produtos</span>
                   </div>
-                  <Button onClick={() => navigate('/admin/products/create')}>
-                    Adicionar Produto
-                  </Button>
+                  <div>
+                    <Button onClick={() => navigate('/admin/products/create')}>
+                      Adicionar Produto
+                    </Button>
+                  </div>
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -547,7 +548,7 @@ const AdminDashboard = () => {
           <TabsContent value="recent" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Produtos Adicionados Recentemente</CardTitle>
+                <CardTitle className="text-base sm:text-lg">Produtos Adicionados Recentemente</CardTitle>
               </CardHeader>
               <CardContent>
                 {productsLoading ? (
@@ -618,9 +619,8 @@ const AdminDashboard = () => {
           <TabsContent value="low-stock" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <AlertTriangle className="w-5 h-5 text-amber-500" />
-                  Produtos com Estoque Baixo
+                <CardTitle className="flex flex-col sm:flex-row sm:items-center gap-2 text-sm sm:text-base">
+                  <span className="flex items-center gap-2"><AlertTriangle className="w-5 h-5 text-amber-500" /><span>Produtos com Estoque Baixo</span></span>
                 </CardTitle>
               </CardHeader>
               <CardContent>
