@@ -727,24 +727,28 @@ const CustomersManagement = () => {
                   <Card key={customer.id}>
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between">
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-3">
                             <Avatar>
                               <AvatarImage src={customer.avatar} />
                               <AvatarFallback>{getInitials(customer.name)}</AvatarFallback>
                             </Avatar>
                             <div>
-                              <p className="font-medium">{customer.name}</p>
-                              <p className="text-sm text-muted-foreground">{customer.email}</p>
+                              <p className="font-medium truncate">{customer.name}</p>
+                              <p className="text-sm text-muted-foreground truncate">{customer.email}</p>
                             </div>
                           </div>
 
                           <p className="text-sm mt-2">{customer.city} · <span className="text-muted-foreground">{customer.province}</span></p>
                           <p className="text-sm mt-1">Pedidos: <span className="font-medium">{customer.totalOrders || 0}</span></p>
                         </div>
-                        <div className="ml-4 text-right">
-                          <p className="font-medium">{formatPrice(Number(customer.totalSpent || 0))}</p>
-                          <Badge className={`mt-2 ${statusConfig[customer.status]?.color || statusConfig.active.color}`}>{statusConfig[customer.status]?.label || 'Ativo'}</Badge>
+                        <div className="ml-4 text-right flex-shrink-0 w-28">
+                          <p className="font-medium truncate whitespace-nowrap">{formatPrice(Number(customer.totalSpent || 0))}</p>
+                          <div className="mt-2">
+                            <Badge className={`inline-flex items-center whitespace-nowrap ${statusConfig[customer.status]?.color || statusConfig.active.color}`}>
+                              {statusConfig[customer.status]?.label || 'Ativo'}
+                            </Badge>
+                          </div>
                         </div>
                       </div>
 
