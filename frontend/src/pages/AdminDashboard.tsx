@@ -131,25 +131,29 @@ const AdminDashboard = () => {
     <AdminLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
             <p className="text-muted-foreground">
               Visão geral do seu sistema de e-commerce
             </p>
           </div>
-          <div className="flex items-center space-x-4">
-            <Button variant="outline" size="sm">
-              <Download className="h-4 w-4 mr-2" />
-              Exportar
-            </Button>
-            <Button variant="outline" size="sm">
-              <Settings className="h-4 w-4 mr-2" />
-              Configurações
-            </Button>
-            <Button onClick={refresh} disabled={statsLoading}>
-              Atualizar Dados
-            </Button>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 gap-2">
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm">
+                <Download className="h-4 w-4 mr-2" />
+                Exportar
+              </Button>
+              <Button variant="outline" size="sm">
+                <Settings className="h-4 w-4 mr-2" />
+                Configurações
+              </Button>
+            </div>
+            <div>
+              <Button onClick={refresh} disabled={statsLoading}>
+                Atualizar Dados
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -333,8 +337,8 @@ const AdminDashboard = () => {
               <CardContent>
                 <div className="space-y-4">
                   {/* Search and Filter Bar */}
-                  <div className="flex items-center gap-4">
-                    <div className="relative flex-1">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                    <div className="relative w-full sm:flex-1">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                         <Input
                           placeholder="Buscar produtos..."
@@ -350,7 +354,7 @@ const AdminDashboard = () => {
                         />
                       </div>
                     <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v)}>
-                      <SelectTrigger className="w-[180px]">
+                      <SelectTrigger className="w-full sm:w-[180px]">
                         <SelectValue placeholder="Categoria" />
                       </SelectTrigger>
                       <SelectContent>
@@ -365,7 +369,7 @@ const AdminDashboard = () => {
 
                     {/* Status filter */}
                     <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v)}>
-                      <SelectTrigger className="w-[180px]">
+                      <SelectTrigger className="w-full sm:w-[180px]">
                         <SelectValue placeholder="Status" />
                       </SelectTrigger>
                       <SelectContent>
@@ -379,96 +383,144 @@ const AdminDashboard = () => {
 
                   {/* Products Table */}
                   <div className="border rounded-lg">
-                    <div className="grid grid-cols-6 gap-4 p-4 border-b font-medium text-sm">
-                      <div>Produto</div>
-                      <div>Categoria</div>
-                      <div>Preço</div>
-                      <div>Estoque</div>
-                      <div>Status</div>
-                      <div>Ações</div>
-                    </div>
-                    
-                    {productsLoading ? (
-                      <div className="p-8 text-center">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-                        <p className="mt-2 text-sm text-muted-foreground">Carregando produtos...</p>
+                    {/* Table view for sm+ screens */}
+                    <div className="hidden sm:block">
+                      <div className="grid grid-cols-6 gap-4 p-4 border-b font-medium text-sm">
+                        <div>Produto</div>
+                        <div>Categoria</div>
+                        <div>Preço</div>
+                        <div>Estoque</div>
+                        <div>Status</div>
+                        <div>Ações</div>
                       </div>
-                    ) : products.length > 0 ? (
-                      products.slice(0, 10).map((product) => (
-                        <div key={product.id} className="grid grid-cols-6 gap-4 p-4 border-b items-center hover:bg-gray-50">
-                          <div className="flex items-center gap-3">
-                            {product.main_image_url && (
-                              <img 
-                                src={getImageUrl(product.main_image_url)}
-                                alt={product.name}
-                                className="w-10 h-10 object-cover rounded"
-                                onError={(e) => {
-                                  const target = e.target as HTMLImageElement;
-                                  target.src = "/placeholder.svg";
-                                }}
-                              />
-                            )}
+                      {productsLoading ? (
+                        <div className="p-8 text-center">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                          <p className="mt-2 text-sm text-muted-foreground">Carregando produtos...</p>
+                        </div>
+                      ) : products.length > 0 ? (
+                        products.slice(0, 10).map((product) => (
+                          <div key={product.id} className="grid grid-cols-6 gap-4 p-4 border-b items-center hover:bg-gray-50">
+                            <div className="flex items-center gap-3">
+                              {product.main_image_url && (
+                                <img 
+                                  src={getImageUrl(product.main_image_url)}
+                                  alt={product.name}
+                                  className="w-10 h-10 object-cover rounded"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    target.src = "/placeholder.svg";
+                                  }}
+                                />
+                              )}
+                              <div>
+                                <p className="font-medium text-sm">{product.name}</p>
+                                <p className="text-xs text-muted-foreground">SKU: {product.sku}</p>
+                              </div>
+                            </div>
                             <div>
-                              <p className="font-medium text-sm">{product.name}</p>
-                              <p className="text-xs text-muted-foreground">SKU: {product.sku}</p>
+                              <Badge variant="outline" className="text-xs">
+                                {product.category_name}
+                              </Badge>
+                            </div>
+                            <div>
+                              <p className="font-medium">{formatPrice(product.price)}</p>
+                              {product.original_price && product.original_price !== product.price && (
+                                <p className="text-xs text-muted-foreground line-through">
+                                  {formatPrice(product.original_price)}
+                                </p>
+                              )}
+                            </div>
+                            <div>
+                              <Badge 
+                                variant={
+                                  product.stock_quantity === 0 ? "destructive" : 
+                                  product.is_low_stock ? "secondary" : "default"
+                                }
+                                className="text-xs"
+                              >
+                                {product.stock_quantity}
+                              </Badge>
+                            </div>
+                            <div>
+                              <Badge 
+                                variant={product.status === 'active' ? "default" : "secondary"}
+                                className="text-xs"
+                              >
+                                {product.status === 'active' ? 'Ativo' : 'Inativo'}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => navigate(`/admin/products/edit/${product.id}`)}
+                              >
+                                Editar
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                disabled={deleting}
+                                onClick={() => handleDeleteProduct(product.id, product.name)}
+                              >
+                                {deleting ? 'Deletando...' : 'Deletar'}
+                              </Button>
                             </div>
                           </div>
-                          <div>
-                            <Badge variant="outline" className="text-xs">
-                              {product.category_name}
-                            </Badge>
-                          </div>
-                          <div>
-                            <p className="font-medium">{formatPrice(product.price)}</p>
-                            {product.original_price && product.original_price !== product.price && (
-                              <p className="text-xs text-muted-foreground line-through">
-                                {formatPrice(product.original_price)}
-                              </p>
-                            )}
-                          </div>
-                          <div>
-                            <Badge 
-                              variant={
-                                product.stock_quantity === 0 ? "destructive" : 
-                                product.is_low_stock ? "secondary" : "default"
-                              }
-                              className="text-xs"
-                            >
-                              {product.stock_quantity}
-                            </Badge>
-                          </div>
-                          <div>
-                            <Badge 
-                              variant={product.status === 'active' ? "default" : "secondary"}
-                              className="text-xs"
-                            >
-                              {product.status === 'active' ? 'Ativo' : 'Inativo'}
-                            </Badge>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              onClick={() => navigate(`/admin/products/edit/${product.id}`)}
-                            >
-                              Editar
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              disabled={deleting}
-                              onClick={() => handleDeleteProduct(product.id, product.name)}
-                            >
-                              {deleting ? 'Deletando...' : 'Deletar'}
-                            </Button>
-                          </div>
+                        ))
+                      ) : (
+                        <div className="p-8 text-center">
+                          <p className="text-muted-foreground">Nenhum produto encontrado</p>
                         </div>
-                      ))
-                    ) : (
-                      <div className="p-8 text-center">
-                        <p className="text-muted-foreground">Nenhum produto encontrado</p>
-                      </div>
-                    )}
+                      )}
+                    </div>
+
+                    {/* Card/list view for mobile */}
+                    <div className="sm:hidden">
+                      {productsLoading ? (
+                        <div className="p-6 text-center">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                          <p className="mt-2 text-sm text-muted-foreground">Carregando produtos...</p>
+                        </div>
+                      ) : products.length > 0 ? (
+                        <div className="space-y-3 p-2">
+                          {products.slice(0, 10).map((product) => (
+                            <div key={product.id} className="border rounded-lg p-3 bg-white">
+                              <div className="flex items-start gap-3">
+                                {product.main_image_url && (
+                                  <img src={getImageUrl(product.main_image_url)} alt={product.name} className="w-12 h-12 object-cover rounded" />
+                                )}
+                                <div className="flex-1">
+                                  <div className="flex justify-between items-start">
+                                    <div>
+                                      <p className="font-medium">{product.name}</p>
+                                      <p className="text-xs text-muted-foreground">{product.category_name}</p>
+                                    </div>
+                                    <div className="text-right">
+                                      <p className="font-medium">{formatPrice(product.price)}</p>
+                                      <p className="text-xs text-muted-foreground">SKU: {product.sku}</p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center justify-between mt-2 gap-2">
+                                    <Badge variant="outline" className="text-xs">{product.category_name}</Badge>
+                                    <Badge variant={product.status === 'active' ? 'default' : 'secondary'} className="text-xs">{product.status === 'active' ? 'Ativo' : 'Inativo'}</Badge>
+                                    <div className="flex items-center gap-2">
+                                      <Button size="sm" variant="outline" onClick={() => navigate(`/admin/products/edit/${product.id}`)}>Editar</Button>
+                                      <Button size="sm" variant="outline" disabled={deleting} onClick={() => handleDeleteProduct(product.id, product.name)}>{deleting ? 'Deletando...' : 'Deletar'}</Button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="p-6 text-center">
+                          <p className="text-muted-foreground">Nenhum produto encontrado</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* Pagination */}
