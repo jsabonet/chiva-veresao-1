@@ -485,17 +485,17 @@ const CustomersManagement = () => {
   return (
     <AdminLayout>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
         <div>
           <h1 className="text-2xl font-bold">Gerenciamento de Clientes</h1>
           <p className="text-muted-foreground">Gerencie todos os clientes da loja</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline">
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <Button variant="outline" className="w-full sm:w-auto">
             <Download className="h-4 w-4 mr-2" />
             Exportar
           </Button>
-          <Button onClick={openCreateModal}>
+          <Button onClick={openCreateModal} className="w-full sm:w-auto">
             <Plus className="h-4 w-4 mr-2" />
             Novo Cliente
           </Button>
@@ -557,46 +557,48 @@ const CustomersManagement = () => {
       {/* Filtros */}
       <Card className="mb-6">
         <CardContent className="pt-6">
-          <div className="flex items-center space-x-4">
-            <div className="relative flex-1 max-w-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+            <div className="relative w-full sm:max-w-xs">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar clientes..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8"
+                className="pl-8 w-full"
               />
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[150px]">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                {Object.entries(statusConfig).map(([key, config]) => (
-                  <SelectItem key={key} value={key}>
-                    {config.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={provinceFilter} onValueChange={setProvinceFilter}>
-              <SelectTrigger className="w-[150px]">
-                <SelectValue placeholder="Província" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas</SelectItem>
-                {provinces.map((province) => (
-                  <SelectItem key={province} value={province}>
-                    {province}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button variant="outline">
-              <Filter className="h-4 w-4 mr-2" />
-              Mais Filtros
-            </Button>
+            <div className="flex items-center w-full sm:w-auto gap-2">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full sm:w-[140px]">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  {Object.entries(statusConfig).map(([key, config]) => (
+                    <SelectItem key={key} value={key}>
+                      {config.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={provinceFilter} onValueChange={setProvinceFilter}>
+                <SelectTrigger className="w-full sm:w-[140px]">
+                  <SelectValue placeholder="Província" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  {provinces.map((province) => (
+                    <SelectItem key={province} value={province}>
+                      {province}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+                {/* <Button variant="outline" className="w-full sm:w-auto">
+                <Filter className="h-4 w-4 mr-2" />
+                Mais Filtros
+              </Button> */}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -616,8 +618,8 @@ const CustomersManagement = () => {
             </div>
           ) : (
             <div className="rounded-md border">
-              <div className="hidden md:block">
-                <table className="w-full">
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full min-w-[640px]">
                 <thead>
                   <tr className="border-b">
                     <th className="text-left p-4 font-medium">Cliente</th>
@@ -668,6 +670,7 @@ const CustomersManagement = () => {
                         </Badge>
                       </td>
                       <td className="p-4">
+                        <div className="min-w-0">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="sm">
@@ -710,6 +713,7 @@ const CustomersManagement = () => {
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -744,15 +748,15 @@ const CustomersManagement = () => {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 mt-3">
-                        <Button variant="ghost" size="sm" onClick={() => openViewModal(customer)}>
+                      <div className="flex flex-wrap items-center gap-2 mt-3">
+                        <Button variant="ghost" size="sm" onClick={() => openViewModal(customer)} className="whitespace-nowrap">
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={() => openEditModal(customer)}>
+                        <Button variant="ghost" size="sm" onClick={() => openEditModal(customer)} className="whitespace-nowrap">
                           <Edit className="h-4 w-4" />
                         </Button>
                         {canManageAdmins && (
-                          <Button variant="ghost" size="sm" onClick={() => { setAdminActionTarget(customer); setIsAdminConfirmOpen(true); }}>
+                          <Button variant="ghost" size="sm" onClick={() => { setAdminActionTarget(customer); setIsAdminConfirmOpen(true); }} className="whitespace-nowrap">
                             <Shield className="h-4 w-4" />
                           </Button>
                         )}
