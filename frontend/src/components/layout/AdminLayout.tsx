@@ -57,7 +57,15 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
     return currentUser?.email?.[0]?.toUpperCase() || 'U';
   };
 
-  const navigation = [
+  interface NavItem {
+    name: string;
+    href: string;
+    icon: any;
+    current: boolean;
+    badge?: string;
+  }
+
+  const navigation: NavItem[] = [
     {
       name: 'Dashboard',
       href: '/admin/dashboard',
@@ -75,7 +83,6 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
       href: '/admin/reviews',
       icon: Star,
       current: location.pathname.startsWith('/admin/reviews'),
-      badge: 'Novo'
     },
     {
       name: 'Pedidos',
@@ -126,11 +133,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                           aria-hidden="true"
                         />
                         <span className="flex-1">{item.name}</span>
-                        {item.badge && (
-                          <span className="ml-2 inline-flex items-center rounded-md bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-800 ring-1 ring-inset ring-yellow-600/20">
-                            {item.badge}
-                          </span>
-                        )}
+                        {/* badge removido conforme pedido */}
                       </Link>
                     </li>
                   ))}

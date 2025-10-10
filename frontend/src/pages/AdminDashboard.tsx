@@ -75,8 +75,12 @@ const StatCard = ({
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const { stats, loading: statsLoading, error: statsError, refresh } = useProductStats();
-  const { products, loading: productsLoading } = useProducts({ ordering: '-created_at' });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+
   const { categories, loading: categoriesLoading } = useCategories();
+  const { products, loading: productsLoading, refresh: refreshProducts } = useProducts({ ordering: '-created_at', search: searchQuery || undefined, category: categoryFilter === 'all' ? undefined : categoryFilter, status: statusFilter === 'all' ? undefined : statusFilter });
   const { deleteProduct, loading: deleting } = useDeleteProduct();
 
   const handleDeleteProduct = async (productId: number, productName: string) => {
@@ -331,13 +335,21 @@ const AdminDashboard = () => {
                   {/* Search and Filter Bar */}
                   <div className="flex items-center gap-4">
                     <div className="relative flex-1">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                      <Input
-                        placeholder="Buscar produtos..."
-                        className="pl-10"
-                      />
-                    </div>
-                    <Select>
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                        <Input
+                          placeholder="Buscar produtos..."
+                          className="pl-10"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery((e.target as HTMLInputElement).value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              // Refresh products when pressing Enter
+                              refreshProducts();
+                            }
+                          }}
+                        />
+                      </div>
+                    <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v)}>
                       <SelectTrigger className="w-[180px]">
                         <SelectValue placeholder="Categoria" />
                       </SelectTrigger>
@@ -350,14 +362,16 @@ const AdminDashboard = () => {
                         ))}
                       </SelectContent>
                     </Select>
-                    <Select>
+
+                    {/* Status filter */}
+                    <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v)}>
                       <SelectTrigger className="w-[180px]">
                         <SelectValue placeholder="Status" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Todos</SelectItem>
-                        <SelectItem value="active">Ativo</SelectItem>
-                        <SelectItem value="inactive">Inativo</SelectItem>
+                        <SelectItem value="active">Ativos</SelectItem>
+                        <SelectItem value="inactive">Inativos</SelectItem>
                         <SelectItem value="out_of_stock">Sem Estoque</SelectItem>
                       </SelectContent>
                     </Select>

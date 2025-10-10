@@ -480,6 +480,8 @@ export const productApi = {
     max_price?: string;
     ordering?: string;
     in_stock?: string;
+    // status filter: 'active' | 'inactive' | 'out_of_stock'
+    status?: string;
   }) => {
     const queryParams = params ? Object.fromEntries(
       Object.entries(params).map(([key, value]) => [key, String(value)])

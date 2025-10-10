@@ -15,6 +15,7 @@ export const useProducts = (params?: {
   page?: number;
   search?: string;
   category?: string;
+  status?: string;
   min_price?: string;
   max_price?: string;
   ordering?: string;

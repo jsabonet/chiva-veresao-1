@@ -29,7 +29,6 @@ const Admin = () => {
       icon: FileText,
       href: "/admin/reviews",
       color: "text-yellow-600",
-      badge: "Novo"
     },
     {
       title: "Produtos",
