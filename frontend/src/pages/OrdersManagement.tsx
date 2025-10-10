@@ -423,7 +423,11 @@ const OrdersManagement = () => {
         open={isOrderDialogOpen} 
         onOpenChange={setIsOrderDialogOpen}
       >
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        {/*
+          Make dialog full-screen on small devices while keeping centered max-width on desktop.
+          Use utility classes: w-screen h-screen p-4 for mobile; revert to max-w-4xl on md+
+        */}
+  <DialogContent className="w-screen h-screen p-4 md:w-auto md:h-auto md:p-0 max-w-4xl md:max-h-[80vh] md:overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3">
               Detalhes do Pedido {selectedOrder.order_number}
@@ -445,7 +449,7 @@ const OrdersManagement = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 {/* Status do Pedido */}
-                <div>
+                <div className="min-w-0">
                   <label className="text-sm font-medium mb-2 block">Status do Pedido</label>
                   <Select 
                     value={selectedOrder.status}
@@ -699,23 +703,24 @@ const OrdersManagement = () => {
   return (
     <AdminLayout>
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">Gerenciamento de Pedidos</h1>
           <p className="text-muted-foreground">
             Acompanhe e gerencie todos os pedidos da loja
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
           <Button 
             variant="outline"
             onClick={() => fetchOrders()}
             disabled={loading}
+            className="w-full sm:w-auto"
           >
             <Package className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             {loading ? 'Atualizando...' : 'Atualizar'}
           </Button>
-          <Button variant="outline">
+          <Button variant="outline" className="w-full sm:w-auto">
             <Download className="h-4 w-4 mr-2" />
             Exportar Relatório
           </Button>
@@ -798,38 +803,41 @@ const OrdersManagement = () => {
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex items-center space-x-4">
-            <div className="relative flex-1 max-w-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="relative w-full sm:max-w-sm">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Buscar por pedido, cliente..."
-                className="pl-8"
+                className="pl-8 w-full"
                 aria-label="Buscar pedidos"
               />
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Todos os status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os status</SelectItem>
-                {Object.entries(statusConfig).map(([key, config]) => (
-                  <SelectItem key={key} value={key}>
-                    {config.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button 
-              variant="outline"
-              onClick={() => fetchOrders()}
-              disabled={loading}
-            >
-              <Filter className="h-4 w-4 mr-2" />
-              {loading ? 'Carregando...' : 'Atualizar'}
-            </Button>
+            <div className="flex items-center w-full sm:w-auto gap-2">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full sm:w-[180px]">
+                  <SelectValue placeholder="Todos os status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os status</SelectItem>
+                  {Object.entries(statusConfig).map(([key, config]) => (
+                    <SelectItem key={key} value={key}>
+                      {config.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button 
+                variant="outline"
+                onClick={() => fetchOrders()}
+                disabled={loading}
+                className="w-full sm:w-auto"
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                {loading ? 'Carregando...' : 'Atualizar'}
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -837,9 +845,9 @@ const OrdersManagement = () => {
       {/* Orders Table */}
       <Card>
         <CardContent className="pt-6">
-          <div className="rounded-md border">
-            <div className="hidden md:block">
-              <table className="w-full">
+            <div className="rounded-md border">
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full min-w-[700px]">
               <thead>
                 <tr className="border-b">
                   <th className="text-left p-4 font-medium">Pedido</th>
@@ -900,7 +908,7 @@ const OrdersManagement = () => {
                           </Badge>
                         </td>
                         <td className="p-4">
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1 whitespace-nowrap">
                             <Button 
                               variant="ghost" 
                               size="sm"
@@ -1019,7 +1027,7 @@ const OrdersManagement = () => {
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2 mt-3">
+                        <div className="flex flex-wrap items-center gap-2 mt-3">
                           <Button variant="ghost" size="sm" onClick={() => handleViewOrder(order)} title="Ver detalhes">
                             <Eye className="h-4 w-4" />
                           </Button>

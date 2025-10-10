@@ -36,14 +36,32 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
+        // Mobile: full-bleed modal (inset), use safe-area paddings; Desktop(sm+): centered modal
+        "fixed inset-0 z-50 grid w-full gap-4 bg-background shadow-lg duration-200",
+        // center and size on sm+ screens
+        "sm:left-[50%] sm:top-[50%] sm:inset-auto sm:translate-x-[-50%] sm:translate-y-[-50%] sm:max-w-lg sm:rounded-lg sm:border sm:p-6",
+        // default mobile paddings (we'll add inline safe-area styles when rendered if needed)
+        "p-4",
+        // animations
+        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]",
+        // enable vertical scroll inside the dialog on mobile; desktop will respect max-height
+        "overflow-y-auto touch-pan-y",
         className
       )}
+      style={{
+        // safe-area padding for mobile devices with notches
+        paddingTop: `calc(1rem + env(safe-area-inset-top, 0px))`,
+        paddingBottom: `calc(1rem + env(safe-area-inset-bottom, 0px))`,
+        // ensure native momentum scrolling on iOS
+        WebkitOverflowScrolling: 'touch',
+        // allow the content area to scroll vertically
+        overflowY: 'auto',
+      }}
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
-        <X className="h-4 w-4" />
+      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-md p-2 opacity-90 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+        <X className="h-5 w-5 sm:h-4 sm:w-4" />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>
     </DialogPrimitive.Content>
