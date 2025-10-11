@@ -23,6 +23,7 @@ import {
 import StarRating from '@/components/ui/StarRating';
 import ReviewForm from '@/components/ui/ReviewForm';
 import ReviewList from '@/components/ui/ReviewList';
+import { Helmet } from 'react-helmet-async';
 import { useProductBySlug, useProduct } from '@/hooks/useApi';
 import { formatPrice, getImageUrl, type Product } from '@/lib/api';
 import { useCart } from '@/contexts/CartContext';
@@ -279,6 +280,90 @@ const ProductDetails = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Set page meta tags for SEO using product meta fields when available */}
+      <Helmet>
+        <title>{product.meta_title || product.name}</title>
+        {product.meta_description && <meta name="description" content={product.meta_description} />}
+        {product.meta_keywords && <meta name="keywords" content={product.meta_keywords} />}
+
+        {/* Open Graph / Social */}
+        <meta property="og:title" content={product.meta_title || product.name} />
+        {product.meta_description && <meta property="og:description" content={product.meta_description} />}
+        <meta property="og:type" content="product" />
+        <meta property="og:site_name" content="Chiva Computer & Service" />
+        {(() => {
+          const img = product.main_image_url || product.main_image || (product.images?.[0]?.image_url || product.images?.[0]?.image);
+          const url = (typeof window !== 'undefined' && product.slug) ? `${window.location.origin}/products/${product.slug}` : undefined;
+          return (
+            <>
+              {img && <meta property="og:image" content={getImageUrl(img as string)} />}
+              {url && <meta property="og:url" content={url} />}
+              {url && <link rel="canonical" href={url} />}
+            </>
+          );
+        })()}
+
+        {/* Twitter card */}
+        <meta name="twitter:card" content={product.main_image_url || product.main_image ? 'summary_large_image' : 'summary'} />
+        <meta name="twitter:title" content={product.meta_title || product.name} />
+        {product.meta_description && <meta name="twitter:description" content={product.meta_description} />}
+        {(() => {
+          const img = product.main_image_url || product.main_image || (product.images?.[0]?.image_url || product.images?.[0]?.image);
+          return img ? <meta name="twitter:image" content={getImageUrl(img as string)} /> : null;
+        })()}
+
+        {/* JSON-LD structured data for Product (rich results) */}
+        {(() => {
+          try {
+            const url = (typeof window !== 'undefined' && product.slug) ? `${window.location.origin}/products/${product.slug}` : undefined;
+            const img = product.main_image_url || product.main_image || (product.images?.map(i => i.image_url || i.image) || []).filter(Boolean)[0];
+            const images = [] as string[];
+            if (img) images.push(getImageUrl(img as string));
+            (product.images || []).forEach((i) => {
+              const path = (i.image_url || i.image) as string | undefined;
+              if (path) images.push(getImageUrl(path));
+            });
+
+            const ld: any = {
+              "@context": "https://schema.org/",
+              "@type": "Product",
+              name: product.name,
+              description: product.meta_description || product.description,
+              sku: product.sku || undefined,
+            };
+
+            if (product.brand) {
+              ld.brand = { "@type": "Brand", name: product.brand };
+            }
+            if (images.length > 0) {
+              ld.image = images;
+            }
+
+            // Offers
+            const price = typeof product.price === 'number' ? product.price : parseFloat(product.price as any);
+            ld.offers = {
+              "@type": "Offer",
+              price: isNaN(price) ? undefined : String(price),
+              priceCurrency: 'MZN',
+              availability: product.stock_quantity > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+              url: url,
+            };
+
+            if (product.average_rating !== undefined && product.total_reviews !== undefined) {
+              ld.aggregateRating = {
+                "@type": "AggregateRating",
+                ratingValue: String(product.average_rating),
+                reviewCount: String(product.total_reviews),
+              };
+            }
+
+            const jsonLd = JSON.stringify(ld);
+            return <script type="application/ld+json">{jsonLd}</script>;
+          } catch (e) {
+            return null;
+          }
+        })()}
+      </Helmet>
       <Header />
       <main className="container mx-auto px-4 py-8">
         {isPreview && (
@@ -405,12 +490,12 @@ const ProductDetails = () => {
           <div className="space-y-4 lg:space-y-6">
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold mb-2 break-words leading-tight">{product.name}</h1>
+              {/* Meta tags are injected into <head> via Helmet for SEO (not shown to customers) */}
               <p className="text-sm sm:text-base text-muted-foreground">SKU: {product.sku}</p>
             </div>
 
             {/* Badges */}
             <div className="flex flex-wrap gap-2">
-              {/* <Badge variant="secondary" className="text-xs sm:text-sm">{categoryName || (typeof product.category === 'string' ? product.category : 'Categoria')}</Badge> */}
               {product.is_featured && <Badge variant="default" className="text-xs sm:text-sm">Destaque</Badge>}
               {product.is_bestseller && <Badge variant="default" className="text-xs sm:text-sm">Best Seller</Badge>}
               {product.is_on_sale && <Badge variant="destructive" className="text-xs sm:text-sm">Promoção</Badge>}

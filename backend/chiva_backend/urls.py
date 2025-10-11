@@ -19,6 +19,8 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
+from django.contrib.sitemaps.views import sitemap
+from products.sitemaps import ProductSitemap, CategorySitemap, SubcategorySitemap, StaticViewSitemap
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -32,6 +34,13 @@ urlpatterns = [
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+    # Sitemap
+    path('sitemap.xml', sitemap, {'sitemaps': {
+        'products': ProductSitemap(),
+        'categories': CategorySitemap(),
+        'subcategories': SubcategorySitemap(),
+        'static': StaticViewSitemap(),
+    }}, name='sitemap'),
 ]
 
 # Serve media files during development
