@@ -396,11 +396,24 @@ class ApiClient {
   // Special methods for file uploads
   async postFormData<T>(endpoint: string, formData: FormData): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
-    
+    // Wait for auth token (if any) and include Authorization header like in request()
+    let authHeaders = {};
+    try {
+      const token = await this.waitForAuth();
+      if (token) {
+        authHeaders = { 'Authorization': `Bearer ${token}` };
+      }
+    } catch (e) {
+      // ignore token errors and proceed without auth header
+    }
+
     const config: RequestInit = {
       method: 'POST',
       body: formData,
-      // Don't set Content-Type header, let browser set it with boundary
+      headers: {
+        ...authHeaders,
+        // Don't set Content-Type header, let browser set it with boundary
+      },
     };
 
     try {
@@ -432,10 +445,23 @@ class ApiClient {
 
   async putFormData<T>(endpoint: string, formData: FormData): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
-    
+    let authHeaders = {};
+    try {
+      const token = await this.waitForAuth();
+      if (token) {
+        authHeaders = { 'Authorization': `Bearer ${token}` };
+      }
+    } catch (e) {
+      // ignore
+    }
+
     const config: RequestInit = {
       method: 'PUT',
       body: formData,
+      headers: {
+        ...authHeaders,
+        // Don't set Content-Type header, let browser set it with boundary
+      },
     };
 
     try {
