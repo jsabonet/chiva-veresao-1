@@ -482,6 +482,29 @@ const ProductDetails = () => {
               </div>
             )}
 
+            {/* Dimensions (show immediately after colors) */}
+            {(product.length || product.width || product.height || product.weight) && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Dimensões</span>
+                </div>
+                <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                  {product.length && (
+                    <div className="min-w-[10rem]">Comprimento: <span className="text-foreground">{product.length} cm</span></div>
+                  )}
+                  {product.width && (
+                    <div className="min-w-[10rem]">Largura: <span className="text-foreground">{product.width} cm</span></div>
+                  )}
+                  {product.height && (
+                    <div className="min-w-[10rem]">Altura: <span className="text-foreground">{product.height} cm</span></div>
+                  )}
+                  {product.weight && (
+                    <div className="min-w-[10rem]">Peso: <span className="text-foreground">{product.weight} kg</span></div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Quantity and Add to Cart */}
             {product.stock_quantity > 0 && (
               <div className="space-y-4">
