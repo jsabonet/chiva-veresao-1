@@ -742,7 +742,7 @@ const CustomersManagement = () => {
                           <p className="text-sm mt-2">{customer.city} · <span className="text-muted-foreground">{customer.province}</span></p>
                           <p className="text-sm mt-1">Pedidos: <span className="font-medium">{customer.totalOrders || 0}</span></p>
                         </div>
-                        <div className="ml-4 text-right flex-shrink-0 w-28">
+                        <div className="ml-4 mt-14 text-right flex-shrink-0 w-28">
                           <p className="font-medium truncate whitespace-nowrap">{formatPrice(Number(customer.totalSpent || 0))}</p>
                           <div className="mt-2">
                             <Badge className={`inline-flex items-center whitespace-nowrap ${statusConfig[customer.status]?.color || statusConfig.active.color}`}>
