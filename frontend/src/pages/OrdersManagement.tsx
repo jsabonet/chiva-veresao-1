@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAdminStatus } from '@/hooks/useAdminStatus';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { 
   Search, 
@@ -105,10 +106,22 @@ const OrdersManagement = () => {
     has_next: false,
     has_previous: false
   });
+  const { isAdmin } = useAdminStatus();
+
+  // Today quick metrics
+  const [filterToday, setFilterToday] = useState(false);
+  const [todayOrdersCount, setTodayOrdersCount] = useState<number | null>(null);
+  const [todayRevenue, setTodayRevenue] = useState<number | null>(null);
 
   useEffect(() => {
     fetchOrders();
-  }, [statusFilter, searchTerm, pagination.page]);
+  }, [statusFilter, searchTerm, pagination.page, filterToday, isAdmin]);
+
+  // Fetch today's aggregated metrics on mount and when admin/user changes
+  useEffect(() => {
+    fetchTodayMetrics();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin, currentUser]);
 
   const fetchOrders = async () => {
     try {
@@ -128,7 +141,21 @@ const OrdersManagement = () => {
         params.append('search', searchTerm.trim());
       }
 
-      const response = await fetch(`/api/cart/orders/?${params}`, {
+      // If the quick 'today' filter is enabled, use date_from/date_to
+      if (filterToday) {
+        const today = new Date();
+        const y = today.getFullYear();
+        const m = String(today.getMonth() + 1).padStart(2, '0');
+        const d = String(today.getDate()).padStart(2, '0');
+        const isoDate = `${y}-${m}-${d}`;
+        params.append('date_from', isoDate);
+        params.append('date_to', isoDate);
+      }
+
+      // Choose admin vs user endpoint
+      const basePath = isAdmin ? '/api/cart/admin/orders/' : '/api/cart/orders/';
+
+      const response = await fetch(`${basePath}?${params}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -152,6 +179,56 @@ const OrdersManagement = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Fetch aggregated metrics for today (orders count and revenue).
+  // This uses the admin endpoint when available; it fetches up to a large page
+  // size to try to retrieve all today's orders and sum revenue locally.
+  const fetchTodayMetrics = async () => {
+    try {
+      const token = await currentUser?.getIdToken();
+      const today = new Date();
+      const y = today.getFullYear();
+      const m = String(today.getMonth() + 1).padStart(2, '0');
+      const d = String(today.getDate()).padStart(2, '0');
+      const isoDate = `${y}-${m}-${d}`;
+
+      const params = new URLSearchParams({
+        page: '1',
+        page_size: '1000',
+        date_from: isoDate,
+        date_to: isoDate,
+      });
+
+      const basePath = isAdmin ? '/api/cart/admin/orders/' : '/api/cart/orders/';
+
+      const resp = await fetch(`${basePath}?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
+
+      if (!resp.ok) {
+        throw new Error('Erro ao carregar métricas de hoje');
+      }
+
+      const data: ApiResponse = await resp.json();
+      const list = data.orders || [];
+      const revenue = list.reduce((sum, o) => {
+        const total = parseFloat(o.total_amount || '0') || 0;
+        const shipping = parseFloat(o.shipping_cost || '0') || 0;
+        return sum + total + shipping;
+      }, 0);
+
+      setTodayOrdersCount(list.length);
+      setTodayRevenue(revenue);
+    } catch (err) {
+      console.error('Error fetching today metrics:', err);
+      setTodayOrdersCount(null);
+      setTodayRevenue(null);
     }
   };
 
@@ -728,7 +805,7 @@ const OrdersManagement = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-5">
+  <div className="grid gap-4 md:grid-cols-6">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center">
@@ -798,6 +875,30 @@ const OrdersManagement = () => {
             </div>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center">
+              <Clock className="h-4 w-4 text-blue-600" />
+              <div className="ml-2">
+                <p className="text-sm font-medium text-muted-foreground">Pedidos Hoje</p>
+                <p className="text-2xl font-bold">{todayOrdersCount === null ? '—' : todayOrdersCount}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center">
+              <Package className="h-4 w-4 text-green-600" />
+              <div className="ml-2">
+                <p className="text-sm font-medium text-muted-foreground">Receita Hoje</p>
+                <p className="text-lg font-bold">{todayRevenue === null ? '—' : formatPrice(todayRevenue)}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Filters */}
@@ -836,6 +937,20 @@ const OrdersManagement = () => {
               >
                 <Filter className="h-4 w-4 mr-2" />
                 {loading ? 'Carregando...' : 'Atualizar'}
+              </Button>
+              <Button
+                variant={filterToday ? 'default' : 'outline'}
+                onClick={() => {
+                  setFilterToday(v => !v);
+                  // refresh both orders and today's metrics
+                  fetchTodayMetrics();
+                  fetchOrders();
+                }}
+                className="w-full sm:w-auto"
+                title="Filtrar pedidos de hoje"
+              >
+                <Calendar className="h-4 w-4 mr-2" />
+                Hoje
               </Button>
             </div>
           </div>

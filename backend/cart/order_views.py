@@ -275,6 +275,18 @@ def admin_orders_stats(request):
         status__in=['delivered', 'shipped', 'processing']
     ).aggregate(total=Sum('total_amount'))['total'] or 0
     
+    # Today's metrics
+    today_orders = Order.objects.filter(created_at__date=today).count()
+    today_revenue_amount = Order.objects.filter(
+        created_at__date=today,
+        status__in=['delivered', 'shipped', 'processing']
+    ).aggregate(total=Sum('total_amount'))['total'] or 0
+    today_shipping = Order.objects.filter(
+        created_at__date=today,
+        status__in=['delivered', 'shipped', 'processing']
+    ).aggregate(total=Sum('shipping_cost'))['total'] or 0
+    today_revenue = (today_revenue_amount or 0) + (today_shipping or 0)
+    
     # Recent orders
     recent_orders = Order.objects.select_related('user').order_by('-created_at')[:10]
     recent_orders_data = OrderSerializer(recent_orders, many=True).data
@@ -288,6 +300,8 @@ def admin_orders_stats(request):
             'delivered_orders': delivered_orders,
             'total_revenue': total_revenue,
             'monthly_revenue': monthly_revenue,
+            'today_orders': today_orders,
+            'today_revenue': today_revenue,
         },
         'recent_orders': recent_orders_data
     })
