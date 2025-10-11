@@ -7,7 +7,7 @@ import django
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # Set up Django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'chiva_backend.settings')
 django.setup()
 
 from products.models import Color

@@ -245,8 +245,36 @@ const ProductDetails = () => {
   const subcategoryId: number | null = typeof product.subcategory === 'number' ? product.subcategory : null;
   const subcategoryName: string | undefined = product.subcategory_name;
 
-  const specifications = product.specifications ? 
+  // Merge named specification fields from `product.specifications` with
+  // top-level dimension fields returned by the API (length, width, height, weight)
+  const baseSpecs: Array<[string, any]> = product.specifications ?
     Object.entries(product.specifications).filter(([_, value]) => value) : [];
+
+  // Track existing keys (normalized) to avoid duplicates
+  const existingKeys = new Set(baseSpecs.map(([k]) => String(k).toLowerCase()));
+
+  const extraSpecs: Array<[string, any]> = [];
+  if (product.dimensions && !existingKeys.has('dimensions') && !existingKeys.has('dimensoes')) {
+    extraSpecs.push(['Dimensões', product.dimensions]);
+  }
+  if (product.length && !existingKeys.has('length') && !existingKeys.has('comprimento')) {
+    extraSpecs.push(['Comprimento (cm)', product.length]);
+  }
+  if (product.width && !existingKeys.has('width') && !existingKeys.has('largura')) {
+    extraSpecs.push(['Largura (cm)', product.width]);
+  }
+  if (product.height && !existingKeys.has('height') && !existingKeys.has('altura')) {
+    extraSpecs.push(['Altura (cm)', product.height]);
+  }
+  if (product.weight && !existingKeys.has('weight') && !existingKeys.has('peso')) {
+    extraSpecs.push(['Peso (kg)', product.weight]);
+  }
+
+  // Format final specifications list: prefer friendly labels for base keys
+  const specifications = [
+    ...baseSpecs.map(([key, value]) => [key.replace(/_/g, ' '), value] as [string, any]),
+    ...extraSpecs,
+  ];
 
 
   return (
@@ -382,7 +410,7 @@ const ProductDetails = () => {
 
             {/* Badges */}
             <div className="flex flex-wrap gap-2">
-              <Badge variant="secondary" className="text-xs sm:text-sm">{product.category.name}</Badge>
+              {/* <Badge variant="secondary" className="text-xs sm:text-sm">{categoryName || (typeof product.category === 'string' ? product.category : 'Categoria')}</Badge> */}
               {product.is_featured && <Badge variant="default" className="text-xs sm:text-sm">Destaque</Badge>}
               {product.is_bestseller && <Badge variant="default" className="text-xs sm:text-sm">Best Seller</Badge>}
               {product.is_on_sale && <Badge variant="destructive" className="text-xs sm:text-sm">Promoção</Badge>}
