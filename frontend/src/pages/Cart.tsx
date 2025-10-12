@@ -17,7 +17,7 @@ const Cart = () => {
   const { initiatePayment } = usePayments();
   const navigate = useNavigate();
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const shipping = 25; // TODO: calcular dinamicamente no futuro
+  const shipping = 0; // TODO: calcular dinamicamente no futuro
   const total = useMemo(() => subtotal + shipping, [subtotal, shipping]);
 
   if (items.length === 0) {
