@@ -37,12 +37,6 @@ export function usePayments() {
   };
 
   const getAuthHeaders = async () => {
-    // Force dev bypass during development — use import.meta.env which is replaced by Vite.
-    if ((import.meta as any).env?.DEV) {
-      console.log('🔧 Using dev bypass token for payment request (forced)');
-      return { Authorization: 'Bearer fake.eyJzdWIiOiJ0ZXN0LXVpZCJ9.fake' } as Record<string, string>;
-    }
-    
     try {
       const { auth } = await import('../lib/firebase');
       const user = auth.currentUser;
@@ -55,9 +49,9 @@ export function usePayments() {
       // ignore, we'll return empty headers
     }
     
-    // Fallback: Use dev bypass token when no Firebase user
-    console.log('🔧 Using dev bypass token for payment request');
-    return { Authorization: 'Bearer fake.eyJzdWIiOiJ0ZXN0LXVpZCJ9.fake' } as Record<string, string>;
+    // Fallback: No user, no auth
+    console.log('⚠️ No Firebase user found, proceeding without authentication for payment request.');
+    return {} as Record<string, string>;
   };
 
   const initiatePayment = useCallback(async (method: 'mpesa' | 'emola' | 'card' | 'transfer' = 'mpesa', paymentData?: any): Promise<InitiatePaymentResponse> => {
@@ -114,11 +108,21 @@ export function usePayments() {
         }
         throw new Error(data.error || `HTTP ${res.status}`);
       }
-  const json = await res.json();
-  // Backend returns { order_id, payment }, but if backend starts proxying gateway
-  // responses directly, handle { status, data }
-  if (json && json.status && json.data) return json.data;
-  return json;
+      const json = await res.json().catch(() => null);
+      // Backend sometimes wraps payload as { status, data }
+      const payload = json && json.status && json.data ? json.data : json;
+
+      // If gateway returned a checkout URL (external redirect), allow callers to handle it
+      const checkoutUrl = payload?.payment?.checkout_url || payload?.payment?.redirect_url || payload?.payment?.payment_url;
+      // Require order_id unless a checkout URL is present (gateway flow may redirect instead)
+      if ((payload == null || payload.order_id == null) && !checkoutUrl) {
+        const err: any = new Error('Resposta inválida do servidor: order_id ausente');
+        err.code = 'missing_order_id';
+        err.payload = payload;
+        throw err;
+      }
+
+      return payload;
     } catch (e: any) {
       setError(e?.message || 'Falha ao iniciar pagamento');
       throw e;

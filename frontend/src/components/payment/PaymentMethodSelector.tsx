@@ -80,12 +80,9 @@ export default function PaymentMethodSelector({ isOpen, onClose, onSubmit, total
 
     setLoading(true);
     try {
-      const paymentData: PaymentData = {
-        method: selectedMethod,
-        ...formData
-      };
-      
-      await onSubmit(paymentData);
+      // New flow: don't require phone or card here. Just inform parent of selected method
+      // Parent (Cart) will redirect user to the checkout/details page where full info is collected.
+      await onSubmit({ method: selectedMethod });
     } catch (error) {
       console.error('Payment submission error:', error);
     } finally {
@@ -93,115 +90,9 @@ export default function PaymentMethodSelector({ isOpen, onClose, onSubmit, total
     }
   };
 
-  const renderMethodForm = () => {
-    if (!selectedMethod) return null;
-
-    switch (selectedMethod) {
-      case 'mpesa':
-      case 'emola':
-        return (
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="phone">Número de Telefone</Label>
-              <Input
-                id="phone"
-                type="tel"
-                placeholder="84/85XXXXXXX"
-                value={formData.phone || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                required
-              />
-              <p className="text-sm text-muted-foreground mt-1">
-                Digite o número associado à sua conta {selectedMethod === 'mpesa' ? 'M-Pesa' : 'e-Mola'}
-              </p>
-            </div>
-          </div>
-        );
-
-      case 'card':
-        return (
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="cardholderName">Nome no Cartão</Label>
-              <Input
-                id="cardholderName"
-                type="text"
-                placeholder="João Silva"
-                value={formData.cardholderName || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, cardholderName: e.target.value }))}
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="cardNumber">Número do Cartão</Label>
-              <Input
-                id="cardNumber"
-                type="text"
-                placeholder="1234 5678 9012 3456"
-                value={formData.cardNumber || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, cardNumber: e.target.value }))}
-                required
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="expiryDate">Validade</Label>
-                <Input
-                  id="expiryDate"
-                  type="text"
-                  placeholder="MM/AA"
-                  value={formData.expiryDate || ''}
-                  onChange={(e) => setFormData(prev => ({ ...prev, expiryDate: e.target.value }))}
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="cvv">CVV</Label>
-                <Input
-                  id="cvv"
-                  type="text"
-                  placeholder="123"
-                  value={formData.cvv || ''}
-                  onChange={(e) => setFormData(prev => ({ ...prev, cvv: e.target.value }))}
-                  required
-                />
-              </div>
-            </div>
-          </div>
-        );
-
-      case 'transfer':
-        return (
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="bankName">Banco</Label>
-              <Input
-                id="bankName"
-                type="text"
-                placeholder="Nome do banco"
-                value={formData.bankName || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, bankName: e.target.value }))}
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="accountNumber">Número da Conta</Label>
-              <Input
-                id="accountNumber"
-                type="text"
-                placeholder="Número da conta"
-                value={formData.accountNumber || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, accountNumber: e.target.value }))}
-                required
-              />
-            </div>
-          </div>
-        );
-
-      default:
-        return null;
-    }
-  };
+  // We no longer collect payment details in this modal. The new flow:
+  // user selects a method, confirms, and is redirected to a checkout details page
+  // where all customer/shipping/order/payment info will be collected.
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -258,7 +149,9 @@ export default function PaymentMethodSelector({ isOpen, onClose, onSubmit, total
 
               <Separator />
 
-              {renderMethodForm()}
+              <div>
+                <p className="text-sm text-muted-foreground">Você selecionou <strong>{paymentMethods.find(m => m.id === selectedMethod)?.name}</strong>. Ao confirmar, será redirecionado para a página de finalização onde deverá preencher os dados do pedido e pagamento.</p>
+              </div>
 
               <div className="flex space-x-3">
                 <Button 

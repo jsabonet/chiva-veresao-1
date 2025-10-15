@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePayments } from '@/hooks/usePayments';
+import { apiClient } from '@/lib/api';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,8 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Checkbox } from '@/components/ui/checkbox';
+// RadioGroup removed: payment selection moved into review
 import { 
   MapPin, 
   CreditCard, 
@@ -31,12 +32,10 @@ import {
   Mail,
   Home,
   Clock,
-  Package,
-  TestTube
+  Package
 } from 'lucide-react';
 import { formatPrice } from '@/lib/formatPrice';
 import { toast } from '@/hooks/use-toast';
-import DemoPayment from '@/components/payments/DemoPayment';
 
 interface ShippingAddress {
   name: string;
@@ -125,13 +124,17 @@ export default function Checkout() {
     postal_code: ''
   });
 
+  // Shipping methods loaded from backend (fallback to local static list if empty)
+  const [shippingMethodsState, setShippingMethodsState] = useState<any[]>([]);
+  const [shippingMicroStep, setShippingMicroStep] = useState<'list' | 'confirm'>('list');
+  const [shippingPreviewMethod, setShippingPreviewMethod] = useState<any | null>(null);
+
   // Order state
   const [selectedShippingMethod, setSelectedShippingMethod] = useState('standard');
   const [paymentMethod, setPaymentMethod] = useState('mpesa');
   const [customerNotes, setCustomerNotes] = useState('');
   const [useAsShippingAddress, setUseAsShippingAddress] = useState(true);
   const [paymentPhone, setPaymentPhone] = useState('');
-  const [demoMode, setDemoMode] = useState(false);
 
   // Initialize user data
   useEffect(() => {
@@ -144,6 +147,42 @@ export default function Checkout() {
     }
   }, [currentUser]);
 
+  // If user navigated from Cart with a selected method, prefill
+  const location = useLocation();
+  useEffect(() => {
+    const state: any = location.state;
+    if (state?.method) {
+      setPaymentMethod(state.method);
+    }
+    // If items/amount provided we could prefill other fields or adjust step
+  }, [location]);
+
+  // Load shipping methods from backend and prefer enabled first
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const data = await apiClient.get<any[]>('/cart/shipping-methods/');
+        if (!mounted) return;
+        if (Array.isArray(data)) {
+          // Normalize numeric fields from strings and keep expected shape
+          const normalized = data.map((m: any) => ({
+            ...m,
+            price: m.price !== undefined ? Number(m.price) : (m.price === 0 ? 0 : 0),
+            min_order: m.min_order !== undefined ? Number(m.min_order) : 0,
+          }));
+          setShippingMethodsState(normalized);
+          const firstEnabled = normalized.find((m: any) => m.enabled) || null;
+          if (firstEnabled) setSelectedShippingMethod(firstEnabled.id);
+        }
+      } catch (e) {
+        // ignore failures and keep static defaults
+        console.warn('Failed to load shipping methods', e);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
   // Redirect if cart is empty
   useEffect(() => {
     if (items.length === 0) {
@@ -151,65 +190,38 @@ export default function Checkout() {
     }
   }, [items, navigate]);
 
-  const selectedShipping = shippingMethods.find(m => m.id === selectedShippingMethod);
-  const shippingCost = selectedShipping?.price || 0;
+  const methods = (shippingMethodsState && shippingMethodsState.length > 0) ? shippingMethodsState : shippingMethods;
+
+  // Only show enabled methods (admin-created)
+  const availableMethods = methods.filter((m: any) => m.enabled !== false);
+
+  // Map backend method identifiers / names to nice icons for the tile UI
+  const iconForMethod = (m: any) => {
+    // prefer an explicit icon property returned by backend
+    if (m.icon) return m.icon;
+    const id = String(m.id || m.name || '').toLowerCase();
+    if (id.includes('express') || id.includes('same')) return <Truck className="h-5 w-5" />;
+    if (id.includes('pickup') || id.includes('store') || id.includes('retirada')) return <Home className="h-5 w-5" />;
+    if (id.includes('standard') || id.includes('padrao') || id.includes('padrão')) return <Package className="h-5 w-5" />;
+    if (id.includes('same_day') || id.includes('mesmo')) return <Clock className="h-5 w-5" />;
+    // default
+    return <Truck className="h-5 w-5" />;
+  };
+
+  const selectedShipping = availableMethods.find((m: any) => m.id === selectedShippingMethod) || methods.find((m: any) => m.id === selectedShippingMethod);
+  const shippingCost = selectedShipping ? (Number((selectedShipping as any).price) || 0) : 0;
   const total = subtotal + shippingCost;
 
-  const handleDemoPayment = async (paymentData: any) => {
+  // Helper: returns true when method's min_order gives free shipping for current subtotal
+  const methodHasFreeShipping = (m: any) => {
     try {
-      setIsLoading(true);
-
-      // Criar pedido real via API (modo demo)
-      const token = await currentUser?.getIdToken();
-      
-      const paymentRequest = {
-        method: 'demo',
-        amount: total,
-        currency: 'MZN',
-        shipping_address: shippingAddress,
-        billing_address: shippingAddress,
-        shipping_method: selectedShippingMethod,
-        shipping_amount: shippingCost,
-        customer_notes: '',
-        demo_mode: true
-      };
-
-      const response = await fetch('/api/cart/payments/initiate/', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify(paymentRequest),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Erro ao processar pagamento demo');
-      }
-
-      const result = await response.json();
-
-      // Mostrar sucesso
-      toast({
-        title: "Pedido criado com sucesso!",
-        description: `Pedido criado no modo demonstração`,
-      });
-
-      // Redirecionar para página de pedidos
-      navigate('/account/orders');
-    } catch (error: any) {
-      console.error('Demo payment error:', error);
-      toast({
-        title: "Erro",
-        description: error.message || "Erro ao processar pedido demo",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
+      const minOrder = Number(m.min_order || 0);
+      return minOrder > 0 && subtotal >= minOrder;
+    } catch (e) {
+      return false;
     }
   };
+
 
   const handleAddressChange = (field: keyof ShippingAddress, value: string) => {
     setShippingAddress(prev => ({
@@ -270,9 +282,12 @@ export default function Checkout() {
 
   const handleNextStep = () => {
     if (step === 1 && !validateStep1()) return;
-    if (step === 3 && !validateStep3()) return;
-    
-    setStep(prev => Math.min(prev + 1, 4));
+    // Only three steps now (1: address, 2: shipping, 3: review)
+    // If we're leaving the address step, copy phone into paymentPhone so review doesn't ask again
+    if (step === 1 && shippingAddress.phone) {
+      setPaymentPhone((p) => p || shippingAddress.phone);
+    }
+    setStep(prev => Math.min(prev + 1, 3));
   };
 
   const handlePreviousStep = () => {
@@ -287,7 +302,7 @@ export default function Checkout() {
     try {
       const orderData = {
         method: paymentMethod,
-        phone: paymentPhone,
+        phone: paymentPhone || shippingAddress.phone,
         amount: total,
         shipping_amount: shippingCost,
         currency: 'MZN',
@@ -304,11 +319,17 @@ export default function Checkout() {
 
       const { order_id, payment } = await initiatePayment(paymentMethod as "mpesa" | "emola" | "card" | "transfer", orderData);
 
-      // Clear cart after successful order creation
-      clearCart();
+  // NOTE: do NOT clear the cart here — cart should only be cleared after the payment
+  // is actually approved by the payment gateway (webhook). The backend will clear
+  // server-side cart snapshot when payment is confirmed; frontend will clear local
+  // cart once confirmation is observed.
 
-      // Navigate to confirmation page
-      navigate(`/pedido/confirmacao/${order_id}`);
+      // Navigate to confirmation page (guard against invalid order_id)
+      if (order_id == null || Number.isNaN(Number(order_id))) {
+        toast({ title: 'Erro', description: 'ID do pedido inválido recebido do servidor. Contate o suporte.', variant: 'destructive' });
+      } else {
+        navigate(`/pedido/confirmacao/${order_id}`);
+      }
 
     } catch (error: any) {
       console.error('Error creating order:', error);
@@ -324,7 +345,7 @@ export default function Checkout() {
 
   const StepIndicator = () => (
     <div className="flex items-center justify-center mb-8">
-      {[1, 2, 3, 4].map((stepNumber) => (
+      {[1, 2, 3].map((stepNumber) => (
         <div key={stepNumber} className="flex items-center">
           <div
             className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
@@ -335,7 +356,7 @@ export default function Checkout() {
           >
             {stepNumber}
           </div>
-          {stepNumber < 4 && (
+          {stepNumber < 3 && (
             <div
               className={`w-12 h-1 mx-2 ${
                 step > stepNumber ? 'bg-primary' : 'bg-muted'
@@ -459,7 +480,7 @@ export default function Checkout() {
                 </Card>
               )}
 
-              {/* Step 2: Shipping Method */}
+              {/* Step 2: Shipping Method (micropages: list / confirm) */}
               {step === 2 && (
                 <Card>
                   <CardHeader>
@@ -469,137 +490,89 @@ export default function Checkout() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <RadioGroup
-                      value={selectedShippingMethod}
-                      onValueChange={setSelectedShippingMethod}
-                      className="space-y-4"
-                    >
-                      {shippingMethods.map((method) => (
-                        <div key={method.id} className="flex items-center space-x-3 border rounded-lg p-4">
-                          <RadioGroupItem value={method.id} id={method.id} />
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              {method.icon}
-                              <Label htmlFor={method.id} className="font-medium">
-                                {method.name}
-                              </Label>
-                              <Badge variant="outline">
-                                {method.price === 0 ? 'Grátis' : formatPrice(method.price)}
-                              </Badge>
-                            </div>
-                            <p className="text-sm text-muted-foreground">
-                              {method.description} • {method.estimatedDays}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </RadioGroup>
-                  </CardContent>
-                </Card>
-              )}
+                    <div className="space-y-3">
+                      <p className="text-sm text-muted-foreground">Escolha o envio</p>
 
-              {/* Step 3: Payment Method */}
-              {step === 3 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <CreditCard className="h-5 w-5" />
-                      Método de Pagamento
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    {/* Demo Mode Toggle */}
-                    <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200">
-                      <div className="flex items-center gap-3">
-                        <TestTube className="h-5 w-5 text-blue-600" />
-                        <div>
-                          <div className="font-medium text-blue-900">Modo Demonstração</div>
-                          <div className="text-sm text-blue-700">
-                            Simular pagamento para testes (sem cobrança real)
-                          </div>
-                        </div>
+                      {/* Select fallback / accessibility */}
+                      <div className="mb-2">
+                        <Select value={selectedShippingMethod} onValueChange={(val) => {
+                          if (!val) return;
+                          setSelectedShippingMethod(val);
+                        }}>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Selecione método de envio" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {methods.map((m: any) => (
+                              <SelectItem key={m.id} value={m.id}>{m.name} {m.enabled ? `— ${m.price === '0.00' || Number(m.price) === 0 ? 'Grátis' : formatPrice(Number(m.price))}` : '— Inativo'}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
-                      <Checkbox
-                        checked={demoMode}
-                        onCheckedChange={(checked) => setDemoMode(checked === true)}
-                      />
+
+                      {/* Button-like tiles */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {availableMethods.length === 0 ? (
+                          <div className="text-sm text-muted-foreground">Nenhum método disponível</div>
+                        ) : availableMethods.map((m: any) => {
+                          const isSelected = selectedShippingMethod === m.id;
+                          const free = methodHasFreeShipping(m);
+                          return (
+                            <button
+                              key={m.id}
+                              onClick={() => {
+                                if (!m.enabled) return toast({ title: 'Método inativo', description: 'Este método está desativado.' });
+                                setSelectedShippingMethod(m.id);
+                                // advance directly to review for faster checkout on mobile
+                                setStep(3);
+                              }}
+                              aria-pressed={isSelected}
+                              className={
+                                `w-full text-left rounded-lg p-3 flex items-center gap-3 transition-shadow hover:shadow-sm focus:outline-none ` +
+                                (isSelected ? 'ring-2 ring-primary bg-primary/5' : 'bg-card') +
+                                (m.enabled ? '' : ' opacity-60 cursor-not-allowed')
+                              }
+                            >
+                              <div className="w-10 h-10 flex items-center justify-center rounded-md bg-muted/20 flex-shrink-0">
+                                <div className="text-primary-foreground">
+                                  {iconForMethod(m)}
+                                </div>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="font-medium truncate">{m.name}</div>
+                                  <div className="text-sm font-semibold truncate">{m.enabled ? (free ? 'Grátis' : formatPrice(Number(m.price))) : 'Inativo'}</div>
+                                </div>
+                                <div className="text-xs text-muted-foreground truncate">{m.delivery_time || m.estimatedDays || ''}</div>
+                                {free && <div className="mt-1 text-xs text-green-600 font-medium">Frete grátis</div>}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+
                     </div>
-
-                    {demoMode ? (
-                      <DemoPayment
-                        amount={total}
-                        onSuccess={handleDemoPayment}
-                        onCancel={() => setDemoMode(false)}
-                        disabled={isLoading}
-                      />
-                    ) : (
-                      <>
-                        <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
-                      <div className="flex items-center space-x-3 border rounded-lg p-4">
-                        <RadioGroupItem value="mpesa" id="mpesa" />
-                        <div className="flex-1">
-                          <Label htmlFor="mpesa" className="font-medium">
-                            M-Pesa
-                          </Label>
-                          <p className="text-sm text-muted-foreground">
-                            Pagamento via M-Pesa
-                          </p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center space-x-3 border rounded-lg p-4">
-                        <RadioGroupItem value="emola" id="emola" />
-                        <div className="flex-1">
-                          <Label htmlFor="emola" className="font-medium">
-                            e-mola
-                          </Label>
-                          <p className="text-sm text-muted-foreground">
-                            Pagamento via e-mola
-                          </p>
-                        </div>
-                      </div>
-                    </RadioGroup>
-
-                    {(paymentMethod === 'mpesa' || paymentMethod === 'emola') && (
-                      <div className="space-y-2">
-                        <Label htmlFor="payment-phone">
-                          Número de Telefone {paymentMethod.toUpperCase()} *
-                        </Label>
-                        <Input
-                          id="payment-phone"
-                          value={paymentPhone}
-                          onChange={(e) => setPaymentPhone(e.target.value)}
-                          placeholder="+258 84 123 4567"
-                        />
-                        <p className="text-sm text-muted-foreground">
-                          Número registrado no {paymentMethod.toUpperCase()}
-                        </p>
-                      </div>
-                    )}
-
-                        <div className="space-y-2">
-                          <Label htmlFor="notes">Observações (opcional)</Label>
-                          <Textarea
-                            id="notes"
-                            value={customerNotes}
-                            onChange={(e) => setCustomerNotes(e.target.value)}
-                            placeholder="Instruções especiais para entrega..."
-                            rows={3}
-                          />
-                        </div>
-                      </>
-                    )}
                   </CardContent>
                 </Card>
               )}
 
-              {/* Step 4: Review & Confirm */}
-              {step === 4 && (
+              {/* Payment step removed — payment inputs are included in Review (step 3) */}
+
+              {/* Step 3: Review & Confirm */}
+              {step === 3 && (
                 <Card>
                   <CardHeader>
                     <CardTitle>Confirmação do Pedido</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-6">
+                    {/* Payment information (display only) - selected earlier in the flow */}
+                    <div>
+                      <h4 className="font-medium mb-2">Pagamento</h4>
+                      <div className="bg-muted p-3 rounded-lg text-sm">
+                        <p className="font-medium">{paymentMethod.toUpperCase()}</p>
+                        {paymentPhone && <p>{paymentPhone}</p>}
+                      </div>
+                    </div>
                     {/* Address Summary */}
                     <div>
                       <h4 className="font-medium mb-2">Endereço de Entrega:</h4>
@@ -642,7 +615,7 @@ export default function Checkout() {
               )}
 
               {/* Navigation Buttons */}
-              <div className="flex justify-between">
+                <div className="flex justify-between">
                 {step > 1 && (
                   <Button
                     variant="outline"
@@ -653,7 +626,7 @@ export default function Checkout() {
                   </Button>
                 )}
                 
-                {step < 4 ? (
+                {step < 3 ? (
                   <Button onClick={handleNextStep} className="ml-auto">
                     Próximo
                   </Button>

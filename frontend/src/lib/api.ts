@@ -274,12 +274,31 @@ class ApiClient {
       console.warn('Could not get Firebase token:', error);
     }
     
+    // Try to include CSRF token (for Django session auth) and send cookies
+    const getCSRFFromCookie = () => {
+      try {
+        const name = 'csrftoken=';
+        const ca = (typeof document !== 'undefined' && document.cookie) ? document.cookie.split(';') : [];
+        for (let i = 0; i < ca.length; i++) {
+          let c = ca[i].trim();
+          if (c.indexOf(name) === 0) return c.substring(name.length, c.length);
+        }
+      } catch (e) {
+        // ignore
+      }
+      return null;
+    };
+
+    const csrfToken = getCSRFFromCookie();
+
     const config: RequestInit = {
       headers: {
         'Content-Type': 'application/json',
+        ...(csrfToken ? { 'X-CSRFToken': csrfToken } : {}),
         ...authHeaders,
         ...options.headers,
       },
+      credentials: 'include', // ensure cookies (session) are sent when calling the backend
       ...options,
     };
 

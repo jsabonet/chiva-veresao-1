@@ -42,6 +42,7 @@ import NotFound from "./pages/NotFound";
 import ReviewManagement from "./pages/ReviewManagement";
 import OrderConfirmation from "./pages/OrderConfirmation";
 import Checkout from "./pages/Checkout";
+import CheckoutDetails from "./pages/CheckoutDetails";
 
 const queryClient = new QueryClient();
 
@@ -72,6 +73,8 @@ const App = () => (
                 <Checkout />
               </ProtectedRoute>
             } />
+            {/* Legacy: redirect details route to canonical /checkout */}
+            <Route path="/checkout/details" element={<Navigate to="/checkout" replace />} />
             <Route path="/meus-pedidos" element={
               <Navigate to="/account/orders" replace />
             } />

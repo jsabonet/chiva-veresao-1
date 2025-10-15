@@ -1,4 +1,52 @@
 from rest_framework import serializers
+from .models import ShippingMethod
+
+
+class ShippingMethodSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ShippingMethod
+        fields = ['id', 'name', 'price', 'min_order', 'delivery_time', 'regions', 'enabled']
+        read_only_fields = ['id']
+
+    def validate_price(self, value):
+        if value is None:
+            return value
+        if float(value) < 0:
+            raise serializers.ValidationError('Price must be >= 0')
+        return value
+
+    def validate_min_order(self, value):
+        if value is None:
+            return value
+        if float(value) < 0:
+            raise serializers.ValidationError('min_order must be >= 0')
+        return value
+
+    def validate_id(self, value):
+        # Basic id format check - only validate when an id is provided (e.g. on update)
+        if value is None:
+            return value
+        if not value:
+            raise serializers.ValidationError('id is required')
+        if ' ' in value:
+            raise serializers.ValidationError('id must not contain spaces')
+        return value
+
+    def create(self, validated_data):
+        """Ensure a non-empty, unique id is assigned if client didn't provide one."""
+        # id is read-only in the serializer, but ensure model gets a sensible id
+        if not validated_data.get('id'):
+            from django.utils.text import slugify
+            base = slugify(validated_data.get('name') or 'shipping') or 'shipping'
+            candidate = base
+            i = 1
+            from .models import ShippingMethod as SM
+            while SM.objects.filter(id=candidate).exists():
+                i += 1
+                candidate = f"{base}-{i}"
+            validated_data['id'] = candidate
+        return super().create(validated_data)
+from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import Cart, CartItem, Coupon, CouponUsage, CartHistory, AbandonedCart, Order, OrderStatusHistory, StockMovement, Payment
 from products.serializers import ProductListSerializer, ColorSerializer

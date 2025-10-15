@@ -384,6 +384,9 @@ class Order(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     delivered_at = models.DateTimeField(null=True, blank=True, verbose_name="Entregue em")
+    # Admin review tracking (was present in DB schema on some environments)
+    # Keep default False so existing databases without a migration won't fail when creating orders
+    admin_seen = models.BooleanField(default=False, verbose_name="Visto pelo Admin")
     
     # Shipping Info
     shipping_method = models.CharField(max_length=50, choices=SHIPPING_METHODS, default='standard', verbose_name="Método de Entrega")
@@ -506,6 +509,40 @@ class OrderStatusHistory(models.Model):
         return f"Pedido {self.order.order_number}: {self.old_status} → {self.new_status}"
 
 
+class OrderItem(models.Model):
+    """
+    Items that belong to an Order. Stored as a snapshot so admins can see
+    exactly what to ship even if product records change later.
+    """
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
+    product = models.ForeignKey('products.Product', on_delete=models.SET_NULL, null=True, blank=True)
+    product_name = models.CharField(max_length=255, blank=True)
+    sku = models.CharField(max_length=100, blank=True)
+
+
+class ShippingMethod(models.Model):
+    """
+    Configurable shipping methods stored in DB and manageable via admin/API
+    """
+    id = models.CharField(max_length=50, primary_key=True)
+    name = models.CharField(max_length=200)
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    min_order = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    delivery_time = models.CharField(max_length=100, blank=True)
+    regions = models.CharField(max_length=255, blank=True)
+    enabled = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Método de Envio"
+        verbose_name_plural = "Métodos de Envio"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.name} ({self.id})"
+
+
 class StockMovement(models.Model):
     """
     Track stock movements for inventory management
@@ -556,13 +593,18 @@ class Payment(models.Model):
         ('failed', 'Falhou'),
     ]
 
-    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='payments')
+    # Allow payment to exist before an Order is created (order will be created on webhook success)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='payments', null=True, blank=True)
+    # Link payment to the cart used to initiate it; useful to create the Order later on webhook
+    cart = models.ForeignKey('Cart', on_delete=models.SET_NULL, null=True, blank=True, related_name='payments')
     method = models.CharField(max_length=30, choices=METHOD_CHOICES)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     currency = models.CharField(max_length=10, default='MZN')
     paysuite_reference = models.CharField(max_length=255, null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='initiated')
     raw_response = models.JSONField(default=dict, blank=True)
+    # Store the original request payload (shipping_address, billing_address, method, etc.)
+    request_data = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

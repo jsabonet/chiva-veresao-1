@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCart } from '@/contexts/CartContext';
 import { useParams, Link } from 'react-router-dom';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
@@ -13,6 +14,32 @@ type OrderStatus = 'pending' | 'processing' | 'paid' | 'failed' | 'cancelled';
 export default function OrderConfirmation() {
   const { id } = useParams();
   const orderId = Number(id);
+  // Guard: if route param is missing or not a valid number, avoid calling the API with NaN
+  if (Number.isNaN(orderId)) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container mx-auto px-4 py-8">
+          <div className="max-w-2xl mx-auto">
+            <Card>
+              <CardHeader>
+                <CardTitle>Pedido inválido</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">O identificador do pedido é inválido ou não foi informado. Verifique o link ou retorne à loja.</p>
+                <div className="mt-4">
+                  <Button asChild>
+                    <Link to="/">Voltar à loja</Link>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
   const { fetchPaymentStatus } = usePayments();
   const [status, setStatus] = useState<OrderStatus>('pending');
   const [lastUpdate, setLastUpdate] = useState<string>('');
@@ -22,6 +49,21 @@ export default function OrderConfirmation() {
   const startTimeRef = useRef<number>(Date.now());
 
   const isFinal = status === 'paid' || status === 'failed' || status === 'cancelled';
+
+  const { clearCart } = useCart();
+  const clearedRef = useRef<boolean>(false);
+
+  // When payment is confirmed (paid), clear the local frontend cart once.
+  useEffect(() => {
+    if (status === 'paid' && !clearedRef.current) {
+      try {
+        clearCart();
+        clearedRef.current = true;
+      } catch (e) {
+        console.warn('Failed to clear local cart after payment confirmation', e);
+      }
+    }
+  }, [status, clearCart]);
 
   useEffect(() => {
     let cancelled = false;
@@ -88,7 +130,7 @@ export default function OrderConfirmation() {
           return { 
             icon: <Clock className="h-6 w-6 text-blue-600 animate-pulse" />, 
             title: `Aguardando confirmação ${methodName}`, 
-            desc: `📱 Verifique o seu telefone para a notificação de pagamento ${methodName}. Se não recebeu, pode finalizar pelo link de checkout.` 
+            desc: `📱 Clique em "Finalizar no Checkout" abaixo para abrir o link. Depois de concluir, volte a esta página para verificar o status do pedido — a atualização é automática` 
           };
         }
         return { icon: <Clock className="h-6 w-6 text-blue-600 animate-pulse" />, title: 'Aguardando confirmação', desc: 'Estamos confirmando seu pagamento. Isso pode levar alguns instantes.' };
@@ -96,6 +138,31 @@ export default function OrderConfirmation() {
   }, [status, payments]);
 
   const lastPayment = payments[0];
+
+  const hasExternalCheckout = !!lastPayment?.raw_response?.data?.checkout_url;
+
+  const openExternalCheckout = () => {
+    const url = lastPayment?.raw_response?.data?.checkout_url;
+    if (!url) return;
+    try {
+      window.open(url, '_blank', 'noopener');
+    } catch (e) {
+      // fallback
+      window.location.href = url;
+    }
+  };
+
+  const copyExternalLink = async () => {
+    const url = lastPayment?.raw_response?.data?.checkout_url;
+    if (!url) return window.alert('Link de checkout não disponível');
+    try {
+      await navigator.clipboard.writeText(url);
+      window.alert('Link copiado para a área de transferência');
+    } catch (e) {
+      // fallback
+      window.prompt('Copie o link abaixo:', url);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -138,20 +205,48 @@ export default function OrderConfirmation() {
               )}
 
               <div className="flex gap-2 pt-2">
-                <Button asChild variant="secondary">
-                  <Link to="/">Voltar à loja</Link>
-                </Button>
-                {status !== 'paid' && (
-                  <Button asChild>
-                    <Link to="/carrinho">Tentar novamente</Link>
-                  </Button>
-                )}
-                {status !== 'paid' && lastPayment?.raw_response?.data?.checkout_url && (
-                  <Button asChild variant="outline">
-                    <a href={lastPayment.raw_response.data.checkout_url} target="_blank" rel="noopener noreferrer">
+                {/* External checkout still pending: show external actions */}
+                {hasExternalCheckout && !isFinal ? (
+                  <>
+                    <Button onClick={openExternalCheckout}>
                       Finalizar no Checkout
-                    </a>
-                  </Button>
+                    </Button>
+                    <Button variant="outline" onClick={copyExternalLink}>
+                      Copiar link
+                    </Button>
+                  </>
+                ) : isFinal ? (
+                  /* Final state: show appropriate final CTAs */
+                  status === 'paid' ? (
+                    <>
+                      <Button asChild>
+                        <Link to="/account/orders">Ver pedido</Link>
+                      </Button>
+                      <Button asChild variant="secondary">
+                        <Link to="/">Continuar comprando</Link>
+                      </Button>
+                    </>
+                  ) : (
+                    /* failed or cancelled */
+                    <>
+                      <Button asChild>
+                        <Link to="/carrinho">Voltar ao carrinho</Link>
+                      </Button>
+                      <Button asChild variant="secondary">
+                        <Link to="/">Voltar à loja</Link>
+                      </Button>
+                    </>
+                  )
+                ) : (
+                  /* Default while no external checkout: previous behavior */
+                  <>
+                    <Button asChild variant="secondary">
+                      <Link to="/">Voltar à loja</Link>
+                    </Button>
+                    <Button asChild>
+                      <Link to="/carrinho">Tentar novamente</Link>
+                    </Button>
+                  </>
                 )}
               </div>
             </CardContent>

@@ -1,7 +1,6 @@
 from django.test import TestCase
 from django.contrib.auth.models import User
 from rest_framework.test import APIClient
-from cart.models import ShippingMethod
 
 
 class ShippingMethodAPITest(TestCase):
@@ -36,6 +35,4 @@ class ShippingMethodAPITest(TestCase):
         # Delete
         res = self.client.delete('/api/cart/admin/shipping-methods/test_method/')
         self.assertIn(res.status_code, (200,204))
-from django.test import TestCase
-
-# Create your tests here.
+*** End Patch

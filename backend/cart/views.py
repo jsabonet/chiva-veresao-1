@@ -17,6 +17,8 @@ from .serializers import (
     UpdateCartItemSerializer, CouponSerializer, ApplyCouponSerializer,
     CartHistorySerializer, AbandonedCartSerializer, CartMergeSerializer
 )
+from .models import ShippingMethod
+from .serializers import ShippingMethodSerializer
 import logging
 from decimal import Decimal, ROUND_HALF_UP
 
@@ -157,11 +159,10 @@ class CartAPIView(APIView):
                 # Update cart activity
                 cart.last_activity = timezone.now()
                 cart.save(update_fields=['last_activity'])
-            
-            # Return updated cart
-            cart_serializer = CartSerializer(cart)
-            return Response(cart_serializer.data, status=status.HTTP_201_CREATED)
-            
+                # Return updated cart to client
+                cart_serializer = CartSerializer(cart)
+                return Response(cart_serializer.data, status=status.HTTP_201_CREATED)
+        
         except Exception as e:
             logger.error(f"Error adding item to cart: {str(e)}")
             return Response(
@@ -195,6 +196,64 @@ class CartAPIView(APIView):
                 {'error': 'Failed to clear cart'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+# --- Shipping methods admin API ---
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def shipping_methods_list_create(request):
+    """List all shipping methods (admin) or create a new one"""
+    # Only admins allowed
+    if not getattr(request.user, 'is_staff', False):
+        return Response({'detail': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
+
+    if request.method == 'GET':
+        methods = ShippingMethod.objects.all().order_by('-created_at')
+        serializer = ShippingMethodSerializer(methods, many=True)
+        return Response(serializer.data)
+
+    # POST - create
+    serializer = ShippingMethodSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET', 'PUT', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def shipping_method_detail(request, method_id):
+    if not getattr(request.user, 'is_staff', False):
+        return Response({'detail': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        method = ShippingMethod.objects.get(id=method_id)
+    except ShippingMethod.DoesNotExist:
+        return Response({'detail': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+        serializer = ShippingMethodSerializer(method)
+        return Response(serializer.data)
+
+    if request.method == 'PUT':
+        serializer = ShippingMethodSerializer(method, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    # DELETE
+    method.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def shipping_methods_public_list(request):
+    """Public endpoint returning enabled shipping methods for checkout"""
+    methods = ShippingMethod.objects.filter(enabled=True).order_by('created_at')
+    serializer = ShippingMethodSerializer(methods, many=True)
+    return Response(serializer.data)
 
 
 @api_view(['POST'])
@@ -762,7 +821,7 @@ def initiate_payment(request):
         # Recalculate totals after potential price refresh
         cart.calculate_totals()
 
-        # Include shipping from client when provided and validate client total against subtotal + shipping
+        # Include shipping: prefer server-side configured shipping_method pricing to avoid client tampering
         from decimal import Decimal, ROUND_HALF_UP
         client_shipping = request.data.get('shipping_amount')
         client_currency = request.data.get('currency') or 'MZN'
@@ -772,6 +831,27 @@ def initiate_payment(request):
                 shipping_dec = Decimal('0.00')
         except Exception:
             shipping_dec = Decimal('0.00')
+
+        # If client provided a shipping_method, prefer authoritative price from DB
+        shipping_method = request.data.get('shipping_method')
+        if shipping_method:
+            try:
+                sm = ShippingMethod.objects.get(id=shipping_method, enabled=True)
+                # Use server-side configured price but honor method-level free-shipping threshold
+                shipping_dec = Decimal(str(sm.price))
+                try:
+                    min_order = Decimal(str(sm.min_order or '0'))
+                    cart_total = cart.total or Decimal('0.00')
+                    # If the cart total reaches or exceeds the method's min_order, shipping is free
+                    if min_order > Decimal('0.00') and cart_total >= min_order:
+                        logger.info(f"Free shipping applied for method {shipping_method}: cart_total={cart_total} >= min_order={min_order}")
+                        shipping_dec = Decimal('0.00')
+                except Exception:
+                    # if parsing fails, fallback to configured price
+                    logger.debug('Could not parse min_order for shipping method; using configured price')
+            except Exception:
+                # If method not found or disabled, keep client-provided shipping_dec (already sanitized)
+                logger.warning(f"Shipping method {shipping_method} not found or disabled; using client shipping if provided")
 
         charge_total = (cart.total or Decimal('0.00')) + shipping_dec
 
@@ -784,7 +864,19 @@ def initiate_payment(request):
                     # This handles cases where frontend cart state differs from backend
                     if sent > 0 and sent < Decimal('1000000'):  # Basic sanity check
                         logger.info(f"Using client-provided amount {sent} instead of calculated {charge_total}")
-                        charge_total = sent
+                        # Only accept client-provided amount if it matches server-side shipping method price
+                        if not shipping_method:
+                            charge_total = sent
+                        else:
+                            # Mismatch when shipping_method was provided -> reject to avoid tampering
+                            return Response({
+                                'error': 'amount_mismatch',
+                                'message': 'O total enviado pelo cliente não corresponde ao total calculado com o método de envio selecionado.',
+                                'sent': str(sent),
+                                'calculated': str(charge_total),
+                                'cart_total': str(cart.total),
+                                'shipping': str(shipping_dec),
+                            }, status=status.HTTP_400_BAD_REQUEST)
                     else:
                         return Response({
                             'error': 'amount_mismatch',
@@ -797,37 +889,23 @@ def initiate_payment(request):
             except Exception:
                 logger.warning('Could not parse client amount for validation')
         
-        # Create order
-        from .models import Order, Payment
-        
-        # Extract checkout data
+        # Instead of creating an Order now, create a Payment tied to the cart.
+        # The Order will be created only when we receive confirmation (webhook) from PaySuite.
+        from .models import Payment
+
+        # Extract checkout data (store for later order creation)
         shipping_address = request.data.get('shipping_address', {})
         billing_address = request.data.get('billing_address', shipping_address)
-        shipping_method = request.data.get('shipping_method', 'standard')
         customer_notes = request.data.get('customer_notes', '')
-        shipping_cost = Decimal(str(request.data.get('shipping_amount', 0)))
-        
-        # Create order with enhanced data
-        order = Order.objects.create(
-            cart=cart, 
-            user=request.user, 
-            total_amount=charge_total,
-            shipping_cost=shipping_cost,
-            status='pending',
-            shipping_method=shipping_method,
-            shipping_address=shipping_address,
-            billing_address=billing_address,
-            customer_notes=customer_notes
-        )
-        
-        # Mark cart as converted to prevent reuse
-        cart.status = 'converted'
-        cart.save(update_fields=['status'])
+        # Use server-authoritative shipping_dec computed above
+        shipping_cost = shipping_dec
+        # Reuse shipping_method from earlier (may be None)
+        shipping_method = request.data.get('shipping_method') or None
 
         # Payment method and data requested
         method = request.data.get('method', 'mpesa')
         payment_data = request.data
-        
+
         # Extract method-specific data
         phone = payment_data.get('phone')  # For mpesa/emola
         card_data = {
@@ -836,14 +914,29 @@ def initiate_payment(request):
             'cvv': payment_data.get('cvv'),
             'cardholderName': payment_data.get('cardholderName')
         } if method == 'card' else None
-        
+
         bank_data = {
             'accountNumber': payment_data.get('accountNumber'),
             'bankName': payment_data.get('bankName')
         } if method == 'transfer' else None
 
-        # Create payment record
-        payment = Payment.objects.create(order=order, method=method, amount=charge_total, currency='MZN', status='initiated')
+        # Create payment record (no order yet). Keep original request payload inside request_data
+        payment = Payment.objects.create(
+            order=None,
+            cart=cart,
+            method=method,
+            amount=charge_total,
+            currency=client_currency,
+            status='initiated',
+            request_data={
+                'shipping_address': shipping_address,
+                'billing_address': billing_address,
+                'shipping_method': shipping_method,
+                'customer_notes': customer_notes,
+                'shipping_cost': str(shipping_cost),
+                'meta': {k: v for k, v in request.data.items() if k not in ['shipping_address','billing_address','shipping_method','customer_notes','shipping_amount']}
+            }
+        )
 
         # Call Paysuite - prefer the real Paysuite client by default.
         # Legacy behavior used a SafePaysuiteClient when PAYSUITE_TEST_MODE was set to 'mock'/'sandbox'.
@@ -859,21 +952,21 @@ def initiate_payment(request):
             client = PaysuiteClient()
         # Correct API path for webhook lives under /api/cart/
         callback_url = request.build_absolute_uri('/api/cart/payments/webhook/')
-        return_url = request.build_absolute_uri(f'/order/{order.id}/confirmation')
-        # Create a unique reference for this order/payment (<=50 chars per docs)
-        reference = f"ORD{order.id:06d}"
+        return_url = request.build_absolute_uri(f'/orders/status')
+        # Create a unique reference for this payment (<=50 chars per docs)
+        reference = f"PAY{payment.id:06d}"
 
         # Prepare payment creation data with validation
         payment_creation_data = {
             'amount': float(payment.amount),  # Ensure float format
             'method': method,
             'reference': reference,
-            'description': f"Order {order.id} payment",
+            'description': f"Payment {payment.id} for cart {cart.id}",
             'return_url': return_url,
             'callback_url': callback_url,
             # Help correlate checkout with our order/cart during debugging
             'metadata': {
-                'order_id': order.id,
+                'payment_id': payment.id,
                 'cart_id': cart.id,
                 'user': getattr(request.user, 'username', None) or 'anonymous',
                 # Echo some client context for traceability
@@ -882,15 +975,15 @@ def initiate_payment(request):
                 'ui_currency': client_currency,
             }
         }
-        
+
         # Validate and format amount for PaySuite
         if payment.amount <= 0:
             return Response({'error': 'Invalid amount'}, status=status.HTTP_400_BAD_REQUEST)
-        
+
         # Use the payment amount directly (already in MZN)
         formatted_amount = float(payment.amount)
         print(f"💰 PAYMENT AMOUNT: {formatted_amount} MZN")
-        
+
         # Update payment creation data with amount
         payment_creation_data['amount'] = formatted_amount
 
@@ -913,9 +1006,9 @@ def initiate_payment(request):
                         'Divida a compra em parcelas menores abaixo do limite'
                     ]
                 }, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Log order details for debugging
-        print(f"💰 ORDER DETAILS: ID={order.id}, Charge={payment.amount} (cart={cart.total} + shipping={shipping_dec}), Method={method}")
+
+        # Log payment details for debugging
+        print(f"💰 PAYMENT DETAILS: ID={payment.id}, Charge={payment.amount} (cart={cart.total} + shipping={shipping_dec}), Method={method}")
         print(f"🛒 CART DETAILS: Items={cart.items.count()}, CartTotal={cart.total}, Shipping={shipping_dec}, Calculated={charge_total}")
         
         # Add method-specific data
@@ -996,11 +1089,10 @@ def initiate_payment(request):
         payment.status = 'pending'
         payment.save(update_fields=['paysuite_reference', 'raw_response', 'status'])
 
-        # Prepare response
+        # Prepare response (no order yet)
         response_data = {
-            'order_id': order.id, 
             'payment': {
-                'id': external_id, 
+                'id': external_id,
                 'reference': external_ref,
                 'is_direct': method in ['mpesa', 'emola'] and phone is not None,
                 'method': method,
@@ -1019,7 +1111,7 @@ def initiate_payment(request):
             
         # Optionally clear cart immediately after initiating payment (useful for test flows)
         try:
-            clear_on_initiate = os.getenv('CART_CLEAR_ON_INITIATE', '1').lower() in ['1', 'true', 'yes']
+            clear_on_initiate = os.getenv('CART_CLEAR_ON_INITIATE', '0').lower() in ['1', 'true', 'yes']
             if clear_on_initiate:
                 # Clear items and convert the cart so subsequent attempts don't reuse stale data
                 if cart and cart.items.exists():
@@ -1029,11 +1121,37 @@ def initiate_payment(request):
                 CartHistory.objects.create(
                     cart=cart,
                     event='cart_cleared_on_initiate',
-                    description=f'Cart cleared on initiate for order {order.id}',
-                    metadata={'order_id': order.id}
+                    description=f'Cart cleared on initiate for payment {payment.id}',
+                    metadata={'payment_id': payment.id}
                 )
         except Exception:
             logger.warning('Failed to clear cart on initiate (non-fatal)')
+
+        # Create a lightweight Order now so frontend can reference it immediately.
+        # The webhook will detect payment.order and won't recreate the Order.
+        try:
+            from .models import Order
+
+            order = Order.objects.create(
+                cart=cart,
+                user=cart.user if cart and hasattr(cart, 'user') else None,
+                total_amount=payment.amount,
+                shipping_cost=shipping_cost,
+                status='pending',
+                shipping_method=shipping_method or 'standard',
+                shipping_address=shipping_address,
+                billing_address=billing_address,
+                customer_notes=customer_notes,
+            )
+            # Link payment to created order
+            payment.order = order
+            payment.save(update_fields=['order'])
+            # Expose order id to frontend
+            response_data['order_id'] = order.id
+        except Exception as e:
+            logger.exception('Failed to create provisional Order after payment initiation')
+            # If order creation fails, surface an error so frontend does not navigate with NaN
+            return Response({'error': 'failed_to_create_order', 'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         return Response(response_data)
 
@@ -1103,42 +1221,148 @@ def paysuite_webhook(request):
         payment.raw_response = data
         payment.save(update_fields=['status', 'raw_response'])
 
-        # Update order using OrderManager for proper stock handling
-        order = payment.order
+        # If payment succeeded, ensure an Order is created from the saved request_data
         if payment.status == 'paid':
             from .stock_management import OrderManager
-            try:
-                OrderManager.update_order_status(
-                    order=order,
-                    new_status='paid',
-                    user=None,  # Webhook - no specific user
-                    notes=f"Pagamento confirmado via webhook - {event_name}"
-                )
-                logger.info(f"Order {order.order_number} marked as paid and stock reduced")
-            except Exception as e:
-                logger.error(f"Error updating order status after payment: {e}")
-                # Continue processing - payment was successful even if stock update failed
-            
-            # Clear the cart after successful payment
-            try:
-                cart = order.cart
-                if cart and cart.status == 'active':
-                    # Clear all cart items
-                    cart.items.all().delete()
-                    # Mark cart as converted
-                    cart.status = 'converted'
-                    cart.save(update_fields=['status'])
-                    
-                    # Log the cart clearing
-                    CartHistory.objects.create(
-                        cart=cart,
-                        event='cart_cleared_after_payment',
-                        description=f'Cart cleared after successful payment for order {order.id}',
-                        metadata={'order_id': order.id, 'payment_id': payment.id}
+            from .models import Order
+
+            order = payment.order
+            # If no order exists yet, create it now from payment.request_data
+            if not order:
+                try:
+                    rd = payment.request_data or {}
+                    shipping_address = rd.get('shipping_address') or {}
+                    billing_address = rd.get('billing_address') or shipping_address
+                    shipping_method = rd.get('shipping_method') or rd.get('shipping_method', 'standard')
+                    customer_notes = rd.get('customer_notes') or ''
+                    shipping_cost = Decimal(str(rd.get('shipping_cost') or '0'))
+
+                    order = Order.objects.create(
+                        cart=payment.cart,
+                        user=payment.cart.user if payment.cart and payment.cart.user else None,
+                        total_amount=payment.amount,
+                        shipping_cost=shipping_cost,
+                        status='pending',
+                        shipping_method=shipping_method,
+                        shipping_address=shipping_address,
+                        billing_address=billing_address,
+                        customer_notes=customer_notes
                     )
-                    logger.info(f'Cart {cart.id} cleared after successful payment for order {order.id}')
-            except Exception as e:
-                logger.error(f'Error clearing cart after payment: {str(e)}')
+                    # Link payment to the newly created order
+                    payment.order = order
+                    payment.save(update_fields=['order'])
+                    logger.info(f'Created Order {order.id} from payment {payment.id} on webhook')
+                    # Create OrderItem entries so admins know what to ship
+                    try:
+                        from .models import OrderItem
+
+                        # Prefer items included in the original request payload if present
+                        items_payload = None
+                        rd_meta = rd.get('meta') if isinstance(rd, dict) else None
+                        if isinstance(rd_meta, dict):
+                            # Some clients may put items under rd['meta']['items'] or rd['items']
+                            items_payload = rd_meta.get('items') or rd.get('items')
+                        else:
+                            items_payload = rd.get('items')
+
+                        if items_payload and isinstance(items_payload, list):
+                            for it in items_payload:
+                                try:
+                                    product = None
+                                    color = None
+                                    qty = int(it.get('quantity') or it.get('qty') or 1)
+                                    unit_price = Decimal(str(it.get('price') or it.get('unit_price') or 0))
+
+                                    pid = it.get('product_id') or it.get('id') or it.get('product')
+                                    if pid:
+                                        try:
+                                            product = Product.objects.get(id=pid)
+                                        except Exception:
+                                            product = None
+
+                                    cid = it.get('color_id') or it.get('color')
+                                    if cid:
+                                        try:
+                                            color = Color.objects.get(id=cid)
+                                        except Exception:
+                                            color = None
+
+                                    name = it.get('name') or (product.name if product else '')
+                                    sku = getattr(product, 'sku', '') if product else (it.get('sku') or '')
+                                    line_total = (unit_price * qty)
+
+                                    OrderItem.objects.create(
+                                        order=order,
+                                        product=product,
+                                        product_name=name,
+                                        sku=sku,
+                                        color=color,
+                                        color_name=getattr(color, 'name', '') if color else (it.get('color_name') or ''),
+                                        quantity=qty,
+                                        unit_price=unit_price,
+                                        line_total=line_total
+                                    )
+                                except Exception:
+                                    logger.exception('Failed to create OrderItem from payload item')
+                        else:
+                            # Fallback: create items from the cart snapshot
+                            if payment.cart:
+                                for ci in payment.cart.items.select_related('product', 'color').all():
+                                    try:
+                                        qty = ci.quantity
+                                        unit_price = ci.price
+                                        line_total = unit_price * qty
+                                        OrderItem.objects.create(
+                                            order=order,
+                                            product=ci.product,
+                                            product_name=ci.product.name if ci.product else '',
+                                            sku=getattr(ci.product, 'sku', ''),
+                                            color=ci.color,
+                                            color_name=ci.color.name if ci.color else '',
+                                            quantity=qty,
+                                            unit_price=unit_price,
+                                            line_total=line_total
+                                        )
+                                    except Exception:
+                                        logger.exception('Failed to create OrderItem from cart item')
+                    except Exception:
+                        logger.exception('Error creating order items')
+                except Exception as e:
+                    logger.exception(f'Failed to create Order from payment {payment.id}: {e}')
+
+            # Proceed to update order status and stock
+            if order:
+                try:
+                    OrderManager.update_order_status(
+                        order=order,
+                        new_status='paid',
+                        user=None,  # Webhook - no specific user
+                        notes=f"Pagamento confirmado via webhook - {event_name}"
+                    )
+                    logger.info(f"Order {order.order_number} marked as paid and stock reduced")
+                except Exception as e:
+                    logger.error(f"Error updating order status after payment: {e}")
+
+                # Clear the cart after successful payment
+                try:
+                    cart = order.cart or payment.cart
+                    if cart and cart.status == 'active':
+                        # Clear all cart items
+                        cart.items.all().delete()
+                        # Mark cart as converted
+                        cart.status = 'converted'
+                        cart.save(update_fields=['status'])
+
+                        # Log the cart clearing
+                        CartHistory.objects.create(
+                            cart=cart,
+                            event='cart_cleared_after_payment',
+                            description=f'Cart cleared after successful payment for order {order.id}',
+                            metadata={'order_id': order.id, 'payment_id': payment.id}
+                        )
+                        logger.info(f'Cart {cart.id} cleared after successful payment for order {order.id}')
+                except Exception as e:
+                    logger.error(f'Error clearing cart after payment: {str(e)}')
 
         return Response({'ok': True})
 

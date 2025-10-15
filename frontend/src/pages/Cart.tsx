@@ -172,11 +172,8 @@ const Cart = () => {
               </Card>
 
               <div className="space-y-3">
-                <Button size="lg" className="w-full" onClick={() => navigate('/checkout')}>
-                  Ir para Checkout
-                </Button>
-                <Button size="lg" variant="outline" className="w-full" onClick={() => setShowPaymentModal(true)}>
-                  Pagamento Rápido
+                <Button size="lg" className="w-full" onClick={() => setShowPaymentModal(true)}>
+                  Finalizar Compra
                 </Button>
                 <Button variant="quote" size="lg" className="w-full">
                   Solicitar Orçamento
@@ -202,43 +199,18 @@ const Cart = () => {
           onClose={() => setShowPaymentModal(false)}
           totalAmount={total}
           onSubmit={async (paymentData) => {
-            try {
-              // Ensure the API receives exactly the total shown to the user
-              const { order_id, payment } = await initiatePayment(paymentData.method, {
-                ...paymentData,
+            // New flow: navigate to checkout details page where full customer, shipping
+            // and order information will be collected before redirecting to the gateway.
+            setShowPaymentModal(false);
+            navigate('/checkout/details', {
+              state: {
+                method: paymentData.method,
+                items: items.map(item => ({ id: item.id, quantity: item.quantity, color_id: item.color_id || null })),
                 amount: total,
                 shipping_amount: shipping,
-                currency: 'MZN',
-                items: items.map(item => ({
-                  id: item.id,
-                  quantity: item.quantity,
-                  color_id: item.color_id || null
-                }))
-              });
-              setShowPaymentModal(false);
-              
-              // Check if backend indicates this is a direct payment
-              if (payment?.is_direct) {
-                // Direct mobile payment - show processing message and redirect to confirmation
-                const methodName = payment.method === 'mpesa' ? 'M-Pesa' : 'Emola';
-                const phone = payment.phone || paymentData.phone;
-                alert(`✅ Pagamento ${methodName} iniciado!\n\n📱 Número: ${phone}\n\n⏳ Aguarde: Você pode receber uma notificação no telefone OU ser redirecionado para completar o pagamento.\n\n� Verificando o melhor método disponível...`);
-                navigate(`/order/${order_id}/confirmation`);
-                return;
+                currency: 'MZN'
               }
-              
-              // For other methods, check if gateway provides redirect URL
-              const redirectUrl = payment?.checkout_url || payment?.redirect_url || payment?.payment_url;
-              if (redirectUrl) {
-                window.location.href = redirectUrl;
-                return;
-              }
-              
-              // Otherwise, show reference or instructions (basic UX)
-              navigate(`/order/${order_id}/confirmation`);
-            } catch (e: any) {
-              alert(e?.message || 'Falha ao iniciar pagamento');
-            }
+            });
           }}
         />
       </main>

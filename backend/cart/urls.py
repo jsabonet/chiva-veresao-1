@@ -47,4 +47,10 @@ urlpatterns = [
     # Stock Management - Admin
     path('admin/stock/report/', order_views.stock_report, name='stock_report'),
     path('admin/stock/adjust/', order_views.adjust_stock, name='adjust_stock'),
+
+    # Shipping methods management (admin)
+    path('admin/shipping-methods/', views.shipping_methods_list_create, name='shipping_methods_list_create'),
+    path('admin/shipping-methods/<str:method_id>/', views.shipping_method_detail, name='shipping_method_detail'),
+    # Public list for checkout
+    path('shipping-methods/', views.shipping_methods_public_list, name='shipping_methods_public_list'),
 ]
