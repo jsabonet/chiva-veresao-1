@@ -582,8 +582,6 @@ class Payment(models.Model):
     METHOD_CHOICES = [
         ('mpesa', 'M-Pesa'),
         ('emola', 'e-mola'),
-        ('card', 'Cartão'),
-        ('transfer', 'Transferência'),
     ]
 
     STATUS_CHOICES = [

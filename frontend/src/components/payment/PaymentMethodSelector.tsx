@@ -47,18 +47,6 @@ const paymentMethods: PaymentMethod[] = [
     icon: <Smartphone className="h-6 w-6" />,
     description: 'Pagamento via carteira digital e-Mola'
   },
-  {
-    id: 'card',
-    name: 'Cartão de Crédito/Débito',
-    icon: <CreditCard className="h-6 w-6" />,
-    description: 'Pagamento com cartão Visa/Mastercard'
-  },
-  {
-    id: 'transfer',
-    name: 'Transferência Bancária',
-    icon: <Building2 className="h-6 w-6" />,
-    description: 'Transferência direta entre contas'
-  }
 ];
 
 export default function PaymentMethodSelector({ isOpen, onClose, onSubmit, totalAmount }: PaymentMethodSelectorProps) {
