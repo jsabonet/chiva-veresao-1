@@ -903,8 +903,25 @@ def initiate_payment(request):
         shipping_method = request.data.get('shipping_method') or None
 
         # Payment method and data requested
-        method = request.data.get('method', 'mpesa')
         payment_data = request.data
+        method = payment_data.get('method')
+
+        # Try to infer method from phone if not provided
+        phone = payment_data.get('phone')
+        if not method:
+            inferred = None
+            if phone:
+                try:
+                    from cart.utils.phone_validation import get_payment_method_from_phone
+                    inferred = get_payment_method_from_phone(phone)
+                except Exception:
+                    inferred = None
+            if inferred:
+                method = inferred
+                logger.info(f"Inferred payment method '{method}' from phone {phone}")
+            else:
+                # Do not silently default to mpesa; require explicit method to avoid surprises
+                return Response({'error': 'missing_method', 'message': 'O campo "method" é obrigatório.'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Extract method-specific data
         phone = payment_data.get('phone')  # For mpesa/emola
@@ -1194,6 +1211,7 @@ def paysuite_webhook(request):
 
         # Find payment by external id or reference
         reference = data_block.get('id') or data_block.get('reference')
+        logger.info(f"Paysuite webhook received: event={event_name} reference={reference}")
         from .models import Payment, Order
         payment = None
         if reference:
