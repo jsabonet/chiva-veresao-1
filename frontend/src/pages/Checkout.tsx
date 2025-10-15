@@ -131,7 +131,9 @@ export default function Checkout() {
 
   // Order state
   const [selectedShippingMethod, setSelectedShippingMethod] = useState('standard');
-  const [paymentMethod, setPaymentMethod] = useState('mpesa');
+  const location = useLocation();
+  const initialMethod = (location && (location as any).state && (location as any).state.method) ? (location as any).state.method : 'mpesa';
+  const [paymentMethod, setPaymentMethod] = useState<string>(initialMethod);
   const [customerNotes, setCustomerNotes] = useState('');
   const [useAsShippingAddress, setUseAsShippingAddress] = useState(true);
   const [paymentPhone, setPaymentPhone] = useState('');
@@ -148,7 +150,6 @@ export default function Checkout() {
   }, [currentUser]);
 
   // If user navigated from Cart with a selected method, prefill
-  const location = useLocation();
   useEffect(() => {
     const state: any = location.state;
     if (state?.method) {

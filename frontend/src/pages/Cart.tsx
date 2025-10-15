@@ -202,7 +202,7 @@ const Cart = () => {
             // New flow: navigate to checkout details page where full customer, shipping
             // and order information will be collected before redirecting to the gateway.
             setShowPaymentModal(false);
-            navigate('/checkout/details', {
+            navigate('/checkout', {
               state: {
                 method: paymentData.method,
                 items: items.map(item => ({ id: item.id, quantity: item.quantity, color_id: item.color_id || null })),
