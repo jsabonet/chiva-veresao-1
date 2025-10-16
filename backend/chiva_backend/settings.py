@@ -24,6 +24,22 @@ PAYSUITE_BASE_URL = config('PAYSUITE_BASE_URL', default='https://api.paysuite.co
 PAYSUITE_API_KEY = config('PAYSUITE_API_KEY', default='')
 PAYSUITE_API_SECRET = config('PAYSUITE_API_SECRET', default='')
 
+# ==========================================
+# WEBHOOK CONFIGURATION FOR PRODUCTION
+# ==========================================
+
+# Base URL for webhook callbacks (MUST be publicly accessible)
+# Examples:
+#   Development: http://127.0.0.1:8000 (with ngrok)
+#   Production: https://api.chivacomputer.co.mz
+WEBHOOK_BASE_URL = config(
+    'WEBHOOK_BASE_URL',
+    default='http://127.0.0.1:8000'  # Default for development
+)
+
+# Paysuite webhook secret for signature validation (optional but recommended)
+PAYSUITE_WEBHOOK_SECRET = config('PAYSUITE_WEBHOOK_SECRET', default='')
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
@@ -33,6 +49,15 @@ SECRET_KEY = config('SECRET_KEY', default="django-insecure-jpz$&f8lx9!)+oyf9bj8l
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=True, cast=bool)
+
+# Validate webhook URL in production
+if not DEBUG and WEBHOOK_BASE_URL.startswith(('http://127.0.0.1', 'http://localhost')):
+    import warnings
+    warnings.warn(
+        "⚠️ WARNING: WEBHOOK_BASE_URL is using localhost in production! "
+        "Webhooks from Paysuite will not work. "
+        "Set WEBHOOK_BASE_URL environment variable to your public domain."
+    )
 
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,0.0.0.0', cast=lambda v: [host.strip() for host in v.split(',')])
 

@@ -903,25 +903,8 @@ def initiate_payment(request):
         shipping_method = request.data.get('shipping_method') or None
 
         # Payment method and data requested
+        method = request.data.get('method', 'mpesa')
         payment_data = request.data
-        method = payment_data.get('method')
-
-        # Try to infer method from phone if not provided
-        phone = payment_data.get('phone')
-        if not method:
-            inferred = None
-            if phone:
-                try:
-                    from cart.utils.phone_validation import get_payment_method_from_phone
-                    inferred = get_payment_method_from_phone(phone)
-                except Exception:
-                    inferred = None
-            if inferred:
-                method = inferred
-                logger.info(f"Inferred payment method '{method}' from phone {phone}")
-            else:
-                # Do not silently default to mpesa; require explicit method to avoid surprises
-                return Response({'error': 'missing_method', 'message': 'O campo "method" é obrigatório.'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Extract method-specific data
         phone = payment_data.get('phone')  # For mpesa/emola
@@ -968,8 +951,19 @@ def initiate_payment(request):
             from .payments.paysuite import PaysuiteClient
             client = PaysuiteClient()
         # Correct API path for webhook lives under /api/cart/
-        callback_url = request.build_absolute_uri('/api/cart/payments/webhook/')
-        return_url = request.build_absolute_uri(f'/orders/status')
+        # Use WEBHOOK_BASE_URL from settings if configured, otherwise use request host
+        from django.conf import settings
+        
+        if hasattr(settings, 'WEBHOOK_BASE_URL') and settings.WEBHOOK_BASE_URL:
+            # Use configured webhook base URL (for ngrok or production)
+            callback_url = f"{settings.WEBHOOK_BASE_URL.rstrip('/')}/api/cart/payments/webhook/"
+            return_url = f"{settings.WEBHOOK_BASE_URL.rstrip('/')}/orders/status"
+            logger.info(f"🔔 Using configured WEBHOOK_BASE_URL: {settings.WEBHOOK_BASE_URL}")
+        else:
+            # Fallback to request host (default behavior)
+            callback_url = request.build_absolute_uri('/api/cart/payments/webhook/')
+            return_url = request.build_absolute_uri(f'/orders/status')
+            logger.info(f"🔔 Using request host for webhook: {callback_url}")
         # Create a unique reference for this payment (<=50 chars per docs)
         reference = f"PAY{payment.id:06d}"
 
@@ -1211,7 +1205,6 @@ def paysuite_webhook(request):
 
         # Find payment by external id or reference
         reference = data_block.get('id') or data_block.get('reference')
-        logger.info(f"Paysuite webhook received: event={event_name} reference={reference}")
         from .models import Payment, Order
         payment = None
         if reference:
@@ -1229,6 +1222,7 @@ def paysuite_webhook(request):
             return Response({'error': 'Payment not found'}, status=status.HTTP_404_NOT_FOUND)
 
         # Update payment status based on event name
+        old_payment_status = payment.status
         if event_name == 'payment.success':
             payment.status = 'paid'
         elif event_name == 'payment.failed':
@@ -1238,6 +1232,8 @@ def paysuite_webhook(request):
 
         payment.raw_response = data
         payment.save(update_fields=['status', 'raw_response'])
+        
+        logger.info(f"🔔 Webhook received: event={event_name}, payment_id={payment.id}, status: {old_payment_status} → {payment.status}")
 
         # If payment succeeded, ensure an Order is created from the saved request_data
         if payment.status == 'paid':
@@ -1351,15 +1347,18 @@ def paysuite_webhook(request):
             # Proceed to update order status and stock
             if order:
                 try:
+                    old_order_status = order.status
                     OrderManager.update_order_status(
                         order=order,
                         new_status='paid',
                         user=None,  # Webhook - no specific user
                         notes=f"Pagamento confirmado via webhook - {event_name}"
                     )
-                    logger.info(f"Order {order.order_number} marked as paid and stock reduced")
+                    # Reload to get updated status
+                    order.refresh_from_db()
+                    logger.info(f"📦 Order {order.order_number} (id={order.id}) status updated: {old_order_status} → {order.status}, stock reduced")
                 except Exception as e:
-                    logger.error(f"Error updating order status after payment: {e}")
+                    logger.error(f"❌ Error updating order status after payment: {e}")
 
                 # Clear the cart after successful payment
                 try:
@@ -1400,10 +1399,20 @@ def payment_status(request, order_id: int):
         order = get_object_or_404(Order, id=order_id, user=request.user)
         payments = Payment.objects.filter(order=order).order_by('-created_at')
 
-        return Response({
+        # Detailed logging for debugging
+        logger.info(f"📊 Payment Status Poll: order_id={order_id}, order.status={order.status}, payment_count={payments.count()}")
+        if payments.exists():
+            latest_payment = payments.first()
+            logger.info(f"💳 Latest Payment: id={latest_payment.id}, status={latest_payment.status}, method={latest_payment.method}, ref={latest_payment.paysuite_reference}")
+
+        response_data = {
             'order': OrderSerializer(order).data,
             'payments': PaymentSerializer(payments, many=True).data,
-        })
+        }
+        
+        logger.info(f"✅ Returning status: order.status={response_data['order']['status']}, payments={[p['status'] for p in response_data['payments']]}")
+        
+        return Response(response_data)
     except Exception:
         logger.exception('Error fetching payment status')
         return Response({'error': 'Failed to fetch payment status'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
