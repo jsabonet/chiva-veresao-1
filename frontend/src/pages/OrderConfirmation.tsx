@@ -72,11 +72,21 @@ export default function OrderConfirmation() {
       try {
         const res = await fetchPaymentStatus(orderId);
         if (cancelled) return;
+        
+        // Log detalhado para debug
+        console.log('📊 Poll Response:', {
+          order_id: res.order.id,
+          order_status: res.order.status,
+          payments: res.payments.map((p: any) => ({ id: p.id, status: p.status, method: p.method })),
+          timestamp: new Date().toLocaleTimeString()
+        });
+        
         setStatus(res.order.status);
         setPayments(res.payments || []);
         setLastUpdate(new Date().toLocaleTimeString());
       } catch (e: any) {
         if (cancelled) return;
+        console.error('❌ Poll Error:', e);
         setError(e?.message || 'Falha ao consultar status do pagamento');
       }
     };
@@ -117,23 +127,54 @@ export default function OrderConfirmation() {
     
     switch (status) {
       case 'paid':
-        return { icon: <CheckCircle2 className="h-6 w-6 text-green-600" />, title: 'Pagamento confirmado', desc: 'Seu pedido foi pago com sucesso. Obrigado!' };
+        return { 
+          icon: <CheckCircle2 className="h-8 w-8 text-green-600" />, 
+          title: '✅ Pagamento Aprovado!', 
+          desc: 'Seu pedido foi confirmado e está sendo processado. Você receberá um email com os detalhes e atualizações sobre o envio.',
+          bgColor: 'bg-green-50',
+          borderColor: 'border-green-200',
+          textColor: 'text-green-900'
+        };
       case 'failed':
-        return { icon: <XCircle className="h-6 w-6 text-red-600" />, title: 'Pagamento falhou', desc: 'Não foi possível processar o pagamento. Tente novamente.' };
+        return { 
+          icon: <XCircle className="h-8 w-8 text-red-600" />, 
+          title: '❌ Pagamento Recusado', 
+          desc: 'Não foi possível processar o pagamento. Seu carrinho foi mantido para você tentar novamente. Verifique os dados do pagamento ou escolha outro método.',
+          bgColor: 'bg-red-50',
+          borderColor: 'border-red-200',
+          textColor: 'text-red-900'
+        };
       case 'cancelled':
-        return { icon: <XCircle className="h-6 w-6 text-amber-600" />, title: 'Pagamento cancelado', desc: 'O pagamento foi cancelado.' };
+        return { 
+          icon: <XCircle className="h-8 w-8 text-amber-600" />, 
+          title: '⚠️ Pagamento Cancelado', 
+          desc: 'O pagamento foi cancelado. Seu carrinho foi preservado — você pode voltar e tentar novamente quando desejar.',
+          bgColor: 'bg-amber-50',
+          borderColor: 'border-amber-200',
+          textColor: 'text-amber-900'
+        };
       case 'processing':
       case 'pending':
       default:
         if (isMobilePayment) {
-          const methodName = lastPayment?.method === 'mpesa' ? 'M-Pesa' : 'Emola';
+          const methodName = lastPayment?.method === 'mpesa' ? 'M-Pesa' : 'e-Mola';
           return { 
-            icon: <Clock className="h-6 w-6 text-blue-600 animate-pulse" />, 
-            title: `Aguardando confirmação ${methodName}`, 
-            desc: `📱 Clique em "Finalizar no Checkout" abaixo para abrir o link. Depois de concluir, volte a esta página para verificar o status do pedido — a atualização é automática` 
+            icon: <Clock className="h-8 w-8 text-blue-600 animate-pulse" />, 
+            title: `⏳ Aguardando confirmação ${methodName}`, 
+            desc: `Complete o pagamento no checkout externo. Depois de finalizar, volte a esta página — o status será atualizado automaticamente a cada 3 segundos.`,
+            bgColor: 'bg-blue-50',
+            borderColor: 'border-blue-200',
+            textColor: 'text-blue-900'
           };
         }
-        return { icon: <Clock className="h-6 w-6 text-blue-600 animate-pulse" />, title: 'Aguardando confirmação', desc: 'Estamos confirmando seu pagamento. Isso pode levar alguns instantes.' };
+        return { 
+          icon: <Clock className="h-8 w-8 text-blue-600 animate-pulse" />, 
+          title: '⏳ Aguardando confirmação', 
+          desc: 'Estamos confirmando seu pagamento com a operadora. Isso pode levar alguns instantes. Por favor, aguarde.',
+          bgColor: 'bg-blue-50',
+          borderColor: 'border-blue-200',
+          textColor: 'text-blue-900'
+        };
     }
   }, [status, payments]);
 
@@ -169,38 +210,90 @@ export default function OrderConfirmation() {
       <Header />
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-2xl mx-auto">
-          <Card>
-            <CardHeader className="flex flex-row items-center gap-3">
+          <Card className={`${statusInfo.borderColor} border-2`}>
+            <CardHeader className={`${statusInfo.bgColor} flex flex-row items-center gap-3`}>
               {statusInfo.icon}
-              <div>
-                <CardTitle>{statusInfo.title}</CardTitle>
-                <p className="text-sm text-muted-foreground">Pedido #{orderId}</p>
+              <div className="flex-1">
+                <CardTitle className={statusInfo.textColor}>{statusInfo.title}</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">Pedido #{orderId}</p>
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-muted-foreground">{statusInfo.desc}</p>
+            <CardContent className="space-y-4 pt-6">
+              <div className={`p-4 rounded-lg ${statusInfo.bgColor} ${statusInfo.borderColor} border`}>
+                <p className={`${statusInfo.textColor} font-medium`}>{statusInfo.desc}</p>
+              </div>
+
+              {/* Success details - only show when paid */}
+              {status === 'paid' && (
+                <div className="space-y-3 p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <h3 className="font-semibold text-green-900">✓ Próximos Passos:</h3>
+                  <ul className="text-sm text-green-800 space-y-2 ml-4 list-disc">
+                    <li>Você receberá um email de confirmação com os detalhes do pedido</li>
+                    <li>Acompanhe o status do envio na sua área de pedidos</li>
+                    <li>O prazo de entrega será informado por email</li>
+                    <li>Em caso de dúvidas, entre em contato com nosso suporte</li>
+                  </ul>
+                </div>
+              )}
+
+              {/* Failure guidance - show when failed or cancelled */}
+              {(status === 'failed' || status === 'cancelled') && (
+                <div className="space-y-3 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                  <h3 className="font-semibold text-amber-900">💡 O que fazer agora:</h3>
+                  <ul className="text-sm text-amber-800 space-y-2 ml-4 list-disc">
+                    <li>Seu carrinho foi preservado e continua disponível</li>
+                    <li>Verifique se há saldo suficiente na sua carteira</li>
+                    <li>Tente outro método de pagamento (M-Pesa, e-Mola, Cartão)</li>
+                    <li>Se o problema persistir, contate seu provedor de pagamento</li>
+                  </ul>
+                </div>
+              )}
 
               {error && (
-                <div className="text-sm text-red-600">{error}</div>
+                <div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-600">
+                  ⚠️ Erro ao consultar status: {error}
+                </div>
               )}
 
               <Separator />
 
-              <div className="text-sm space-y-1">
-                <div>
-                  <span className="font-medium">Última atualização: </span>
-                  <span>{lastUpdate || '—'}</span>
+              <div className="text-sm space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Última atualização:</span>
+                  <span className="font-medium">{lastUpdate || '—'}</span>
                 </div>
                 {lastPayment && (
-                  <div className="text-xs text-muted-foreground">
-                    Referência: {lastPayment.paysuite_reference || '—'} | Status: {lastPayment.status}
-                  </div>
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Referência do pagamento:</span>
+                      <span className="font-mono text-xs">{lastPayment.paysuite_reference || '—'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Status do pagamento:</span>
+                      <span className={`font-medium ${
+                        lastPayment.status === 'paid' ? 'text-green-600' :
+                        lastPayment.status === 'failed' ? 'text-red-600' :
+                        lastPayment.status === 'cancelled' ? 'text-amber-600' :
+                        'text-blue-600'
+                      }`}>
+                        {lastPayment.status === 'paid' ? 'Pago' :
+                         lastPayment.status === 'failed' ? 'Falhou' :
+                         lastPayment.status === 'cancelled' ? 'Cancelado' :
+                         lastPayment.status === 'pending' ? 'Pendente' : lastPayment.status}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Método:</span>
+                      <span className="font-medium uppercase">{lastPayment.method}</span>
+                    </div>
+                  </>
                 )}
               </div>
 
               {!isFinal && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <RotateCw className="h-4 w-4 animate-spin" /> Atualizando automaticamente
+                <div className="flex items-center justify-center gap-2 text-sm text-blue-600 bg-blue-50 p-3 rounded-lg">
+                  <RotateCw className="h-4 w-4 animate-spin" /> 
+                  <span>Atualizando automaticamente a cada 3 segundos...</span>
                 </div>
               )}
 

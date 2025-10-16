@@ -1,10 +1,50 @@
-# Chiva — Guia de Deploy (Droplet / Docker)
+# Chiva Computer — E-commerce com Pagamentos Paysuite
+
+Sistema completo de e-commerce com integração de pagamentos via Paysuite (M-Pesa e e-Mola), gerenciamento de produtos, carrinho de compras, e área administrativa.
+
+## 🚀 Novidades Recentes
+
+### ✅ Sistema de Pagamentos Completo (Outubro 2025)
+
+O sistema de pagamentos está **100% funcional e pronto para produção**!
+
+**Características:**
+- ✅ Integração completa com Paysuite Gateway
+- ✅ Suporte a M-Pesa e e-Mola
+- ✅ Rastreamento em tempo real de status de pagamento
+- ✅ UI moderna com feedback visual (aprovado/recusado/pendente)
+- ✅ Cart management inteligente (limpa apenas após confirmação)
+- ✅ Webhooks configuráveis (dev e produção)
+- ✅ Logging completo para debugging
+
+**📚 Documentação Completa:**
+
+| Documento | Para Quem | Tempo |
+|-----------|-----------|-------|
+| [ÍNDICE.md](INDICE.md) | Todos | 2 min |
+| [RESUMO_EXECUTIVO.md](RESUMO_EXECUTIVO.md) | Visão geral rápida | 5 min |
+| [NGROK_DEVELOPMENT_SETUP.md](NGROK_DEVELOPMENT_SETUP.md) | Desenvolvimento local | 15 min |
+| [PRODUCTION_DEPLOYMENT_GUIDE.md](PRODUCTION_DEPLOYMENT_GUIDE.md) | Deploy produção | 30-60 min |
+| [FAQ.md](FAQ.md) | Dúvidas específicas | Consulta |
+
+**🤖 Script Automatizado:**
+```powershell
+# Inicia ambiente de desenvolvimento com ngrok automaticamente
+.\scripts\start-dev-with-ngrok.ps1
+```
+
+**Ver:** [INDICE.md](INDICE.md) para navegação completa da documentação.
+
+---
+
+## 📋 Resumo Geral
 
 Este README descreve os passos práticos para testar localmente e subir o projeto em um Droplet no DigitalOcean usando Docker Compose. Contém comandos PowerShell e instruções de configuração.
 
-Resumo rápido
+**Resumo rápido:**
 - O repositório já contém Dockerfiles para backend e frontend, um `docker-compose.yml`, e um script auxiliar `scripts/deploy.ps1` que constrói a imagem do backend usando dependências de produção (`requirements.prod.txt`) e sobe a stack.
 - Antes de rodar em produção: atualize o `.env` com valores reais (ou use Secrets do DigitalOcean). Não versionar credenciais.
+- **NOVO:** Configure `WEBHOOK_BASE_URL` para webhooks do Paysuite funcionarem (ver [PRODUCTION_DEPLOYMENT_GUIDE.md](PRODUCTION_DEPLOYMENT_GUIDE.md))
 
 Pré-requisitos
 - Droplet (Ubuntu 22.04+ recomendado) ou máquina local com Docker e Docker Compose.
