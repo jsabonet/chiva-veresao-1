@@ -1425,12 +1425,14 @@ def payment_status(request, order_id: int):
         order = get_object_or_404(Order, id=order_id, user=request.user)
         payments = Payment.objects.filter(order=order).order_by('-created_at')
 
-        # Detailed logging for debugging
+        # Detailed logging for debugging (using both print and logger to ensure visibility)
+        print(f"📊 [POLLING] Payment Status Poll: order_id={order_id}, order.status={order.status}, payment_count={payments.count()}")
         logger.info(f"📊 Payment Status Poll: order_id={order_id}, order.status={order.status}, payment_count={payments.count()}")
         
         # Active polling: if latest payment is pending, query PaySuite directly
         if payments.exists():
             latest_payment = payments.first()
+            print(f"💳 [POLLING] Latest Payment: id={latest_payment.id}, status={latest_payment.status}, method={latest_payment.method}, ref={latest_payment.paysuite_reference}")
             logger.info(f"💳 Latest Payment: id={latest_payment.id}, status={latest_payment.status}, method={latest_payment.method}, ref={latest_payment.paysuite_reference}")
             
             # Only poll PaySuite if payment is pending and we have a reference
@@ -1439,6 +1441,7 @@ def payment_status(request, order_id: int):
                     from .payments.paysuite import PaysuiteClient
                     client = PaysuiteClient()
                     
+                    print(f"🔄 [POLLING] Active polling PaySuite for payment {latest_payment.paysuite_reference}")
                     logger.info(f"🔄 Active polling PaySuite for payment {latest_payment.paysuite_reference}")
                     paysuite_response = client.get_payment_status(latest_payment.paysuite_reference)
                     
