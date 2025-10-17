@@ -1450,26 +1450,35 @@ def payment_status(request, order_id: int):
                     
                     if paysuite_response.get('status') == 'success':
                         paysuite_data = paysuite_response.get('data', {})
-                        paysuite_status = paysuite_data.get('status', '').lower()
                         
                         print(f"✅ [POLLING] PaySuite data: {paysuite_data}")
-                        print(f"✅ [POLLING] PaySuite status: {paysuite_status}")
-                        logger.info(f"✅ PaySuite returned status: {paysuite_status} for payment {latest_payment.id}")
                         
-                        # Map PaySuite status to our internal status
-                        status_map = {
-                            'paid': 'paid',
-                            'completed': 'paid',
-                            'success': 'paid',
-                            'failed': 'failed',
-                            'cancelled': 'cancelled',
-                            'rejected': 'failed',
-                            'expired': 'failed',
-                        }
+                        # PaySuite API returns:
+                        # - transaction: null → payment still pending (not processed yet)
+                        # - transaction: {...} → payment completed successfully
+                        # - error/message field → payment failed
+                        transaction = paysuite_data.get('transaction')
+                        error = paysuite_data.get('error') or paysuite_data.get('message')
                         
-                        new_status = status_map.get(paysuite_status)
+                        if transaction is not None:
+                            # Transaction completed successfully
+                            new_status = 'paid'
+                            logger.info(f"✅ PaySuite transaction completed: {transaction}")
+                            print(f"✅ [POLLING] Transaction completed: {transaction}")
+                        elif error:
+                            # Payment failed with error
+                            new_status = 'failed'
+                            logger.info(f"❌ PaySuite payment failed: {error}")
+                            print(f"❌ [POLLING] Payment failed: {error}")
+                        else:
+                            # Transaction is null - still pending
+                            new_status = 'pending'
+                            logger.info(f"⏳ PaySuite payment still pending (transaction is null)")
+                            print(f"⏳ [POLLING] Payment still pending (transaction is null)")
                         
-                        if new_status and new_status != latest_payment.status:
+                        print(f"🔄 [POLLING] Status mapping: Current={latest_payment.status}, New={new_status}")
+                        
+                        if new_status != latest_payment.status:
                             logger.info(f"🔄 Updating payment {latest_payment.id} from {latest_payment.status} to {new_status} based on PaySuite polling")
                             
                             # Update payment status
@@ -1522,7 +1531,7 @@ def payment_status(request, order_id: int):
                             if latest_payment.order:
                                 latest_payment.order.refresh_from_db()
                         else:
-                            print(f"⚠️ [POLLING] No status change needed. Current: {latest_payment.status}, PaySuite: {paysuite_status}, Mapped: {status_map.get(paysuite_status)}")
+                            print(f"⚠️ [POLLING] No status change needed. Current: {latest_payment.status}, New: {new_status}")
                     else:
                         print(f"❌ [POLLING] PaySuite response status is NOT 'success': {paysuite_response.get('status')}")
                                 
