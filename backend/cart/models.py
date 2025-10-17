@@ -273,7 +273,7 @@ class CartHistory(models.Model):
     ]
     
     cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name='history')
-    event = models.CharField(max_length=20, choices=EVENT_CHOICES)
+    event = models.CharField(max_length=50, choices=EVENT_CHOICES)
     description = models.TextField(blank=True)
     metadata = models.JSONField(default=dict, blank=True)  # Store additional event data
     timestamp = models.DateTimeField(auto_now_add=True)
