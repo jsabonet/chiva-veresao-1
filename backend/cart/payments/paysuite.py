@@ -16,7 +16,7 @@ PAYSUITE_WEBHOOK_SECRET = os.getenv('PAYSUITE_WEBHOOK_SECRET') or os.getenv('PAY
 
 # Simple in-memory cache for payment status queries (avoid rate limits)
 _status_cache = {}
-_CACHE_TTL = 10  # Cache status queries for 10 seconds
+_CACHE_TTL = 30  # Cache status queries for 30 seconds (reduces from 20 req/min to 2 req/min)
 
 
 class PaysuiteClient:
@@ -158,13 +158,13 @@ class PaysuiteClient:
         return hmac.compare_digest(computed, sig_value)
 
     def get_payment_status(self, payment_id: str) -> dict:
-        """Query PaySuite API directly to get payment status.
+        """Query PaySuite API to get payment status.
         
         This is a fallback when webhooks don't arrive. Polls the PaySuite API
         to check the current status of a payment.
         
-        Uses caching to avoid rate limits: only queries API if cache is stale (>10s).
-        Always uses direct PaySuite API (not proxy) to avoid Cloudflare Workers rate limits.
+        Uses caching to avoid rate limits: only queries API if cache is stale (>30s).
+        Uses proxy because direct connection to paysuite.tech is blocked by server firewall.
         
         Args:
             payment_id: The PaySuite payment ID (reference from raw_response.data.id)
@@ -181,24 +181,15 @@ class PaysuiteClient:
                 logging.debug(f"🔍 Using cached status for payment {payment_id} (age: {now - cached_time:.1f}s)")
                 return cached_data
         
-        # Use direct PaySuite API (not proxy) to avoid rate limits
-        # The proxy is only needed for create_payment due to geo-restrictions
-        direct_base_url = 'https://paysuite.tech/api'
-        url = f"{direct_base_url}/v1/payments/{payment_id}"
+        # Use the proxy with cache to avoid rate limits
+        # The 10s cache reduces requests from 20/min to 6/min
+        url = f"{self.base_url}/v1/payments/{payment_id}"
         
-        logging.info(f"🔍 Polling PaySuite status for payment {payment_id} (direct API)")
+        logging.info(f"🔍 Polling PaySuite status for payment {payment_id} (via proxy with cache)")
         
-        timeout = float(os.getenv('PAYSUITE_TIMEOUT', '10'))
         try:
-            # Create temporary session for direct API call
-            resp = requests.get(
-                url,
-                headers={
-                    'Authorization': f'Bearer {self.api_key}',
-                    'Content-Type': 'application/json'
-                },
-                timeout=timeout
-            )
+            # Use existing session (already configured with proxy)
+            resp = self.session.get(url)
             logging.debug(f"🔍 PaySuite status response: {resp.status_code} - {resp.text[:200]}")
             resp.raise_for_status()
             
