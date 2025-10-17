@@ -196,7 +196,32 @@ class PaysuiteClient:
             print(f"🔍 [PAYSUITE] Response status: {resp.status_code}")
             print(f"🔍 [PAYSUITE] Response body: {resp.text[:500]}")
             logging.debug(f"🔍 PaySuite status response: {resp.status_code} - {resp.text[:200]}")
-            resp.raise_for_status()
+            
+            # Handle error responses before raise_for_status
+            if resp.status_code >= 400:
+                # Try to parse error response
+                try:
+                    error_data = resp.json()
+                    error_msg = error_data.get('message') or error_data.get('error') or f'HTTP {resp.status_code}'
+                except:
+                    error_msg = f'HTTP {resp.status_code}: {resp.text[:100]}'
+                
+                logging.error(f"PaySuite API error {resp.status_code}: {error_msg}")
+                
+                # Special handling for rate limit
+                if resp.status_code == 429:
+                    logging.warning(f"⚠️ Rate limit hit for payment {payment_id} - will retry on next poll")
+                    # Return cached data if available, even if stale
+                    if cache_key in _status_cache:
+                        cached_data, _ = _status_cache[cache_key]
+                        logging.info(f"📦 Returning stale cache for payment {payment_id} due to rate limit")
+                        return cached_data
+                
+                return {
+                    'status': 'error',
+                    'message': error_msg,
+                    'code': resp.status_code
+                }
             
             result = resp.json()
             print(f"🔍 [PAYSUITE] Parsed JSON: {json.dumps(result, indent=2)[:500]}")
@@ -206,18 +231,19 @@ class PaysuiteClient:
             
             return result
         except requests.exceptions.HTTPError as e:
-            if e.response.status_code == 429:
                 logging.warning(f"⚠️ Rate limit hit for payment {payment_id} - will retry on next poll")
                 # Return cached data if available, even if stale
                 if cache_key in _status_cache:
                     cached_data, _ = _status_cache[cache_key]
                     logging.info(f"📦 Returning stale cache for payment {payment_id} due to rate limit")
                     return cached_data
-            logging.error(f"Failed to get payment status from PaySuite: {e}")
-            return {
-                'status': 'error',
-                'message': f'Failed to query payment status: {str(e)}'
-            }
+                
+                return {
+                    'status': 'error',
+                    'message': 'Rate limit exceeded',
+                    'code': 429
+                }
+        
         except requests.exceptions.RequestException as e:
             logging.error(f"Failed to get payment status from PaySuite: {e}")
             # Return error structure compatible with create_payment

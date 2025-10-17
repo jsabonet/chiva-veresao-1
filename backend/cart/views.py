@@ -1448,7 +1448,9 @@ def payment_status(request, order_id: int):
                     print(f"🔍 [POLLING] PaySuite response received: {paysuite_response}")
                     print(f"🔍 [POLLING] Response status field: {paysuite_response.get('status')}")
                     
-                    if paysuite_response.get('status') == 'success':
+                    response_status = paysuite_response.get('status')
+                    
+                    if response_status == 'success':
                         paysuite_data = paysuite_response.get('data', {})
                         
                         print(f"✅ [POLLING] PaySuite data: {paysuite_data}")
@@ -1532,8 +1534,45 @@ def payment_status(request, order_id: int):
                                 latest_payment.order.refresh_from_db()
                         else:
                             print(f"⚠️ [POLLING] No status change needed. Current: {latest_payment.status}, New: {new_status}")
+                    
+                    elif response_status == 'error':
+                        # PaySuite returned an error status
+                        error_msg = paysuite_response.get('message') or 'Payment processing failed'
+                        new_status = 'failed'
+                        
+                        logger.info(f"❌ PaySuite returned error: {error_msg}")
+                        print(f"❌ [POLLING] PaySuite error response: {error_msg}")
+                        print(f"🔄 [POLLING] Status mapping: Current={latest_payment.status}, New={new_status}")
+                        
+                        if new_status != latest_payment.status:
+                            logger.info(f"🔄 Updating payment {latest_payment.id} from {latest_payment.status} to failed based on PaySuite error")
+                            
+                            # Update payment status to failed
+                            latest_payment.status = 'failed'
+                            latest_payment.raw_response = {
+                                **latest_payment.raw_response,
+                                'polled_at': timezone.now().isoformat(),
+                                'polled_response': paysuite_response,
+                                'error_message': error_msg
+                            }
+                            latest_payment.save(update_fields=['status', 'raw_response'])
+                            
+                            # Sync order status
+                            if latest_payment.order:
+                                old_order_status = latest_payment.order.status
+                                latest_payment.order.status = 'failed'
+                                latest_payment.order.save(update_fields=['status'])
+                                logger.info(f"✅ Synced order {latest_payment.order.id} status: {old_order_status} → failed (via active polling)")
+                            
+                            # Refresh from DB
+                            latest_payment.refresh_from_db()
+                            if latest_payment.order:
+                                latest_payment.order.refresh_from_db()
+                        else:
+                            print(f"⚠️ [POLLING] Payment already marked as failed")
+                    
                     else:
-                        print(f"❌ [POLLING] PaySuite response status is NOT 'success': {paysuite_response.get('status')}")
+                        print(f"❌ [POLLING] Unexpected PaySuite response status: {response_status}")
                                 
                 except Exception as e:
                     print(f"❌ [POLLING] Exception during active polling: {e}")
