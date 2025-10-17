@@ -1181,12 +1181,25 @@ def paysuite_webhook(request):
         client = PaysuiteClient()
 
         payload = request.body
+        # Entry diagnostics
+        try:
+            meta = request.META
+            ip = meta.get('HTTP_X_FORWARDED_FOR', meta.get('REMOTE_ADDR', 'unknown')).split(',')[0].strip()
+            ua = meta.get('HTTP_USER_AGENT', 'unknown')
+            clen = meta.get('CONTENT_LENGTH', '0')
+            logger.info(f"📥 Paysuite webhook hit: ip={ip}, ua={ua[:80]}, content_length={clen}")
+        except Exception:
+            logger.debug("Could not log request meta for webhook")
         # Per docs: 'X-Webhook-Signature' carries HMAC-SHA256 of raw body
         signature = (
             request.headers.get('X-Webhook-Signature')
             or request.headers.get('X-Paysuite-Signature')
             or request.headers.get('X-Signature')
         )
+        if signature:
+            logger.info(f"🧪 Webhook signature header present: {signature[:12]}… (len={len(signature)})")
+        else:
+            logger.warning("⚠️ Webhook without signature header")
 
         # Verify signature when possible (best-effort; adjust to Paysuite docs)
         # If no secret/signature is configured, skip verification but log a warning
