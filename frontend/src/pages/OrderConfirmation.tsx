@@ -3,10 +3,8 @@ import { useCart } from '@/contexts/CartContext';
 import { useParams, Link } from 'react-router-dom';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
-import { CheckCircle2, XCircle, Clock, RotateCw } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, Copy, ExternalLink, Home, ShoppingCart, Package, AlertCircle } from 'lucide-react';
 import { usePayments } from '@/hooks/usePayments';
 
 type OrderStatus = 'pending' | 'processing' | 'paid' | 'failed' | 'cancelled';
@@ -14,26 +12,29 @@ type OrderStatus = 'pending' | 'processing' | 'paid' | 'failed' | 'cancelled';
 export default function OrderConfirmation() {
   const { id } = useParams();
   const orderId = Number(id);
-  // Guard: if route param is missing or not a valid number, avoid calling the API with NaN
+  
+  // Guard: if route param is missing or not a valid number
   if (Number.isNaN(orderId)) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
         <Header />
-        <main className="container mx-auto px-4 py-8">
-          <div className="max-w-2xl mx-auto">
-            <Card>
-              <CardHeader>
-                <CardTitle>Pedido inválido</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">O identificador do pedido é inválido ou não foi informado. Verifique o link ou retorne à loja.</p>
-                <div className="mt-4">
-                  <Button asChild>
-                    <Link to="/">Voltar à loja</Link>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+        <main className="container mx-auto px-4 py-8 sm:py-12">
+          <div className="max-w-md mx-auto">
+            <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8 text-center">
+              <div className="w-16 h-16 mx-auto mb-4 bg-red-100 rounded-full flex items-center justify-center">
+                <AlertCircle className="h-8 w-8 text-red-600" />
+              </div>
+              <h1 className="text-xl font-bold text-gray-900 mb-2">Pedido Inválido</h1>
+              <p className="text-sm text-gray-600 mb-6">
+                O identificador do pedido é inválido ou não foi informado.
+              </p>
+              <Button asChild className="w-full">
+                <Link to="/" className="flex items-center justify-center gap-2">
+                  <Home className="h-4 w-4" />
+                  Voltar à loja
+                </Link>
+              </Button>
+            </div>
           </div>
         </main>
         <Footer />
@@ -230,173 +231,299 @@ export default function OrderConfirmation() {
     }
   };
 
+  // Get error message for failed payments
+  const getErrorMessage = () => {
+    if (!lastPayment?.raw_response) return 'Não foi possível processar o pagamento.';
+    return (
+      lastPayment.raw_response?.polled_response?.message ||
+      lastPayment.raw_response?.polled_response?.data?.message ||
+      lastPayment.raw_response?.message ||
+      lastPayment.raw_response?.data?.error ||
+      lastPayment.raw_response?.data?.message ||
+      'Não foi possível processar o pagamento. Tente novamente.'
+    );
+  };
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50">
       <Header />
-      <main className="container mx-auto px-4 py-8">
-        <div className="max-w-2xl mx-auto">
-          <Card className={`${statusInfo.borderColor} border-2`}>
-            <CardHeader className={`${statusInfo.bgColor} flex flex-row items-center gap-3`}>
-              {statusInfo.icon}
-              <div className="flex-1">
-                <CardTitle className={statusInfo.textColor}>{statusInfo.title}</CardTitle>
-                <p className="text-sm text-muted-foreground mt-1">Pedido #{orderId}</p>
-              </div>
+      
+      <main className="container mx-auto px-4 py-6 sm:py-12">
+        <div className="max-w-lg mx-auto">
+          
+          {/* Status Icon & Header - Minimalista e mobile-first */}
+          <div className="text-center mb-6 sm:mb-8 animate-in fade-in duration-500">
+            <div className={`
+              w-20 h-20 sm:w-24 sm:h-24 mx-auto mb-4 sm:mb-6 rounded-full 
+              flex items-center justify-center shadow-lg
+              ${status === 'paid' ? 'bg-gradient-to-br from-green-400 to-green-600' : ''}
+              ${status === 'failed' ? 'bg-gradient-to-br from-red-400 to-red-600' : ''}
+              ${status === 'cancelled' ? 'bg-gradient-to-br from-amber-400 to-amber-600' : ''}
+              ${(status === 'pending' || status === 'processing') ? 'bg-gradient-to-br from-blue-400 to-blue-600' : ''}
+              transition-all duration-300
+            `}>
+              {status === 'paid' && <CheckCircle2 className="h-10 w-10 sm:h-12 sm:w-12 text-white" />}
+              {status === 'failed' && <XCircle className="h-10 w-10 sm:h-12 sm:w-12 text-white" />}
+              {status === 'cancelled' && <XCircle className="h-10 w-10 sm:h-12 sm:w-12 text-white" />}
+              {(status === 'pending' || status === 'processing') && (
+                <Clock className="h-10 w-10 sm:h-12 sm:w-12 text-white animate-pulse" />
+              )}
+            </div>
+            
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
+              {statusInfo.title}
+            </h1>
+            
+            <p className="text-xs sm:text-sm text-gray-500 font-medium">
+              Pedido #{orderId}
+            </p>
+          </div>
 
-              {/* If failed, show detailed error and retry actions */}
-              {status === 'failed' && lastPayment && (
-                <div className="space-y-3">
-                  <div className="p-3 rounded bg-red-50 border border-red-100">
-                    <p className="text-sm text-red-900 font-medium">Detalhes do erro:</p>
-                    <p className="text-sm text-muted-foreground mt-1">{(
-                      // Prefer polled_response error -> raw_response.message -> generic
-                      lastPayment.raw_response?.polled_response?.message ||
-                      lastPayment.raw_response?.polled_response?.data?.message ||
-                      lastPayment.raw_response?.message ||
-                      lastPayment.raw_response?.data?.error ||
-                      lastPayment.raw_response?.data?.message ||
-                      'Não foi possível processar o pagamento. Tente novamente.'
-                    )}</p>
+          {/* Main Card - Design limpo e responsivo */}
+          <div className="bg-white rounded-2xl shadow-xl overflow-hidden mb-6 animate-in slide-in-from-bottom-4 duration-500">
+            
+            {/* Description */}
+            <div className="p-6 sm:p-8">
+              <p className="text-sm sm:text-base text-gray-700 text-center leading-relaxed">
+                {statusInfo.desc}
+              </p>
+            </div>
+
+            {/* Error Details - Para pagamentos falhados */}
+            {status === 'failed' && lastPayment && (
+              <div className="px-6 pb-6 sm:px-8 sm:pb-8">
+                <div className="bg-red-50 border-l-4 border-red-500 rounded-r-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-red-900 mb-1">Detalhes do erro:</p>
+                      <p className="text-sm text-red-700 break-words">{getErrorMessage()}</p>
+                    </div>
                   </div>
-
-                  <div className="flex gap-2">
-                    {hasExternalCheckout && (
-                      <Button onClick={openExternalCheckout} variant="outline">Abrir checkout</Button>
-                    )}
-                    <Button onClick={copyExternalLink} variant="ghost">Copiar link de checkout</Button>
-                    <Button onClick={() => window.location.reload()} variant="secondary">Tentar novamente</Button>
-                  </div>
                 </div>
-              )}
-            </CardHeader>
-            <CardContent className="space-y-4 pt-6">
-              <div className={`p-4 rounded-lg ${statusInfo.bgColor} ${statusInfo.borderColor} border`}>
-                <p className={`${statusInfo.textColor} font-medium`}>{statusInfo.desc}</p>
               </div>
+            )}
 
-              {/* Success details - only show when paid */}
-              {status === 'paid' && (
-                <div className="space-y-3 p-4 bg-green-50 border border-green-200 rounded-lg">
-                  <h3 className="font-semibold text-green-900">✓ Próximos Passos:</h3>
-                  <ul className="text-sm text-green-800 space-y-2 ml-4 list-disc">
-                    <li>Você receberá um email de confirmação com os detalhes do pedido</li>
-                    <li>Acompanhe o status do envio na sua área de pedidos</li>
-                    <li>O prazo de entrega será informado por email</li>
-                    <li>Em caso de dúvidas, entre em contato com nosso suporte</li>
-                  </ul>
+            {/* Payment Details - Informações técnicas */}
+            <div className="px-6 pb-6 sm:px-8 sm:pb-8 space-y-3">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <p className="text-xs text-gray-500 mb-1">Status</p>
+                  <p className={`font-semibold ${
+                    status === 'paid' ? 'text-green-600' :
+                    status === 'failed' ? 'text-red-600' :
+                    status === 'cancelled' ? 'text-amber-600' :
+                    'text-blue-600'
+                  }`}>
+                    {status === 'paid' ? 'Pago' :
+                     status === 'failed' ? 'Falhou' :
+                     status === 'cancelled' ? 'Cancelado' :
+                     'Pendente'}
+                  </p>
                 </div>
-              )}
-
-              {/* Failure guidance - show when failed or cancelled */}
-              {(status === 'failed' || status === 'cancelled') && (
-                <div className="space-y-3 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                  <h3 className="font-semibold text-amber-900">💡 O que fazer agora:</h3>
-                  <ul className="text-sm text-amber-800 space-y-2 ml-4 list-disc">
-                    <li>Seu carrinho foi preservado e continua disponível</li>
-                    <li>Verifique se há saldo suficiente na sua carteira</li>
-                    <li>Tente outro método de pagamento (M-Pesa, e-Mola, Cartão)</li>
-                    <li>Se o problema persistir, contate seu provedor de pagamento</li>
-                  </ul>
-                </div>
-              )}
-
-              {error && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-600">
-                  ⚠️ Erro ao consultar status: {error}
-                </div>
-              )}
-
-              <Separator />
-
-              <div className="text-sm space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Última atualização:</span>
-                  <span className="font-medium">{lastUpdate || '—'}</span>
-                </div>
+                
                 {lastPayment && (
-                  <>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Referência do pagamento:</span>
-                      <span className="font-mono text-xs">{lastPayment.paysuite_reference || '—'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Status do pagamento:</span>
-                      <span className={`font-medium ${
-                        lastPayment.status === 'paid' ? 'text-green-600' :
-                        lastPayment.status === 'failed' ? 'text-red-600' :
-                        lastPayment.status === 'cancelled' ? 'text-amber-600' :
-                        'text-blue-600'
-                      }`}>
-                        {lastPayment.status === 'paid' ? 'Pago' :
-                         lastPayment.status === 'failed' ? 'Falhou' :
-                         lastPayment.status === 'cancelled' ? 'Cancelado' :
-                         lastPayment.status === 'pending' ? 'Pendente' : lastPayment.status}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Método:</span>
-                      <span className="font-medium uppercase">{lastPayment.method}</span>
-                    </div>
-                  </>
+                  <div className="bg-gray-50 rounded-lg p-3">
+                    <p className="text-xs text-gray-500 mb-1">Método</p>
+                    <p className="font-semibold text-gray-900 uppercase">{lastPayment.method}</p>
+                  </div>
                 )}
               </div>
+
+              {lastPayment?.paysuite_reference && (
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <p className="text-xs text-gray-500 mb-1">Referência</p>
+                  <p className="font-mono text-xs text-gray-700 break-all">
+                    {lastPayment.paysuite_reference}
+                  </p>
+                </div>
+              )}
 
               {!isFinal && (
-                <div className="flex items-center justify-center gap-2 text-sm text-blue-600 bg-blue-50 p-3 rounded-lg">
-                  <RotateCw className="h-4 w-4 animate-spin" /> 
-                  <span>Atualizando automaticamente a cada 3 segundos...</span>
+                <div className="flex items-center justify-center gap-2 text-xs text-blue-600 bg-blue-50 rounded-lg p-3">
+                  <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse" />
+                  <span>Atualizando a cada 3 segundos</span>
                 </div>
               )}
+            </div>
 
-              <div className="flex gap-2 pt-2">
-                {/* External checkout still pending: show external actions */}
-                {hasExternalCheckout && !isFinal ? (
+            {/* Action Buttons - Mobile-first */}
+            <div className="px-6 pb-6 sm:px-8 sm:pb-8">
+              <div className="space-y-3">
+                {/* Checkout Externo (pending/processing) */}
+                {hasExternalCheckout && !isFinal && (
                   <>
-                    <Button onClick={openExternalCheckout}>
-                      Finalizar no Checkout
+                    <Button 
+                      onClick={openExternalCheckout}
+                      className="w-full h-12 text-base font-semibold gap-2"
+                    >
+                      <ExternalLink className="h-5 w-5" />
+                      Finalizar Pagamento
                     </Button>
-                    <Button variant="outline" onClick={copyExternalLink}>
-                      Copiar link
+                    <Button 
+                      onClick={copyExternalLink}
+                      variant="outline"
+                      className="w-full h-12 text-base gap-2"
+                    >
+                      <Copy className="h-4 w-4" />
+                      Copiar Link
                     </Button>
                   </>
-                ) : isFinal ? (
-                  /* Final state: show appropriate final CTAs */
-                  status === 'paid' ? (
-                    <>
-                      <Button asChild>
-                        <Link to="/account/orders">Ver pedido</Link>
-                      </Button>
-                      <Button asChild variant="secondary">
-                        <Link to="/">Continuar comprando</Link>
-                      </Button>
-                    </>
-                  ) : (
-                    /* failed or cancelled */
-                    <>
-                      <Button asChild>
-                        <Link to="/carrinho">Voltar ao carrinho</Link>
-                      </Button>
-                      <Button asChild variant="secondary">
-                        <Link to="/">Voltar à loja</Link>
-                      </Button>
-                    </>
-                  )
-                ) : (
-                  /* Default while no external checkout: previous behavior */
+                )}
+
+                {/* Ações para Failed */}
+                {status === 'failed' && (
                   <>
-                    <Button asChild variant="secondary">
-                      <Link to="/">Voltar à loja</Link>
+                    {hasExternalCheckout && (
+                      <Button 
+                        onClick={openExternalCheckout}
+                        className="w-full h-12 text-base font-semibold gap-2"
+                      >
+                        <ExternalLink className="h-5 w-5" />
+                        Tentar Novamente
+                      </Button>
+                    )}
+                    <Button 
+                      asChild
+                      variant="outline"
+                      className="w-full h-12 text-base gap-2"
+                    >
+                      <Link to="/carrinho">
+                        <ShoppingCart className="h-4 w-4" />
+                        Voltar ao Carrinho
+                      </Link>
                     </Button>
-                    <Button asChild>
-                      <Link to="/carrinho">Tentar novamente</Link>
+                  </>
+                )}
+
+                {/* Ações para Paid */}
+                {status === 'paid' && (
+                  <>
+                    <Button 
+                      asChild
+                      className="w-full h-12 text-base font-semibold gap-2"
+                    >
+                      <Link to="/account/orders">
+                        <Package className="h-5 w-5" />
+                        Ver Meus Pedidos
+                      </Link>
+                    </Button>
+                    <Button 
+                      asChild
+                      variant="outline"
+                      className="w-full h-12 text-base gap-2"
+                    >
+                      <Link to="/">
+                        <Home className="h-4 w-4" />
+                        Continuar Comprando
+                      </Link>
+                    </Button>
+                  </>
+                )}
+
+                {/* Ações para Cancelled */}
+                {status === 'cancelled' && (
+                  <>
+                    <Button 
+                      asChild
+                      className="w-full h-12 text-base font-semibold gap-2"
+                    >
+                      <Link to="/carrinho">
+                        <ShoppingCart className="h-5 w-5" />
+                        Voltar ao Carrinho
+                      </Link>
+                    </Button>
+                    <Button 
+                      asChild
+                      variant="outline"
+                      className="w-full h-12 text-base gap-2"
+                    >
+                      <Link to="/">
+                        <Home className="h-4 w-4" />
+                        Continuar Comprando
+                      </Link>
+                    </Button>
+                  </>
+                )}
+
+                {/* Default para sem checkout externo */}
+                {!hasExternalCheckout && !isFinal && (
+                  <>
+                    <Button 
+                      asChild
+                      variant="outline"
+                      className="w-full h-12 text-base gap-2"
+                    >
+                      <Link to="/">
+                        <Home className="h-4 w-4" />
+                        Voltar à Loja
+                      </Link>
                     </Button>
                   </>
                 )}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
+
+          {/* Success Tips - Apenas para pagamentos bem-sucedidos */}
+          {status === 'paid' && (
+            <div className="bg-green-50 rounded-xl p-4 sm:p-6 space-y-3 animate-in slide-in-from-bottom-8 duration-700">
+              <h3 className="font-semibold text-green-900 flex items-center gap-2 text-sm sm:text-base">
+                <CheckCircle2 className="h-5 w-5" />
+                Próximos Passos
+              </h3>
+              <ul className="text-xs sm:text-sm text-green-800 space-y-2 pl-7">
+                <li className="relative before:content-['✓'] before:absolute before:-left-5 before:text-green-600 before:font-bold">
+                  Email de confirmação enviado
+                </li>
+                <li className="relative before:content-['✓'] before:absolute before:-left-5 before:text-green-600 before:font-bold">
+                  Acompanhe o envio na sua área de pedidos
+                </li>
+                <li className="relative before:content-['✓'] before:absolute before:-left-5 before:text-green-600 before:font-bold">
+                  Prazo de entrega informado por email
+                </li>
+              </ul>
+            </div>
+          )}
+
+          {/* Failure Tips - Apenas para pagamentos falhados/cancelados */}
+          {(status === 'failed' || status === 'cancelled') && (
+            <div className="bg-amber-50 rounded-xl p-4 sm:p-6 space-y-3 animate-in slide-in-from-bottom-8 duration-700">
+              <h3 className="font-semibold text-amber-900 flex items-center gap-2 text-sm sm:text-base">
+                <AlertCircle className="h-5 w-5" />
+                O que fazer agora
+              </h3>
+              <ul className="text-xs sm:text-sm text-amber-800 space-y-2 pl-7">
+                <li className="relative before:content-['•'] before:absolute before:-left-5 before:text-amber-600 before:font-bold">
+                  Seu carrinho foi preservado
+                </li>
+                <li className="relative before:content-['•'] before:absolute before:-left-5 before:text-amber-600 before:font-bold">
+                  Verifique saldo na sua carteira
+                </li>
+                <li className="relative before:content-['•'] before:absolute before:-left-5 before:text-amber-600 before:font-bold">
+                  Tente outro método de pagamento
+                </li>
+              </ul>
+            </div>
+          )}
+
+          {/* Error Message */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700 flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+              <span>Erro ao consultar status: {error}</span>
+            </div>
+          )}
+
+          {/* Last Update Time */}
+          {lastUpdate && (
+            <p className="text-center text-xs text-gray-400 mt-4">
+              Última atualização: {lastUpdate}
+            </p>
+          )}
         </div>
       </main>
+      
       <Footer />
     </div>
   );
