@@ -1413,7 +1413,11 @@ def paysuite_webhook(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def payment_status(request, order_id: int):
-    """Simple endpoint to fetch an order and its payments for status polling."""
+    """Simple endpoint to fetch an order and its payments for status polling.
+    
+    Also performs active polling to PaySuite API when payment is still pending,
+    providing a fallback when webhooks don't arrive.
+    """
     try:
         from .models import Order, Payment
         from .serializers import OrderSerializer, PaymentSerializer
@@ -1423,9 +1427,96 @@ def payment_status(request, order_id: int):
 
         # Detailed logging for debugging
         logger.info(f"📊 Payment Status Poll: order_id={order_id}, order.status={order.status}, payment_count={payments.count()}")
+        
+        # Active polling: if latest payment is pending, query PaySuite directly
         if payments.exists():
             latest_payment = payments.first()
             logger.info(f"💳 Latest Payment: id={latest_payment.id}, status={latest_payment.status}, method={latest_payment.method}, ref={latest_payment.paysuite_reference}")
+            
+            # Only poll PaySuite if payment is pending and we have a reference
+            if latest_payment.status == 'pending' and latest_payment.paysuite_reference:
+                try:
+                    from .payments.paysuite import PaysuiteClient
+                    client = PaysuiteClient()
+                    
+                    logger.info(f"🔄 Active polling PaySuite for payment {latest_payment.paysuite_reference}")
+                    paysuite_response = client.get_payment_status(latest_payment.paysuite_reference)
+                    
+                    if paysuite_response.get('status') == 'success':
+                        paysuite_data = paysuite_response.get('data', {})
+                        paysuite_status = paysuite_data.get('status', '').lower()
+                        
+                        logger.info(f"✅ PaySuite returned status: {paysuite_status} for payment {latest_payment.id}")
+                        
+                        # Map PaySuite status to our internal status
+                        status_map = {
+                            'paid': 'paid',
+                            'completed': 'paid',
+                            'success': 'paid',
+                            'failed': 'failed',
+                            'cancelled': 'cancelled',
+                            'rejected': 'failed',
+                            'expired': 'failed',
+                        }
+                        
+                        new_status = status_map.get(paysuite_status)
+                        
+                        if new_status and new_status != latest_payment.status:
+                            logger.info(f"🔄 Updating payment {latest_payment.id} from {latest_payment.status} to {new_status} based on PaySuite polling")
+                            
+                            # Update payment status
+                            old_payment_status = latest_payment.status
+                            latest_payment.status = new_status
+                            # Store the polled response
+                            latest_payment.raw_response = {
+                                **latest_payment.raw_response,
+                                'polled_at': timezone.now().isoformat(),
+                                'polled_response': paysuite_response
+                            }
+                            latest_payment.save(update_fields=['status', 'raw_response'])
+                            
+                            # Sync order status immediately
+                            if latest_payment.order:
+                                old_order_status = latest_payment.order.status
+                                latest_payment.order.status = new_status
+                                latest_payment.order.save(update_fields=['status'])
+                                logger.info(f"✅ Synced order {latest_payment.order.id} status: {old_order_status} → {new_status} (via active polling)")
+                            
+                            # If payment succeeded, trigger the full order completion flow
+                            if new_status == 'paid':
+                                from .stock_management import OrderManager
+                                try:
+                                    OrderManager.update_order_status(
+                                        order=latest_payment.order,
+                                        new_status='paid',
+                                        user=None,
+                                        notes="Pagamento confirmado via polling ativo da API PaySuite"
+                                    )
+                                    logger.info(f"📦 Order {latest_payment.order.order_number} processed via active polling")
+                                    
+                                    # Clear cart
+                                    cart = latest_payment.order.cart or latest_payment.cart
+                                    if cart and cart.status == 'active':
+                                        cart.items.all().delete()
+                                        cart.status = 'converted'
+                                        cart.save(update_fields=['status'])
+                                        CartHistory.objects.create(
+                                            cart=cart,
+                                            event='cart_cleared_after_polling',
+                                            description=f'Cart cleared after payment confirmed via active polling',
+                                            metadata={'order_id': latest_payment.order.id, 'payment_id': latest_payment.id}
+                                        )
+                                except Exception as e:
+                                    logger.error(f"❌ Error processing order after active polling: {e}")
+                            
+                            # Refresh from DB to get updated values
+                            latest_payment.refresh_from_db()
+                            if latest_payment.order:
+                                latest_payment.order.refresh_from_db()
+                                
+                except Exception as e:
+                    logger.warning(f"⚠️ Active polling failed (non-fatal): {e}")
+                    # Continue even if polling fails - return current DB state
 
         response_data = {
             'order': OrderSerializer(order).data,

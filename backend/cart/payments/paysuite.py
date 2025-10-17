@@ -151,3 +151,33 @@ class PaysuiteClient:
 
         computed = hmac.new(secret.encode('utf-8'), payload_body, hashlib.sha256).hexdigest()
         return hmac.compare_digest(computed, sig_value)
+
+    def get_payment_status(self, payment_id: str) -> dict:
+        """Query PaySuite API directly to get payment status.
+        
+        This is a fallback when webhooks don't arrive. Polls the PaySuite API
+        to check the current status of a payment.
+        
+        Args:
+            payment_id: The PaySuite payment ID (reference from raw_response.data.id)
+            
+        Returns:
+            dict with structure: { status: 'success'|'error', data: { id, status, ... } }
+        """
+        url = f"{self.base_url}/v1/payments/{payment_id}"
+        
+        logging.info(f"🔍 Polling PaySuite status for payment {payment_id}")
+        
+        timeout = float(os.getenv('PAYSUITE_TIMEOUT', '10'))
+        try:
+            resp = self.session.get(url, timeout=timeout)
+            logging.debug(f"🔍 PaySuite status response: {resp.status_code} - {resp.text}")
+            resp.raise_for_status()
+            return resp.json()
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Failed to get payment status from PaySuite: {e}")
+            # Return error structure compatible with create_payment
+            return {
+                'status': 'error',
+                'message': f'Failed to query payment status: {str(e)}'
+            }
