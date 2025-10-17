@@ -185,11 +185,15 @@ class PaysuiteClient:
         # The 10s cache reduces requests from 20/min to 6/min
         url = f"{self.base_url}/v1/payments/{payment_id}"
         
+        print(f"🔍 [PAYSUITE] Polling PaySuite status for payment {payment_id}")
+        print(f"🔍 [PAYSUITE] URL: {url}")
         logging.info(f"🔍 Polling PaySuite status for payment {payment_id} (via proxy with cache)")
         
         try:
             # Use existing session (already configured with proxy)
+            print(f"🔍 [PAYSUITE] Sending GET request...")
             resp = self.session.get(url)
+            print(f"🔍 [PAYSUITE] Response status: {resp.status_code}")
             logging.debug(f"🔍 PaySuite status response: {resp.status_code} - {resp.text[:200]}")
             resp.raise_for_status()
             
