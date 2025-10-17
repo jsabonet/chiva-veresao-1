@@ -73,15 +73,40 @@ export default function OrderConfirmation() {
         const res = await fetchPaymentStatus(orderId);
         if (cancelled) return;
         
+        // Priorizar payment.status sobre order.status
+        // O webhook atualiza payment.status primeiro, depois order.status
+        const latestPayment = res.payments?.[0];
+        let effectiveStatus: OrderStatus = res.order.status;
+        
+        if (latestPayment) {
+          console.log('💳 Latest Payment:', {
+            id: latestPayment.id,
+            status: latestPayment.status,
+            method: latestPayment.method,
+            paysuite_reference: latestPayment.paysuite_reference
+          });
+          
+          // Se payment está paid/failed/cancelled, usar esse status
+          // porque o webhook atualiza payment primeiro
+          if (latestPayment.status === 'paid' || 
+              latestPayment.status === 'failed' || 
+              latestPayment.status === 'cancelled') {
+            effectiveStatus = latestPayment.status as OrderStatus;
+            console.log(`✅ Using payment.status: ${latestPayment.status} (order.status was: ${res.order.status})`);
+          }
+        }
+        
         // Log detalhado para debug
         console.log('📊 Poll Response:', {
           order_id: res.order.id,
           order_status: res.order.status,
+          payment_status: latestPayment?.status,
+          effective_status: effectiveStatus,
           payments: res.payments.map((p: any) => ({ id: p.id, status: p.status, method: p.method })),
           timestamp: new Date().toLocaleTimeString()
         });
         
-        setStatus(res.order.status);
+        setStatus(effectiveStatus);
         setPayments(res.payments || []);
         setLastUpdate(new Date().toLocaleTimeString());
       } catch (e: any) {

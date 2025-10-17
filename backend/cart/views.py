@@ -1235,6 +1235,14 @@ def paysuite_webhook(request):
         
         logger.info(f"🔔 Webhook received: event={event_name}, payment_id={payment.id}, status: {old_payment_status} → {payment.status}")
 
+        # CRITICAL: Sync order.status with payment.status immediately
+        # This ensures frontend polling gets updated status even if OrderManager fails
+        if payment.order:
+            old_order_status = payment.order.status
+            payment.order.status = payment.status
+            payment.order.save(update_fields=['status'])
+            logger.info(f"✅ Synced order {payment.order.id} status: {old_order_status} → {payment.status}")
+
         # If payment succeeded, ensure an Order is created from the saved request_data
         if payment.status == 'paid':
             from .stock_management import OrderManager
