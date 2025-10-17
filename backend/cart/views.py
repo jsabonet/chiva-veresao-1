@@ -1445,10 +1445,15 @@ def payment_status(request, order_id: int):
                     logger.info(f"🔄 Active polling PaySuite for payment {latest_payment.paysuite_reference}")
                     paysuite_response = client.get_payment_status(latest_payment.paysuite_reference)
                     
+                    print(f"🔍 [POLLING] PaySuite response received: {paysuite_response}")
+                    print(f"🔍 [POLLING] Response status field: {paysuite_response.get('status')}")
+                    
                     if paysuite_response.get('status') == 'success':
                         paysuite_data = paysuite_response.get('data', {})
                         paysuite_status = paysuite_data.get('status', '').lower()
                         
+                        print(f"✅ [POLLING] PaySuite data: {paysuite_data}")
+                        print(f"✅ [POLLING] PaySuite status: {paysuite_status}")
                         logger.info(f"✅ PaySuite returned status: {paysuite_status} for payment {latest_payment.id}")
                         
                         # Map PaySuite status to our internal status
@@ -1516,8 +1521,13 @@ def payment_status(request, order_id: int):
                             latest_payment.refresh_from_db()
                             if latest_payment.order:
                                 latest_payment.order.refresh_from_db()
+                        else:
+                            print(f"⚠️ [POLLING] No status change needed. Current: {latest_payment.status}, PaySuite: {paysuite_status}, Mapped: {status_map.get(paysuite_status)}")
+                    else:
+                        print(f"❌ [POLLING] PaySuite response status is NOT 'success': {paysuite_response.get('status')}")
                                 
                 except Exception as e:
+                    print(f"❌ [POLLING] Exception during active polling: {e}")
                     logger.warning(f"⚠️ Active polling failed (non-fatal): {e}")
                     # Continue even if polling fails - return current DB state
 

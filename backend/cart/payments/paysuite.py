@@ -194,10 +194,12 @@ class PaysuiteClient:
             print(f"🔍 [PAYSUITE] Sending GET request...")
             resp = self.session.get(url)
             print(f"🔍 [PAYSUITE] Response status: {resp.status_code}")
+            print(f"🔍 [PAYSUITE] Response body: {resp.text[:500]}")
             logging.debug(f"🔍 PaySuite status response: {resp.status_code} - {resp.text[:200]}")
             resp.raise_for_status()
             
             result = resp.json()
+            print(f"🔍 [PAYSUITE] Parsed JSON: {json.dumps(result, indent=2)[:500]}")
             
             # Cache the result
             _status_cache[cache_key] = (result, now)
