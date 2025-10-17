@@ -4,6 +4,7 @@ import os
 import hmac
 import hashlib
 import json
+import time
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -12,6 +13,10 @@ PAYSUITE_BASE_URL = os.getenv('PAYSUITE_BASE_URL', 'https://paysuite.tech/api')
 PAYSUITE_API_KEY = os.getenv('PAYSUITE_API_KEY')
 # Prefer dedicated webhook secret; keep backward compatibility with legacy var name
 PAYSUITE_WEBHOOK_SECRET = os.getenv('PAYSUITE_WEBHOOK_SECRET') or os.getenv('PAYSUITE_API_SECRET')
+
+# Simple in-memory cache for payment status queries (avoid rate limits)
+_status_cache = {}
+_CACHE_TTL = 10  # Cache status queries for 10 seconds
 
 
 class PaysuiteClient:
@@ -158,22 +163,64 @@ class PaysuiteClient:
         This is a fallback when webhooks don't arrive. Polls the PaySuite API
         to check the current status of a payment.
         
+        Uses caching to avoid rate limits: only queries API if cache is stale (>10s).
+        Always uses direct PaySuite API (not proxy) to avoid Cloudflare Workers rate limits.
+        
         Args:
             payment_id: The PaySuite payment ID (reference from raw_response.data.id)
             
         Returns:
             dict with structure: { status: 'success'|'error', data: { id, status, ... } }
         """
-        url = f"{self.base_url}/v1/payments/{payment_id}"
+        # Check cache first
+        cache_key = f"status_{payment_id}"
+        now = time.time()
+        if cache_key in _status_cache:
+            cached_data, cached_time = _status_cache[cache_key]
+            if now - cached_time < _CACHE_TTL:
+                logging.debug(f"🔍 Using cached status for payment {payment_id} (age: {now - cached_time:.1f}s)")
+                return cached_data
         
-        logging.info(f"🔍 Polling PaySuite status for payment {payment_id}")
+        # Use direct PaySuite API (not proxy) to avoid rate limits
+        # The proxy is only needed for create_payment due to geo-restrictions
+        direct_base_url = 'https://paysuite.tech/api'
+        url = f"{direct_base_url}/v1/payments/{payment_id}"
+        
+        logging.info(f"🔍 Polling PaySuite status for payment {payment_id} (direct API)")
         
         timeout = float(os.getenv('PAYSUITE_TIMEOUT', '10'))
         try:
-            resp = self.session.get(url, timeout=timeout)
-            logging.debug(f"🔍 PaySuite status response: {resp.status_code} - {resp.text}")
+            # Create temporary session for direct API call
+            resp = requests.get(
+                url,
+                headers={
+                    'Authorization': f'Bearer {self.api_key}',
+                    'Content-Type': 'application/json'
+                },
+                timeout=timeout
+            )
+            logging.debug(f"🔍 PaySuite status response: {resp.status_code} - {resp.text[:200]}")
             resp.raise_for_status()
-            return resp.json()
+            
+            result = resp.json()
+            
+            # Cache the result
+            _status_cache[cache_key] = (result, now)
+            
+            return result
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 429:
+                logging.warning(f"⚠️ Rate limit hit for payment {payment_id} - will retry on next poll")
+                # Return cached data if available, even if stale
+                if cache_key in _status_cache:
+                    cached_data, _ = _status_cache[cache_key]
+                    logging.info(f"📦 Returning stale cache for payment {payment_id} due to rate limit")
+                    return cached_data
+            logging.error(f"Failed to get payment status from PaySuite: {e}")
+            return {
+                'status': 'error',
+                'message': f'Failed to query payment status: {str(e)}'
+            }
         except requests.exceptions.RequestException as e:
             logging.error(f"Failed to get payment status from PaySuite: {e}")
             # Return error structure compatible with create_payment
