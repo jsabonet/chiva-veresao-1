@@ -1456,9 +1456,9 @@ def payment_status(request, order_id: int):
                         print(f"✅ [POLLING] PaySuite data: {paysuite_data}")
                         
                         # PaySuite API returns:
-                        # - transaction: null → payment still pending (not processed yet)
+                        # - transaction: null → payment still pending OR failed (ambiguous!)
                         # - transaction: {...} → payment completed successfully
-                        # - error/message field → payment failed
+                        # - error/message field → payment failed explicitly
                         transaction = paysuite_data.get('transaction')
                         error = paysuite_data.get('error') or paysuite_data.get('message')
                         
@@ -1468,15 +1468,40 @@ def payment_status(request, order_id: int):
                             logger.info(f"✅ PaySuite transaction completed: {transaction}")
                             print(f"✅ [POLLING] Transaction completed: {transaction}")
                         elif error:
-                            # Payment failed with error
+                            # Payment failed with explicit error
                             new_status = 'failed'
                             logger.info(f"❌ PaySuite payment failed: {error}")
                             print(f"❌ [POLLING] Payment failed: {error}")
                         else:
-                            # Transaction is null - still pending
-                            new_status = 'pending'
-                            logger.info(f"⏳ PaySuite payment still pending (transaction is null)")
-                            print(f"⏳ [POLLING] Payment still pending (transaction is null)")
+                            # Transaction is null - check if payment is too old (timeout logic)
+                            from django.utils import timezone
+                            payment_age_minutes = (timezone.now() - latest_payment.created_at).total_seconds() / 60
+                            
+                            # If payment has been pending for more than 15 minutes, consider it failed
+                            PAYMENT_TIMEOUT_MINUTES = 15
+                            
+                            if payment_age_minutes > PAYMENT_TIMEOUT_MINUTES:
+                                new_status = 'failed'
+                                error_msg = f'Pagamento expirado após {int(payment_age_minutes)} minutos sem confirmação'
+                                logger.warning(f"⏰ [POLLING] Payment timeout: {payment_age_minutes:.1f} minutes old")
+                                print(f"⏰ [POLLING] Payment timeout after {payment_age_minutes:.1f} minutes - marking as failed")
+                                
+                                # Store timeout error in raw_response
+                                latest_payment.raw_response = latest_payment.raw_response or {}
+                                latest_payment.raw_response['polled_response'] = {
+                                    'status': 'error',
+                                    'message': error_msg,
+                                    'code': 'PAYMENT_TIMEOUT',
+                                    'polled_at': timezone.now().isoformat(),
+                                    'timeout_minutes': PAYMENT_TIMEOUT_MINUTES,
+                                    'actual_age_minutes': payment_age_minutes
+                                }
+                                latest_payment.raw_response['error_message'] = error_msg
+                            else:
+                                # Still within timeout window - keep as pending
+                                new_status = 'pending'
+                                logger.info(f"⏳ PaySuite payment still pending (transaction is null, age: {payment_age_minutes:.1f} min)")
+                                print(f"⏳ [POLLING] Payment still pending ({payment_age_minutes:.1f} min old, timeout at {PAYMENT_TIMEOUT_MINUTES} min)")
                         
                         print(f"🔄 [POLLING] Status mapping: Current={latest_payment.status}, New={new_status}")
                         
