@@ -7,12 +7,9 @@ import { usePayments } from '@/hooks/usePayments';
 import { apiClient } from '@/lib/api';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -21,7 +18,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-// RadioGroup removed: payment selection moved into review
 import { 
   MapPin, 
   CreditCard, 
@@ -32,7 +28,10 @@ import {
   Mail,
   Home,
   Clock,
-  Package
+  Package,
+  Check,
+  ChevronRight,
+  ArrowLeft
 } from 'lucide-react';
 import { formatPrice } from '@/lib/formatPrice';
 import { toast } from '@/hooks/use-toast';
@@ -344,118 +343,164 @@ export default function Checkout() {
     }
   };
 
-  const StepIndicator = () => (
-    <div className="flex items-center justify-center mb-8">
-      {[1, 2, 3].map((stepNumber) => (
-        <div key={stepNumber} className="flex items-center">
-          <div
-            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-              step >= stepNumber
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-muted text-muted-foreground'
-            }`}
-          >
-            {stepNumber}
+  const StepIndicator = () => {
+    const steps = [
+      { number: 1, label: 'Endereço', icon: MapPin },
+      { number: 2, label: 'Entrega', icon: Truck },
+      { number: 3, label: 'Confirmar', icon: Package }
+    ];
+
+    return (
+      <div className="flex items-center justify-between mb-8 px-4 sm:px-0">
+        {steps.map((s, idx) => (
+          <div key={s.number} className="flex items-center flex-1">
+            <div className="flex flex-col items-center flex-1">
+              <div
+                className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg ${
+                  step >= s.number
+                    ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white scale-110'
+                    : 'bg-gray-200 text-gray-400'
+                }`}
+              >
+                {step > s.number ? (
+                  <Check className="h-6 w-6 sm:h-7 sm:w-7" />
+                ) : (
+                  <s.icon className="h-6 w-6 sm:h-7 sm:w-7" />
+                )}
+              </div>
+              <p className={`text-xs sm:text-sm mt-2 font-medium ${step >= s.number ? 'text-blue-600' : 'text-gray-400'}`}>
+                {s.label}
+              </p>
+            </div>
+            {idx < steps.length - 1 && (
+              <div
+                className={`h-1 flex-1 mx-2 transition-all duration-300 ${
+                  step > s.number ? 'bg-gradient-to-r from-blue-500 to-blue-600' : 'bg-gray-200'
+                }`}
+              />
+            )}
           </div>
-          {stepNumber < 3 && (
-            <div
-              className={`w-12 h-1 mx-2 ${
-                step > stepNumber ? 'bg-primary' : 'bg-muted'
-              }`}
-            />
-          )}
-        </div>
-      ))}
-    </div>
-  );
+        ))}
+      </div>
+    );
+  };
 
   if (items.length === 0) {
     return null; // Will redirect in useEffect
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
       <Header />
       
-      <main className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto">
-          <h1 className="text-3xl font-bold mb-8">Finalizar Compra</h1>
+      <main className="container mx-auto px-4 py-6 sm:py-12">
+        <div className="max-w-6xl mx-auto">
+          {/* Page Title */}
+          <div className="mb-8 animate-in fade-in duration-500">
+            <h1 className="text-2xl sm:text-4xl font-bold text-gray-900 mb-2">Finalizar Compra</h1>
+            <p className="text-sm sm:text-base text-gray-600">Complete os dados para concluir seu pedido</p>
+          </div>
           
           <StepIndicator />
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid lg:grid-cols-3 gap-6 lg:gap-8">
             {/* Main Content */}
-            <div className="md:col-span-2 space-y-6">
+            <div className="lg:col-span-2 space-y-6">
               
               {/* Step 1: Shipping Address */}
               {step === 1 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <MapPin className="h-5 w-5" />
-                      Endereço de Entrega
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid md:grid-cols-2 gap-4">
+                <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8 animate-in slide-in-from-bottom-4 duration-500">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                      <MapPin className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Endereço de Entrega</h2>
+                      <p className="text-sm text-gray-600">Insira os dados para receber seu pedido</p>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-5">
+                    <div className="grid sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="name">Nome Completo *</Label>
+                        <Label htmlFor="name" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                          <User className="h-4 w-4" />
+                          Nome Completo *
+                        </Label>
                         <Input
                           id="name"
                           value={shippingAddress.name}
                           onChange={(e) => handleAddressChange('name', e.target.value)}
                           placeholder="Seu nome completo"
+                          className="h-12 rounded-xl border-gray-200 focus:border-blue-500 focus:ring-blue-500"
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="phone">Telefone *</Label>
+                        <Label htmlFor="phone" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                          <Phone className="h-4 w-4" />
+                          Telefone *
+                        </Label>
                         <Input
                           id="phone"
                           value={shippingAddress.phone}
                           onChange={(e) => handleAddressChange('phone', e.target.value)}
                           placeholder="+258 84 123 4567"
+                          className="h-12 rounded-xl border-gray-200 focus:border-blue-500 focus:ring-blue-500"
                         />
                       </div>
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="email">Email *</Label>
+                      <Label htmlFor="email" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                        <Mail className="h-4 w-4" />
+                        Email *
+                      </Label>
                       <Input
                         id="email"
                         type="email"
                         value={shippingAddress.email}
                         onChange={(e) => handleAddressChange('email', e.target.value)}
                         placeholder="seu@email.com"
+                        className="h-12 rounded-xl border-gray-200 focus:border-blue-500 focus:ring-blue-500"
                       />
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="address">Endereço *</Label>
+                      <Label htmlFor="address" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                        <Home className="h-4 w-4" />
+                        Endereço *
+                      </Label>
                       <Input
                         id="address"
                         value={shippingAddress.address}
                         onChange={(e) => handleAddressChange('address', e.target.value)}
                         placeholder="Rua, número, bairro"
+                        className="h-12 rounded-xl border-gray-200 focus:border-blue-500 focus:ring-blue-500"
                       />
                     </div>
 
-                    <div className="grid md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="city">Cidade *</Label>
+                        <Label htmlFor="city" className="text-sm font-semibold text-gray-700">
+                          Cidade *
+                        </Label>
                         <Input
                           id="city"
                           value={shippingAddress.city}
                           onChange={(e) => handleAddressChange('city', e.target.value)}
                           placeholder="Cidade"
+                          className="h-12 rounded-xl border-gray-200 focus:border-blue-500 focus:ring-blue-500"
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="province">Província *</Label>
+                        <Label htmlFor="province" className="text-sm font-semibold text-gray-700">
+                          Província *
+                        </Label>
                         <Select
                           value={shippingAddress.province}
                           onValueChange={(value) => handleAddressChange('province', value)}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger className="h-12 rounded-xl border-gray-200 focus:border-blue-500 focus:ring-blue-500">
                             <SelectValue placeholder="Selecione" />
                           </SelectTrigger>
                           <SelectContent>
@@ -468,233 +513,284 @@ export default function Checkout() {
                         </Select>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="postal_code">Código Postal</Label>
+                        <Label htmlFor="postal_code" className="text-sm font-semibold text-gray-700">
+                          Código Postal
+                        </Label>
                         <Input
                           id="postal_code"
                           value={shippingAddress.postal_code}
                           onChange={(e) => handleAddressChange('postal_code', e.target.value)}
                           placeholder="1100"
+                          className="h-12 rounded-xl border-gray-200 focus:border-blue-500 focus:ring-blue-500"
                         />
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               )}
 
-              {/* Step 2: Shipping Method (micropages: list / confirm) */}
+              {/* Step 2: Shipping Method */}
               {step === 2 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Truck className="h-5 w-5" />
-                      Método de Entrega
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <p className="text-sm text-muted-foreground">Escolha o envio</p>
-
-                      {/* Select fallback / accessibility */}
-                      <div className="mb-2">
-                        <Select value={selectedShippingMethod} onValueChange={(val) => {
-                          if (!val) return;
-                          setSelectedShippingMethod(val);
-                        }}>
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Selecione método de envio" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {methods.map((m: any) => (
-                              <SelectItem key={m.id} value={m.id}>{m.name} {m.enabled ? `— ${m.price === '0.00' || Number(m.price) === 0 ? 'Grátis' : formatPrice(Number(m.price))}` : '— Inativo'}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {/* Button-like tiles */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {availableMethods.length === 0 ? (
-                          <div className="text-sm text-muted-foreground">Nenhum método disponível</div>
-                        ) : availableMethods.map((m: any) => {
-                          const isSelected = selectedShippingMethod === m.id;
-                          const free = methodHasFreeShipping(m);
-                          return (
-                            <button
-                              key={m.id}
-                              onClick={() => {
-                                if (!m.enabled) return toast({ title: 'Método inativo', description: 'Este método está desativado.' });
-                                setSelectedShippingMethod(m.id);
-                                // advance directly to review for faster checkout on mobile
-                                setStep(3);
-                              }}
-                              aria-pressed={isSelected}
-                              className={
-                                `w-full text-left rounded-lg p-3 flex items-center gap-3 transition-shadow hover:shadow-sm focus:outline-none ` +
-                                (isSelected ? 'ring-2 ring-primary bg-primary/5' : 'bg-card') +
-                                (m.enabled ? '' : ' opacity-60 cursor-not-allowed')
-                              }
-                            >
-                              <div className="w-10 h-10 flex items-center justify-center rounded-md bg-muted/20 flex-shrink-0">
-                                <div className="text-primary-foreground">
-                                  {iconForMethod(m)}
-                                </div>
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between gap-2">
-                                  <div className="font-medium truncate">{m.name}</div>
-                                  <div className="text-sm font-semibold truncate">{m.enabled ? (free ? 'Grátis' : formatPrice(Number(m.price))) : 'Inativo'}</div>
-                                </div>
-                                <div className="text-xs text-muted-foreground truncate">{m.delivery_time || m.estimatedDays || ''}</div>
-                                {free && <div className="mt-1 text-xs text-green-600 font-medium">Frete grátis</div>}
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-
+                <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8 animate-in slide-in-from-bottom-4 duration-500">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center">
+                      <Truck className="h-6 w-6 text-white" />
                     </div>
-                  </CardContent>
-                </Card>
-              )}
+                    <div>
+                      <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Método de Entrega</h2>
+                      <p className="text-sm text-gray-600">Escolha como deseja receber seu pedido</p>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    {/* Accessibility Select */}
+                    <div className="sm:hidden">
+                      <Select value={selectedShippingMethod} onValueChange={(val) => {
+                        if (!val) return;
+                        setSelectedShippingMethod(val);
+                      }}>
+                        <SelectTrigger className="h-12 rounded-xl border-gray-200">
+                          <SelectValue placeholder="Selecione método de envio" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {methods.map((m: any) => (
+                            <SelectItem key={m.id} value={m.id}>
+                              {m.name} {m.enabled ? `— ${m.price === '0.00' || Number(m.price) === 0 ? 'Grátis' : formatPrice(Number(m.price))}` : '— Inativo'}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-              {/* Payment step removed — payment inputs are included in Review (step 3) */}
+                    {/* Visual Cards */}
+                    <div className="grid grid-cols-1 gap-4">
+                      {availableMethods.length === 0 ? (
+                        <div className="text-center py-8 text-gray-500">
+                          <Truck className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                          <p className="text-sm">Nenhum método de envio disponível</p>
+                        </div>
+                      ) : availableMethods.map((m: any) => {
+                        const isSelected = selectedShippingMethod === m.id;
+                        const free = methodHasFreeShipping(m);
+                        return (
+                          <button
+                            key={m.id}
+                            onClick={() => {
+                              if (!m.enabled) return toast({ title: 'Método inativo', description: 'Este método está desativado.' });
+                              setSelectedShippingMethod(m.id);
+                              setStep(3);
+                            }}
+                            disabled={!m.enabled}
+                            className={`w-full text-left rounded-2xl p-5 flex items-center gap-4 transition-all duration-300 ${
+                              isSelected 
+                                ? 'bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-500 shadow-lg transform scale-105' 
+                                : 'bg-gray-50 border-2 border-gray-200 hover:border-blue-300 hover:shadow-md'
+                            } ${!m.enabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                          >
+                            <div className={`w-14 h-14 flex items-center justify-center rounded-xl flex-shrink-0 ${
+                              isSelected 
+                                ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white' 
+                                : 'bg-white text-gray-600'
+                            }`}>
+                              {iconForMethod(m)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2 mb-1">
+                                <h3 className="font-bold text-base sm:text-lg text-gray-900 truncate">{m.name}</h3>
+                                <span className={`text-base sm:text-lg font-bold whitespace-nowrap ${
+                                  free || m.price === '0.00' || Number(m.price) === 0 
+                                    ? 'text-green-600' 
+                                    : 'text-gray-900'
+                                }`}>
+                                  {m.enabled ? (free || m.price === '0.00' || Number(m.price) === 0 ? 'Grátis' : formatPrice(Number(m.price))) : 'Inativo'}
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-600 line-clamp-1">{m.delivery_time || m.estimatedDays || 'Entrega estimada'}</p>
+                              {free && <div className="mt-2 inline-block px-3 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded-full">🎉 Frete grátis</div>}
+                            </div>
+                            {isSelected && (
+                              <div className="flex-shrink-0">
+                                <Check className="h-6 w-6 text-blue-600" />
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Step 3: Review & Confirm */}
               {step === 3 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Confirmação do Pedido</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    {/* Payment information (display only) - selected earlier in the flow */}
-                    <div>
-                      <h4 className="font-medium mb-2">Pagamento</h4>
-                      <div className="bg-muted p-3 rounded-lg text-sm">
-                        <p className="font-medium">{paymentMethod.toUpperCase()}</p>
-                        {paymentPhone && <p>{paymentPhone}</p>}
+                <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+                  <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center">
+                        <Package className="h-6 w-6 text-white" />
                       </div>
-                    </div>
-                    {/* Address Summary */}
-                    <div>
-                      <h4 className="font-medium mb-2">Endereço de Entrega:</h4>
-                      <div className="bg-muted p-3 rounded-lg text-sm">
-                        <p className="font-medium">{shippingAddress.name}</p>
-                        <p>{shippingAddress.address}</p>
-                        <p>{shippingAddress.city}, {shippingAddress.province}</p>
-                        <p>{shippingAddress.phone}</p>
-                      </div>
-                    </div>
-
-                    {/* Shipping Method Summary */}
-                    <div>
-                      <h4 className="font-medium mb-2">Método de Entrega:</h4>
-                      <div className="bg-muted p-3 rounded-lg text-sm">
-                        <p className="font-medium">{selectedShipping?.name}</p>
-                        <p>{selectedShipping?.description}</p>
-                      </div>
-                    </div>
-
-                    {/* Payment Method Summary */}
-                    <div>
-                      <h4 className="font-medium mb-2">Método de Pagamento:</h4>
-                      <div className="bg-muted p-3 rounded-lg text-sm">
-                        <p className="font-medium">{paymentMethod.toUpperCase()}</p>
-                        {paymentPhone && <p>{paymentPhone}</p>}
-                      </div>
-                    </div>
-
-                    {customerNotes && (
                       <div>
-                        <h4 className="font-medium mb-2">Observações:</h4>
-                        <div className="bg-muted p-3 rounded-lg text-sm">
-                          <p>{customerNotes}</p>
+                        <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Confirmação do Pedido</h2>
+                        <p className="text-sm text-gray-600">Revise os dados antes de finalizar</p>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-6">
+                      {/* Payment Method */}
+                      <div>
+                        <div className="flex items-center gap-2 mb-3">
+                          <CreditCard className="h-5 w-5 text-gray-600" />
+                          <h3 className="font-bold text-gray-900">Pagamento</h3>
+                        </div>
+                        <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 border-2 border-blue-200">
+                          <p className="font-bold text-blue-900 text-base">{paymentMethod.toUpperCase()}</p>
+                          {paymentPhone && <p className="text-sm text-blue-700 mt-1">{paymentPhone}</p>}
                         </div>
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
+
+                      {/* Address Summary */}
+                      <div>
+                        <div className="flex items-center gap-2 mb-3">
+                          <MapPin className="h-5 w-5 text-gray-600" />
+                          <h3 className="font-bold text-gray-900">Endereço de Entrega</h3>
+                        </div>
+                        <div className="bg-gray-50 rounded-xl p-4 border-2 border-gray-200">
+                          <p className="font-bold text-gray-900">{shippingAddress.name}</p>
+                          <p className="text-sm text-gray-700 mt-1">{shippingAddress.address}</p>
+                          <p className="text-sm text-gray-700">{shippingAddress.city}, {shippingAddress.province}</p>
+                          <p className="text-sm text-gray-600 mt-2 flex items-center gap-2">
+                            <Phone className="h-4 w-4" />
+                            {shippingAddress.phone}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Shipping Method Summary */}
+                      <div>
+                        <div className="flex items-center gap-2 mb-3">
+                          <Truck className="h-5 w-5 text-gray-600" />
+                          <h3 className="font-bold text-gray-900">Método de Entrega</h3>
+                        </div>
+                        <div className="bg-gray-50 rounded-xl p-4 border-2 border-gray-200">
+                          <p className="font-bold text-gray-900">{selectedShipping?.name}</p>
+                          <p className="text-sm text-gray-600 mt-1">{selectedShipping?.description}</p>
+                        </div>
+                      </div>
+
+                      {customerNotes && (
+                        <div>
+                          <div className="flex items-center gap-2 mb-3">
+                            <Mail className="h-5 w-5 text-gray-600" />
+                            <h3 className="font-bold text-gray-900">Observações</h3>
+                          </div>
+                          <div className="bg-gray-50 rounded-xl p-4 border-2 border-gray-200">
+                            <p className="text-sm text-gray-700">{customerNotes}</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
               )}
 
               {/* Navigation Buttons */}
-                <div className="flex justify-between">
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                 {step > 1 && (
                   <Button
                     variant="outline"
                     onClick={handlePreviousStep}
                     disabled={isLoading}
+                    className="w-full sm:w-auto h-12 px-8 rounded-xl font-semibold border-2 hover:bg-gray-50"
                   >
+                    <ArrowLeft className="h-5 w-5 mr-2" />
                     Anterior
                   </Button>
                 )}
                 
                 {step < 3 ? (
-                  <Button onClick={handleNextStep} className="ml-auto">
+                  <Button 
+                    onClick={handleNextStep} 
+                    className="w-full h-12 rounded-xl font-semibold text-base bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-lg sm:ml-auto"
+                  >
                     Próximo
+                    <ChevronRight className="h-5 w-5 ml-2" />
                   </Button>
                 ) : (
                   <Button
                     onClick={handleCompleteOrder}
                     disabled={isLoading}
-                    className="ml-auto"
+                    className="w-full h-12 rounded-xl font-semibold text-base bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 shadow-lg sm:ml-auto"
                   >
-                    {isLoading ? 'Processando...' : 'Finalizar Pedido'}
+                    {isLoading ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                        Processando...
+                      </>
+                    ) : (
+                      <>
+                        <Check className="h-5 w-5 mr-2" />
+                        Finalizar Pedido
+                      </>
+                    )}
                   </Button>
                 )}
               </div>
             </div>
 
             {/* Order Summary Sidebar */}
-            <div className="space-y-6">
-              <Card className="sticky top-4">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <ShoppingBag className="h-5 w-5" />
-                    Resumo do Pedido
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
+            <div className="lg:sticky lg:top-4 h-fit">
+              <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+                <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6">
+                  <div className="flex items-center gap-3 text-white">
+                    <ShoppingBag className="h-6 w-6" />
+                    <h2 className="text-xl font-bold">Resumo do Pedido</h2>
+                  </div>
+                </div>
+                
+                <div className="p-6 space-y-5">
                   {/* Cart Items */}
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {items.map((item) => (
-                      <div key={`${item.id}-${item.color_id || 'no-color'}`} className="flex items-center gap-3">
+                      <div key={`${item.id}-${item.color_id || 'no-color'}`} className="flex items-center gap-3 pb-4 border-b border-gray-100 last:border-0">
                         <img
                           src={item.image || '/placeholder.svg'}
                           alt={item.name}
-                          className="w-12 h-12 rounded object-cover"
+                          className="w-16 h-16 rounded-xl object-cover shadow-md"
                         />
                         <div className="flex-1 min-w-0">
-                          <h4 className="font-medium text-sm truncate">{item.name}</h4>
-                          <p className="text-xs text-muted-foreground">
-                            {item.color_name && `Cor: ${item.color_name}`} • Qtd: {item.quantity}
+                          <h4 className="font-semibold text-sm text-gray-900 line-clamp-1">{item.name}</h4>
+                          <p className="text-xs text-gray-600 mt-1">
+                            {item.color_name && `${item.color_name} • `}Qtd: {item.quantity}
                           </p>
                         </div>
-                        <div className="text-sm font-medium">
+                        <div className="text-sm font-bold text-gray-900">
                           {formatPrice(item.price * item.quantity)}
                         </div>
                       </div>
                     ))}
                   </div>
 
-                  <Separator />
-
                   {/* Totals */}
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Subtotal:</span>
-                      <span>{formatPrice(subtotal)}</span>
+                  <div className="space-y-3 pt-4 border-t-2 border-gray-200">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Subtotal:</span>
+                      <span className="text-base font-semibold text-gray-900">{formatPrice(subtotal)}</span>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Entrega:</span>
-                      <span>{shippingCost === 0 ? 'Grátis' : formatPrice(shippingCost)}</span>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Entrega:</span>
+                      <span className={`text-base font-semibold ${shippingCost === 0 ? 'text-green-600' : 'text-gray-900'}`}>
+                        {shippingCost === 0 ? 'Grátis' : formatPrice(shippingCost)}
+                      </span>
                     </div>
-                    <Separator />
-                    <div className="flex justify-between font-medium text-lg">
-                      <span>Total:</span>
-                      <span>{formatPrice(total)}</span>
+                    <div className="pt-3 border-t-2 border-gray-200">
+                      <div className="flex justify-between items-center">
+                        <span className="text-lg font-bold text-gray-900">Total:</span>
+                        <span className="text-2xl font-bold text-blue-600">{formatPrice(total)}</span>
+                      </div>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </div>
           </div>
         </div>
