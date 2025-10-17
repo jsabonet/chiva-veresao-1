@@ -242,6 +242,32 @@ export default function OrderConfirmation() {
                 <CardTitle className={statusInfo.textColor}>{statusInfo.title}</CardTitle>
                 <p className="text-sm text-muted-foreground mt-1">Pedido #{orderId}</p>
               </div>
+
+              {/* If failed, show detailed error and retry actions */}
+              {status === 'failed' && lastPayment && (
+                <div className="space-y-3">
+                  <div className="p-3 rounded bg-red-50 border border-red-100">
+                    <p className="text-sm text-red-900 font-medium">Detalhes do erro:</p>
+                    <p className="text-sm text-muted-foreground mt-1">{(
+                      // Prefer polled_response error -> raw_response.message -> generic
+                      lastPayment.raw_response?.polled_response?.message ||
+                      lastPayment.raw_response?.polled_response?.data?.message ||
+                      lastPayment.raw_response?.message ||
+                      lastPayment.raw_response?.data?.error ||
+                      lastPayment.raw_response?.data?.message ||
+                      'Não foi possível processar o pagamento. Tente novamente.'
+                    )}</p>
+                  </div>
+
+                  <div className="flex gap-2">
+                    {hasExternalCheckout && (
+                      <Button onClick={openExternalCheckout} variant="outline">Abrir checkout</Button>
+                    )}
+                    <Button onClick={copyExternalLink} variant="ghost">Copiar link de checkout</Button>
+                    <Button onClick={() => window.location.reload()} variant="secondary">Tentar novamente</Button>
+                  </div>
+                </div>
+              )}
             </CardHeader>
             <CardContent className="space-y-4 pt-6">
               <div className={`p-4 rounded-lg ${statusInfo.bgColor} ${statusInfo.borderColor} border`}>
