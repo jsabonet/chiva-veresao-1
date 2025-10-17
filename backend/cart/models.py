@@ -603,6 +603,9 @@ class Payment(models.Model):
     raw_response = models.JSONField(default=dict, blank=True)
     # Store the original request payload (shipping_address, billing_address, method, etc.)
     request_data = models.JSONField(default=dict, blank=True)
+    # Track polling attempts for timeout detection
+    poll_count = models.IntegerField(default=0, help_text="Number of times payment status was polled")
+    last_polled_at = models.DateTimeField(null=True, blank=True, help_text="Last time payment status was checked")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

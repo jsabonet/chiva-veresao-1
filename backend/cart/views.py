@@ -1473,18 +1473,39 @@ def payment_status(request, order_id: int):
                             logger.info(f"❌ PaySuite payment failed: {error}")
                             print(f"❌ [POLLING] Payment failed: {error}")
                         else:
-                            # Transaction is null - check if payment is too old (timeout logic)
+                            # Transaction is null - use hybrid timeout logic
                             from django.utils import timezone
                             payment_age_minutes = (timezone.now() - latest_payment.created_at).total_seconds() / 60
                             
-                            # If payment has been pending for more than 15 minutes, consider it failed
-                            PAYMENT_TIMEOUT_MINUTES = 15
+                            # Increment poll count
+                            latest_payment.poll_count += 1
+                            latest_payment.last_polled_at = timezone.now()
+                            latest_payment.save(update_fields=['poll_count', 'last_polled_at'])
                             
-                            if payment_age_minutes > PAYMENT_TIMEOUT_MINUTES:
+                            # Hybrid timeout logic:
+                            # 1. Hard timeout: 15 minutes regardless of polls
+                            # 2. Soft timeout: 3 minutes + 60 polls (likely failed, not just slow)
+                            HARD_TIMEOUT_MINUTES = 15
+                            SOFT_TIMEOUT_MINUTES = 3
+                            SOFT_TIMEOUT_POLLS = 60  # 60 polls × 3s = 3 minutes of continuous polling
+                            
+                            should_timeout = False
+                            timeout_reason = ""
+                            
+                            if payment_age_minutes > HARD_TIMEOUT_MINUTES:
+                                should_timeout = True
+                                timeout_reason = f"Hard timeout: {int(payment_age_minutes)} minutos sem confirmação"
+                                logger.warning(f"⏰ [POLLING] Hard timeout: {payment_age_minutes:.1f} minutes old")
+                                print(f"⏰ [POLLING] Hard timeout after {payment_age_minutes:.1f} minutes - marking as failed")
+                            elif payment_age_minutes > SOFT_TIMEOUT_MINUTES and latest_payment.poll_count > SOFT_TIMEOUT_POLLS:
+                                should_timeout = True
+                                timeout_reason = f"Soft timeout: {int(payment_age_minutes)} minutos e {latest_payment.poll_count} tentativas sem sucesso"
+                                logger.warning(f"⏰ [POLLING] Soft timeout: {payment_age_minutes:.1f} min + {latest_payment.poll_count} polls")
+                                print(f"⏰ [POLLING] Soft timeout: {payment_age_minutes:.1f} min + {latest_payment.poll_count} polls - likely failed")
+                            
+                            if should_timeout:
                                 new_status = 'failed'
-                                error_msg = f'Pagamento expirado após {int(payment_age_minutes)} minutos sem confirmação'
-                                logger.warning(f"⏰ [POLLING] Payment timeout: {payment_age_minutes:.1f} minutes old")
-                                print(f"⏰ [POLLING] Payment timeout after {payment_age_minutes:.1f} minutes - marking as failed")
+                                error_msg = f'Pagamento expirado: {timeout_reason}'
                                 
                                 # Store timeout error in raw_response
                                 latest_payment.raw_response = latest_payment.raw_response or {}
@@ -1493,15 +1514,16 @@ def payment_status(request, order_id: int):
                                     'message': error_msg,
                                     'code': 'PAYMENT_TIMEOUT',
                                     'polled_at': timezone.now().isoformat(),
-                                    'timeout_minutes': PAYMENT_TIMEOUT_MINUTES,
-                                    'actual_age_minutes': payment_age_minutes
+                                    'timeout_type': 'hard' if payment_age_minutes > HARD_TIMEOUT_MINUTES else 'soft',
+                                    'age_minutes': payment_age_minutes,
+                                    'poll_count': latest_payment.poll_count
                                 }
                                 latest_payment.raw_response['error_message'] = error_msg
                             else:
                                 # Still within timeout window - keep as pending
                                 new_status = 'pending'
-                                logger.info(f"⏳ PaySuite payment still pending (transaction is null, age: {payment_age_minutes:.1f} min)")
-                                print(f"⏳ [POLLING] Payment still pending ({payment_age_minutes:.1f} min old, timeout at {PAYMENT_TIMEOUT_MINUTES} min)")
+                                logger.info(f"⏳ PaySuite payment still pending (age: {payment_age_minutes:.1f} min, polls: {latest_payment.poll_count})")
+                                print(f"⏳ [POLLING] Payment still pending ({payment_age_minutes:.1f} min, {latest_payment.poll_count} polls, soft timeout at {SOFT_TIMEOUT_MINUTES} min + {SOFT_TIMEOUT_POLLS} polls)")
                         
                         print(f"🔄 [POLLING] Status mapping: Current={latest_payment.status}, New={new_status}")
                         
