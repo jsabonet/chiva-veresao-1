@@ -1222,10 +1222,11 @@ def paysuite_webhook(request):
             return Response({'error': 'Payment not found'}, status=status.HTTP_404_NOT_FOUND)
 
         # Update payment status based on event name
+        # Accept both 'payment.success' and 'payment.paid' (different PaySuite versions)
         old_payment_status = payment.status
-        if event_name == 'payment.success':
+        if event_name in ['payment.success', 'payment.paid', 'payment.completed']:
             payment.status = 'paid'
-        elif event_name == 'payment.failed':
+        elif event_name in ['payment.failed', 'payment.cancelled', 'payment.rejected']:
             payment.status = 'failed'
         else:
             payment.status = 'pending'
@@ -1233,7 +1234,7 @@ def paysuite_webhook(request):
         payment.raw_response = data
         payment.save(update_fields=['status', 'raw_response'])
         
-        logger.info(f"🔔 Webhook received: event={event_name}, payment_id={payment.id}, status: {old_payment_status} → {payment.status}")
+        logger.info(f"🔔 Webhook received: event={event_name}, payment_id={payment.id}, status: {old_payment_status} → {payment.status}, reference={reference}")
 
         # CRITICAL: Sync order.status with payment.status immediately
         # This ensures frontend polling gets updated status even if OrderManager fails
