@@ -18,10 +18,7 @@ import {
   RotateCcw,
   Award,
   Minus,
-  Plus,
-  Package,
-  Check,
-  Zap
+  Plus
 } from 'lucide-react';
 import StarRating from '@/components/ui/StarRating';
 import ReviewForm from '@/components/ui/ReviewForm';
@@ -397,16 +394,16 @@ const ProductDetails = () => {
           <span className="text-foreground break-words">{product.name}</span>
         </nav>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10 mb-8 lg:mb-12">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 mb-8 lg:mb-12">
           {/* Product Images Gallery */}
-          <div className="space-y-4 animate-in fade-in duration-500">
+          <div className="space-y-3 lg:space-y-4">
             {/* Main Image with Navigation */}
             <div className="relative group">
-              <div className="aspect-square rounded-2xl overflow-hidden bg-white border-2 border-gray-200 shadow-xl">
+              <div className="aspect-square rounded-lg overflow-hidden bg-gray-100 border border-gray-200">
                 <img
                   src={getImageUrl(selectedImage)}
                   alt={product.name}
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
                     target.src = "/placeholder.svg";
@@ -420,40 +417,40 @@ const ProductDetails = () => {
                   <Button
                     variant="secondary"
                     size="icon"
-                    className="absolute left-3 top-1/2 transform -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all duration-300 bg-white hover:bg-gray-50 shadow-2xl rounded-full w-12 h-12 z-10"
+                    className="absolute left-2 top-1/2 transform -translate-y-1/2 opacity-70 hover:opacity-100 transition-opacity duration-300 bg-white/95 hover:bg-white shadow-lg z-10"
                     onClick={() => navigateImage('prev')}
                   >
-                    <ChevronLeft className="h-6 w-6 text-gray-700" />
+                    <ChevronLeft className="h-4 w-4 text-gray-700" />
                   </Button>
                   <Button
                     variant="secondary"
                     size="icon"
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all duration-300 bg-white hover:bg-gray-50 shadow-2xl rounded-full w-12 h-12 z-10"
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 opacity-70 hover:opacity-100 transition-opacity duration-300 bg-white/95 hover:bg-white shadow-lg z-10"
                     onClick={() => navigateImage('next')}
                   >
-                    <ChevronRight className="h-6 w-6 text-gray-700" />
+                    <ChevronRight className="h-4 w-4 text-gray-700" />
                   </Button>
                 </>
               )}
 
               {/* Image Counter */}
               {images.length > 1 && (
-                <div className="absolute bottom-4 right-4 bg-gradient-to-r from-gray-900 to-gray-800 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg">
+                <div className="absolute bottom-2 right-2 bg-black/60 text-white px-2 py-1 rounded-md text-xs font-medium">
                   {currentImageIndex + 1} / {images.length}
                 </div>
               )}
 
               {/* Navigation Dots */}
               {images.length > 1 && (
-                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2">
+                <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex gap-1">
                   {images.map((_, index) => (
                     <button
                       key={index}
                       onClick={() => selectImage(images[index], index)}
-                      className={`rounded-full transition-all duration-300 ${
+                      className={`w-2 h-2 rounded-full transition-all duration-200 ${
                         currentImageIndex === index 
-                          ? 'bg-white w-8 h-3 shadow-lg' 
-                          : 'bg-white/60 hover:bg-white/90 w-3 h-3'
+                          ? 'bg-white scale-125' 
+                          : 'bg-white/50 hover:bg-white/75'
                       }`}
                     />
                   ))}
@@ -463,15 +460,15 @@ const ProductDetails = () => {
 
             {/* Thumbnail Gallery */}
             {images.length > 1 && (
-              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
                 {images.map((image, index) => (
                   <button
                     key={index}
                     onClick={() => selectImage(image, index)}
-                    className={`flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-xl border-2 overflow-hidden transition-all duration-300 ${
+                    className={`flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-md border-2 overflow-hidden gallery-thumbnail ${
                       selectedImage === image 
-                        ? 'border-primary ring-4 ring-primary/30 scale-110 shadow-lg' 
-                        : 'border-gray-200 hover:border-primary/50 hover:scale-105'
+                        ? 'border-primary ring-2 ring-primary/20 active' 
+                        : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
                     <img
@@ -490,7 +487,7 @@ const ProductDetails = () => {
           </div>
 
           {/* Product Information */}
-          <div className="space-y-5 lg:space-y-6 animate-in slide-in-from-right duration-500">
+          <div className="space-y-4 lg:space-y-6">
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold mb-2 break-words leading-tight">{product.name}</h1>
               {/* Meta tags are injected into <head> via Helmet for SEO (not shown to customers) */}
@@ -499,49 +496,30 @@ const ProductDetails = () => {
 
             {/* Badges */}
             <div className="flex flex-wrap gap-2">
-              {product.is_featured && (
-                <Badge className="text-sm px-3 py-1 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white border-0 shadow-md">
-                  <Star className="h-3 w-3 mr-1" />
-                  Destaque
-                </Badge>
-              )}
-              {product.is_bestseller && (
-                <Badge className="text-sm px-3 py-1 bg-gradient-to-r from-purple-500 to-purple-600 text-white border-0 shadow-md">
-                  <Zap className="h-3 w-3 mr-1" />
-                  Best Seller
-                </Badge>
-              )}
-              {product.is_on_sale && (
-                <Badge className="text-sm px-3 py-1 bg-gradient-to-r from-red-500 to-red-600 text-white border-0 shadow-md">
-                  🔥 Promoção
-                </Badge>
-              )}
+              {product.is_featured && <Badge variant="default" className="text-xs sm:text-sm">Destaque</Badge>}
+              {product.is_bestseller && <Badge variant="default" className="text-xs sm:text-sm">Best Seller</Badge>}
+              {product.is_on_sale && <Badge variant="destructive" className="text-xs sm:text-sm">Promoção</Badge>}
               {product.stock_quantity > 0 ? (
-                <Badge className="text-sm px-3 py-1 bg-gradient-to-r from-green-500 to-green-600 text-white border-0 shadow-md">
-                  <Check className="h-3 w-3 mr-1" />
-                  Em Estoque
-                </Badge>
+                <Badge variant="default" className="text-xs sm:text-sm">Em Estoque</Badge>
               ) : (
-                <Badge className="text-sm px-3 py-1 bg-gradient-to-r from-gray-500 to-gray-600 text-white border-0 shadow-md">
-                  Fora de Estoque
-                </Badge>
+                <Badge variant="destructive" className="text-xs sm:text-sm">Fora de Estoque</Badge>
               )}
             </div>
 
             {/* Price */}
-            <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl p-5 border-2 border-primary/30 shadow-lg">
-              <div className="flex flex-wrap items-baseline gap-3">
-                <span className="text-3xl sm:text-4xl font-bold text-primary-foreground">{formatPrice(product.price)}</span>
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-baseline gap-2">
+                <span className="text-2xl sm:text-3xl font-bold">{formatPrice(product.price)}</span>
                 {product.original_price && parseFloat(product.original_price) > parseFloat(product.price) && (
-                  <span className="text-xl sm:text-2xl text-gray-500 line-through">
+                  <span className="text-lg sm:text-xl text-muted-foreground line-through">
                     {formatPrice(product.original_price)}
                   </span>
                 )}
               </div>
               {product.original_price && parseFloat(product.original_price) > parseFloat(product.price) && (
-                <div className="mt-2 inline-block px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-semibold">
-                  💰 Economize {formatPrice(parseFloat(product.original_price) - parseFloat(product.price))}
-                </div>
+                <p className="text-sm text-green-600">
+                  Economize {formatPrice(parseFloat(product.original_price) - parseFloat(product.price))}
+                </p>
               )}
             </div>
 
@@ -614,76 +592,70 @@ const ProductDetails = () => {
 
             {/* Quantity and Add to Cart */}
             {product.stock_quantity > 0 && (
-              <div className="space-y-5">
+              <div className="space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-                  <span className="text-sm font-semibold text-gray-700">Quantidade:</span>
-                  <div className="flex items-center bg-gray-50 border-2 border-gray-200 rounded-xl overflow-hidden w-fit">
+                  <span className="text-sm font-medium">Quantidade:</span>
+                  <div className="flex items-center border rounded-md w-fit">
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => handleQuantityChange(-1)}
                       disabled={quantity <= 1}
-                      className="h-11 w-11 hover:bg-gray-200 rounded-none"
+                      className="h-9 w-9 sm:h-10 sm:w-10"
                     >
-                      <Minus className="w-5 h-5" />
+                      <Minus className="w-4 h-4" />
                     </Button>
-                    <span className="px-5 py-2 text-center min-w-[4rem] font-bold text-lg">{quantity}</span>
+                    <span className="px-3 py-2 border-x text-center min-w-[3rem]">{quantity}</span>
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => handleQuantityChange(1)}
                       disabled={quantity >= product.stock_quantity}
-                      className="h-11 w-11 hover:bg-gray-200 rounded-none"
+                      className="h-9 w-9 sm:h-10 sm:w-10"
                       title={quantity >= product.stock_quantity ? 'Estoque máximo atingido' : 'Aumentar quantidade'}
                     >
-                      <Plus className="w-5 h-5" />
+                      <Plus className="w-4 h-4" />
                     </Button>
                   </div>
-                  <span className="text-sm text-gray-600 font-medium">
-                    <Package className="w-4 h-4 inline mr-1" />
+                  <span className="text-sm text-muted-foreground">
                     {product.stock_quantity} disponível
                   </span>
                 </div>
 
                 <div className="flex flex-col gap-3">
                   <div className="flex flex-col sm:flex-row gap-3">
-                    <Button 
-                      size="lg" 
-                      className="w-full sm:flex-1 h-14 text-base font-semibold rounded-xl bg-gradient-to-r bg-primary hover:bg-primary-hover shadow-xl" 
-                      onClick={handleAddToCart} 
-                      disabled={isPreview}
-                    >
-                      <ShoppingCart className="w-5 h-5 mr-2" />
+                    <Button size="lg" className="w-full sm:flex-1 h-12 sm:h-11" onClick={handleAddToCart} disabled={isPreview}>
+                      <ShoppingCart className="w-4 h-4 mr-2" />
                       Adicionar ao Carrinho
                     </Button>
                     <Button 
                       size="lg" 
-                      className="w-full sm:w-auto h-14 px-8 text-base font-semibold rounded-xl bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 shadow-xl" 
+                      variant="secondary" 
+                      className="w-full sm:w-auto h-12 sm:h-11 px-8" 
                       onClick={handleBuyNow} 
                       disabled={isPreview}
                     >
-                      <Zap className="w-5 h-5 mr-2" />
                       Comprar Agora
                     </Button>
                   </div>
-                  <div className="flex gap-3">
-                    <div className="flex-1">
+                  <div className="flex gap-3 sm:gap-2">
+                    <div className="flex-1 sm:flex-none">
                       <FavoriteButton
                         productId={product.id}
                         variant="outline"
                         size="lg"
                         showText={true}
-                        className="w-full h-12 rounded-xl border-2 font-semibold hover:bg-gray-50"
+                        className="w-full sm:w-auto h-12 sm:h-11"
                       />
                     </div>
-                    <div className="flex-1">
+                    <div className="flex-1 sm:flex-none">
                       <ShareButton
                         productName={product.name}
                         productSlug={product.slug}
                         productImage={selectedImage || undefined}
                         variant="outline"
                         size="lg"
-                        className="w-full h-12 rounded-xl border-2 font-semibold hover:bg-gray-50"
+                        className="w-full sm:w-auto h-12 sm:h-11"
                       />
                     </div>
                   </div>
@@ -692,30 +664,22 @@ const ProductDetails = () => {
             )}
 
             {/* Features */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-white rounded-2xl p-5 border-2 border-gray-200 shadow-lg">
-              <div className="flex items-center gap-3 p-3 bg-green-50 rounded-xl">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center flex-shrink-0">
-                  <Shield className="w-5 h-5 text-white" />
-                </div>
-                <span className="text-sm font-semibold text-gray-900">Garantia de 1 ano</span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 p-4 bg-gray-50 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 flex-shrink-0" />
+                <span className="text-sm">Garantia de 1 ano</span>
               </div>
-              <div className="flex items-center gap-3 p-3 bg-primary/10 rounded-xl">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br bg-primary flex items-center justify-center flex-shrink-0">
-                  <Truck className="w-5 h-5 text-white" />
-                </div>
-                <span className="text-sm font-semibold text-gray-900">Entrega grátis</span>
+              <div className="flex items-center gap-2">
+                <Truck className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 flex-shrink-0" />
+                <span className="text-sm">Entrega grátis</span>
               </div>
-              <div className="flex items-center gap-3 p-3 bg-orange-50 rounded-xl">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center flex-shrink-0">
-                  <RotateCcw className="w-5 h-5 text-white" />
-                </div>
-                <span className="text-sm font-semibold text-gray-900">30 dias para troca</span>
+              <div className="flex items-center gap-2">
+                <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600 flex-shrink-0" />
+                <span className="text-sm">30 dias para troca</span>
               </div>
-              <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-xl">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center flex-shrink-0">
-                  <Award className="w-5 h-5 text-white" />
-                </div>
-                <span className="text-sm font-semibold text-gray-900">Produto original</span>
+              <div className="flex items-center gap-2">
+                <Award className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600 flex-shrink-0" />
+                <span className="text-sm">Produto original</span>
               </div>
             </div>
           </div>
