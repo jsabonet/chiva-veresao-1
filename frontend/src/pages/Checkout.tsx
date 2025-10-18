@@ -8,8 +8,10 @@ import { apiClient } from '@/lib/api';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
 import {
   Select,
   SelectContent,
@@ -396,9 +398,9 @@ export default function Checkout() {
       <main className="container mx-auto px-4 py-6 sm:py-12">
         <div className="max-w-6xl mx-auto">
           {/* Page Title */}
-          <div className="mb-8 animate-in fade-in duration-500">
-            <h1 className="text-2xl sm:text-4xl font-bold text-gray-900 mb-2">Finalizar Compra</h1>
-            <p className="text-sm sm:text-base text-gray-600">Complete os dados para concluir seu pedido</p>
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold mb-2">Finalizar Compra</h1>
+            <p className="text-muted-foreground">Complete os dados para concluir seu pedido</p>
           </div>
           
           <StepIndicator />
@@ -409,98 +411,73 @@ export default function Checkout() {
               
               {/* Step 1: Shipping Address */}
               {step === 1 && (
-                <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8 animate-in slide-in-from-bottom-4 duration-500">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center shadow-lg">
-                      <MapPin className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
-                      <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Endereço de Entrega</h2>
-                      <p className="text-sm text-gray-600">Insira os dados para receber seu pedido</p>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-5">
-                    <div className="grid sm:grid-cols-2 gap-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <MapPin className="h-5 w-5" />
+                      Endereço de Entrega
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="name" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                          <User className="h-4 w-4" />
-                          Nome Completo *
-                        </Label>
+                        <Label htmlFor="name">Nome Completo *</Label>
                         <Input
                           id="name"
                           value={shippingAddress.name}
                           onChange={(e) => handleAddressChange('name', e.target.value)}
                           placeholder="Seu nome completo"
-                          className="h-12 rounded-xl border-gray-200 focus:border-primary focus:ring-primary"
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="phone" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                          <Phone className="h-4 w-4" />
-                          Telefone *
-                        </Label>
+                        <Label htmlFor="phone">Telefone *</Label>
                         <Input
                           id="phone"
                           value={shippingAddress.phone}
                           onChange={(e) => handleAddressChange('phone', e.target.value)}
                           placeholder="+258 84 123 4567"
-                          className="h-12 rounded-xl border-gray-200 focus:border-primary focus:ring-primary"
                         />
                       </div>
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="email" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                        <Mail className="h-4 w-4" />
-                        Email *
-                      </Label>
+                      <Label htmlFor="email">Email *</Label>
                       <Input
                         id="email"
                         type="email"
                         value={shippingAddress.email}
                         onChange={(e) => handleAddressChange('email', e.target.value)}
                         placeholder="seu@email.com"
-                        className="h-12 rounded-xl border-gray-200 focus:border-primary focus:ring-primary"
                       />
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="address" className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                        <Home className="h-4 w-4" />
-                        Endereço *
-                      </Label>
+                      <Label htmlFor="address">Endereço *</Label>
                       <Input
                         id="address"
                         value={shippingAddress.address}
                         onChange={(e) => handleAddressChange('address', e.target.value)}
                         placeholder="Rua, número, bairro"
-                        className="h-12 rounded-xl border-gray-200 focus:border-primary focus:ring-primary"
                       />
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="grid md:grid-cols-3 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="city" className="text-sm font-semibold text-gray-700">
-                          Cidade *
-                        </Label>
+                        <Label htmlFor="city">Cidade *</Label>
                         <Input
                           id="city"
                           value={shippingAddress.city}
                           onChange={(e) => handleAddressChange('city', e.target.value)}
                           placeholder="Cidade"
-                          className="h-12 rounded-xl border-gray-200 focus:border-primary focus:ring-primary"
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="province" className="text-sm font-semibold text-gray-700">
-                          Província *
-                        </Label>
+                        <Label htmlFor="province">Província *</Label>
                         <Select
                           value={shippingAddress.province}
                           onValueChange={(value) => handleAddressChange('province', value)}
                         >
-                          <SelectTrigger className="h-12 rounded-xl border-gray-200 focus:border-primary focus:ring-primary">
+                          <SelectTrigger>
                             <SelectValue placeholder="Selecione" />
                           </SelectTrigger>
                           <SelectContent>
@@ -513,54 +490,47 @@ export default function Checkout() {
                         </Select>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="postal_code" className="text-sm font-semibold text-gray-700">
-                          Código Postal
-                        </Label>
+                        <Label htmlFor="postal_code">Código Postal</Label>
                         <Input
                           id="postal_code"
                           value={shippingAddress.postal_code}
                           onChange={(e) => handleAddressChange('postal_code', e.target.value)}
                           placeholder="1100"
-                          className="h-12 rounded-xl border-gray-200 focus:border-primary focus:ring-primary"
                         />
                       </div>
                     </div>
-                  </div>
-                </div>
+                  </CardContent>
+                </Card>
               )}
 
               {/* Step 2: Shipping Method */}
               {step === 2 && (
-                <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8 animate-in slide-in-from-bottom-4 duration-500">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center">
-                      <Truck className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
-                      <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Método de Entrega</h2>
-                      <p className="text-sm text-gray-600">Escolha como deseja receber seu pedido</p>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    {/* Accessibility Select */}
-                    <div className="sm:hidden">
-                      <Select value={selectedShippingMethod} onValueChange={(val) => {
-                        if (!val) return;
-                        setSelectedShippingMethod(val);
-                      }}>
-                        <SelectTrigger className="h-12 rounded-xl border-gray-200">
-                          <SelectValue placeholder="Selecione método de envio" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {methods.map((m: any) => (
-                            <SelectItem key={m.id} value={m.id}>
-                              {m.name} {m.enabled ? `— ${m.price === '0.00' || Number(m.price) === 0 ? 'Grátis' : formatPrice(Number(m.price))}` : '— Inativo'}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Truck className="h-5 w-5" />
+                      Método de Entrega
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <p className="text-sm text-muted-foreground">Escolha o envio</p>
+                      {/* Select fallback / accessibility */}
+                      <div className="mb-2">
+                        <Select value={selectedShippingMethod} onValueChange={(val) => {
+                          if (!val) return;
+                          setSelectedShippingMethod(val);
+                        }}>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Selecione método de envio" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {methods.map((m: any) => (
+                              <SelectItem key={m.id} value={m.id}>{m.name} {m.enabled ? `— ${m.price === '0.00' || Number(m.price) === 0 ? 'Grátis' : formatPrice(Number(m.price))}` : '— Inativo'}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
 
                     {/* Visual Cards */}
                     <div className="grid grid-cols-1 gap-4">
@@ -617,80 +587,57 @@ export default function Checkout() {
                         );
                       })}
                     </div>
-                  </div>
-                </div>
+
+                    </div>
+                  </CardContent>
+                </Card>
               )}
 
               {/* Step 3: Review & Confirm */}
               {step === 3 && (
-                <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
-                  <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8">
-                    <div className="flex items-center gap-3 mb-6">
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center">
-                        <Package className="h-6 w-6 text-white" />
-                      </div>
-                      <div>
-                        <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Confirmação do Pedido</h2>
-                        <p className="text-sm text-gray-600">Revise os dados antes de finalizar</p>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Confirmação do Pedido</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    {/* Payment information (display only) - selected earlier in the flow */}
+                    <div>
+                      <h4 className="font-medium mb-2">Pagamento</h4>
+                      <div className="bg-muted p-3 rounded-lg text-sm">
+                        <p className="font-medium">{paymentMethod.toUpperCase()}</p>
+                        {paymentPhone && <p>{paymentPhone}</p>}
                       </div>
                     </div>
-                    
-                    <div className="space-y-6">
-                      {/* Payment Method */}
-                      <div>
-                        <div className="flex items-center gap-2 mb-3">
-                          <CreditCard className="h-5 w-5 text-gray-600" />
-                          <h3 className="font-bold text-gray-900">Pagamento</h3>
-                        </div>
-                        <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-xl p-4 border-2 border-primary/30">
-                          <p className="font-bold text-primary-foreground text-base">{paymentMethod.toUpperCase()}</p>
-                          {paymentPhone && <p className="text-sm text-primary mt-1">{paymentPhone}</p>}
-                        </div>
+                    {/* Address Summary */}
+                    <div>
+                      <h4 className="font-medium mb-2">Endereço de Entrega:</h4>
+                      <div className="bg-muted p-3 rounded-lg text-sm">
+                        <p className="font-medium">{shippingAddress.name}</p>
+                        <p>{shippingAddress.address}</p>
+                        <p>{shippingAddress.city}, {shippingAddress.province}</p>
+                        <p>{shippingAddress.phone}</p>
                       </div>
-
-                      {/* Address Summary */}
-                      <div>
-                        <div className="flex items-center gap-2 mb-3">
-                          <MapPin className="h-5 w-5 text-gray-600" />
-                          <h3 className="font-bold text-gray-900">Endereço de Entrega</h3>
-                        </div>
-                        <div className="bg-gray-50 rounded-xl p-4 border-2 border-gray-200">
-                          <p className="font-bold text-gray-900">{shippingAddress.name}</p>
-                          <p className="text-sm text-gray-700 mt-1">{shippingAddress.address}</p>
-                          <p className="text-sm text-gray-700">{shippingAddress.city}, {shippingAddress.province}</p>
-                          <p className="text-sm text-gray-600 mt-2 flex items-center gap-2">
-                            <Phone className="h-4 w-4" />
-                            {shippingAddress.phone}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Shipping Method Summary */}
-                      <div>
-                        <div className="flex items-center gap-2 mb-3">
-                          <Truck className="h-5 w-5 text-gray-600" />
-                          <h3 className="font-bold text-gray-900">Método de Entrega</h3>
-                        </div>
-                        <div className="bg-gray-50 rounded-xl p-4 border-2 border-gray-200">
-                          <p className="font-bold text-gray-900">{selectedShipping?.name}</p>
-                          <p className="text-sm text-gray-600 mt-1">{selectedShipping?.description}</p>
-                        </div>
-                      </div>
-
-                      {customerNotes && (
-                        <div>
-                          <div className="flex items-center gap-2 mb-3">
-                            <Mail className="h-5 w-5 text-gray-600" />
-                            <h3 className="font-bold text-gray-900">Observações</h3>
-                          </div>
-                          <div className="bg-gray-50 rounded-xl p-4 border-2 border-gray-200">
-                            <p className="text-sm text-gray-700">{customerNotes}</p>
-                          </div>
-                        </div>
-                      )}
                     </div>
-                  </div>
-                </div>
+
+                    {/* Shipping Method Summary */}
+                    <div>
+                      <h4 className="font-medium mb-2">Método de Entrega</h4>
+                      <div className="bg-muted p-3 rounded-lg text-sm">
+                        <p className="font-medium">{selectedShipping?.name}</p>
+                        <p>{selectedShipping?.description}</p>
+                      </div>
+                    </div>
+
+                    {customerNotes && (
+                      <div>
+                        <h4 className="font-medium mb-2">Observações</h4>
+                        <div className="bg-muted p-3 rounded-lg text-sm">
+                          <p>{customerNotes}</p>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               )}
 
               {/* Navigation Buttons */}
@@ -698,37 +645,37 @@ export default function Checkout() {
                 {step > 1 && (
                   <Button
                     variant="outline"
+                    size="lg"
                     onClick={handlePreviousStep}
                     disabled={isLoading}
-                    className="w-full sm:w-auto h-12 px-8 rounded-xl font-semibold border-2 hover:bg-gray-50"
+                    className="w-full sm:w-auto"
                   >
-                    <ArrowLeft className="h-5 w-5 mr-2" />
+                    <ArrowLeft className="h-4 w-4 mr-2" />
                     Anterior
                   </Button>
                 )}
                 
                 {step < 3 ? (
                   <Button 
+                    size="lg"
                     onClick={handleNextStep} 
-                    className="w-full h-12 rounded-xl font-semibold text-base bg-gradient-to-r bg-primary hover:bg-primary-hover shadow-lg sm:ml-auto"
+                    className="w-full sm:ml-auto"
                   >
                     Próximo
-                    <ChevronRight className="h-5 w-5 ml-2" />
+                    <ChevronRight className="h-4 w-4 ml-2" />
                   </Button>
                 ) : (
                   <Button
+                    size="lg"
                     onClick={handleCompleteOrder}
                     disabled={isLoading}
-                    className="w-full h-12 rounded-xl font-semibold text-base bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 shadow-lg sm:ml-auto"
+                    className="w-full sm:ml-auto"
                   >
                     {isLoading ? (
-                      <>
-                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                        Processando...
-                      </>
+                      <>Processando...</>
                     ) : (
                       <>
-                        <Check className="h-5 w-5 mr-2" />
+                        <Check className="h-4 w-4 mr-2" />
                         Finalizar Pedido
                       </>
                     )}
