@@ -11,7 +11,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.views.decorators.csrf import csrf_exempt
 from products.models import Product, Color
-from .models import Cart, CartItem, Coupon, CartHistory, AbandonedCart
+from .models import Cart, CartItem, Coupon, CartHistory, AbandonedCart, CouponUsage
 from .serializers import (
     CartSerializer, CartItemSerializer, AddToCartSerializer,
     UpdateCartItemSerializer, CouponSerializer, ApplyCouponSerializer,
@@ -840,6 +840,39 @@ def initiate_payment(request):
         except Exception:
             shipping_dec = Decimal('0.00')
 
+        # Apply coupon if provided by client
+        coupon_code = request.data.get('coupon_code')
+        discount_amount = Decimal('0.00')
+        applied_coupon = None
+        
+        if coupon_code:
+            try:
+                coupon = Coupon.objects.get(code=coupon_code, is_active=True)
+                user = request.user if request.user.is_authenticated else None
+                cart_subtotal = cart.subtotal or Decimal('0.00')
+                
+                if coupon.is_valid(user=user, cart_total=cart_subtotal):
+                    discount_amount = coupon.calculate_discount(cart_subtotal)
+                    applied_coupon = coupon
+                    logger.info(f"✅ Coupon {coupon_code} applied: discount={discount_amount} on cart_subtotal={cart_subtotal}")
+                    
+                    # Update cart with applied coupon for tracking
+                    cart.applied_coupon = coupon
+                    cart.discount_amount = discount_amount
+                    cart.save(update_fields=['applied_coupon', 'discount_amount'])
+                    
+                    # Record coupon usage
+                    try:
+                        CouponUsage.objects.create(coupon=coupon, user=user, order=None)
+                    except Exception as e:
+                        logger.warning(f"Could not create CouponUsage: {e}")
+                else:
+                    logger.warning(f"⚠️ Coupon {coupon_code} is not valid for this cart")
+            except Coupon.DoesNotExist:
+                logger.warning(f"⚠️ Coupon {coupon_code} not found or inactive")
+            except Exception as e:
+                logger.error(f"❌ Error applying coupon {coupon_code}: {e}")
+        
         # If client provided a shipping_method, prefer authoritative price from DB
         shipping_method = request.data.get('shipping_method')
         if shipping_method:
@@ -861,7 +894,13 @@ def initiate_payment(request):
                 # If method not found or disabled, keep client-provided shipping_dec (already sanitized)
                 logger.warning(f"Shipping method {shipping_method} not found or disabled; using client shipping if provided")
 
-        charge_total = (cart.total or Decimal('0.00')) + shipping_dec
+        # Calculate charge total with discount applied
+        cart_subtotal = cart.subtotal or Decimal('0.00')
+        charge_total = cart_subtotal - discount_amount + shipping_dec
+        
+        # Ensure charge_total is never negative
+        if charge_total < 0:
+            charge_total = Decimal('0.00')
 
         if client_amount is not None:
             try:

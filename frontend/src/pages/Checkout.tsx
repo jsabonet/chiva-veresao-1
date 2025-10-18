@@ -138,6 +138,9 @@ export default function Checkout() {
   const [customerNotes, setCustomerNotes] = useState('');
   const [useAsShippingAddress, setUseAsShippingAddress] = useState(true);
   const [paymentPhone, setPaymentPhone] = useState('');
+  
+  // Coupon state from Cart navigation
+  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount: number } | null>(null);
 
   // Initialize user data
   useEffect(() => {
@@ -155,6 +158,13 @@ export default function Checkout() {
     const state: any = location.state;
     if (state?.method) {
       setPaymentMethod(state.method);
+    }
+    // Load coupon information if passed from Cart
+    if (state?.coupon_code && state?.discount_amount) {
+      setAppliedCoupon({
+        code: state.coupon_code,
+        discount: state.discount_amount
+      });
     }
     // If items/amount provided we could prefill other fields or adjust step
   }, [location]);
@@ -312,6 +322,8 @@ export default function Checkout() {
         shipping_address: shippingAddress,
         billing_address: useAsShippingAddress ? shippingAddress : shippingAddress, // For now, same as shipping
         customer_notes: customerNotes,
+        // Include coupon information if applied
+        coupon_code: appliedCoupon?.code,
         items: items.map(item => ({
           id: item.id,
           quantity: item.quantity,

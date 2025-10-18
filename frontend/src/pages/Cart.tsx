@@ -325,7 +325,10 @@ const Cart = () => {
                 items: items.map(item => ({ id: item.id, quantity: item.quantity, color_id: item.color_id || null })),
                 amount: total,
                 shipping_amount: shipping,
-                currency: 'MZN'
+                currency: 'MZN',
+                // Pass coupon information to checkout
+                coupon_code: appliedCoupon?.code,
+                discount_amount: appliedCoupon?.discount || 0
               }
             });
           }}
