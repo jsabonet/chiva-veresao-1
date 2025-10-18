@@ -1,9 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Trash2, Plus, Minus, ShoppingBag, ArrowLeft, Tag, X, CheckCircle, Loader2 } from 'lucide-react';
+import { Trash2, Plus, Minus, ShoppingBag, ArrowLeft, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import Header from '@/components/layout/Header';
@@ -207,91 +206,6 @@ const Cart = () => {
 
             {/* Order Summary */}
             <div className="space-y-6">
-              {/* Coupon Section */}
-              {!appliedCoupon ? (
-                <Card className="w-full">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Tag className="h-5 w-5" />
-                      Cupom de Desconto
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex gap-2">
-                      <div className="flex-1">
-                        <Label htmlFor="coupon-code" className="sr-only">
-                          Código do cupom
-                        </Label>
-                        <Input
-                          id="coupon-code"
-                          placeholder="Digite o código do cupom"
-                          value={couponCode}
-                          onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                          onKeyPress={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              handleApplyCoupon();
-                            }
-                          }}
-                          disabled={isValidatingCoupon}
-                          className="uppercase"
-                        />
-                      </div>
-                      <Button
-                        onClick={handleApplyCoupon}
-                        disabled={isValidatingCoupon || !couponCode.trim()}
-                        className="px-6"
-                      >
-                        {isValidatingCoupon ? (
-                          <>
-                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                            Aplicando...
-                          </>
-                        ) : (
-                          'Aplicar'
-                        )}
-                      </Button>
-                    </div>
-                    
-                    <div className="text-sm text-muted-foreground">
-                      Digite um código de cupom válido para obter desconto na sua compra.
-                    </div>
-                  </CardContent>
-                </Card>
-              ) : (
-                <Card className="w-full border-green-200 bg-green-50">
-                  <CardContent className="pt-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <CheckCircle className="h-5 w-5 text-green-600" />
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="secondary" className="bg-green-100 text-green-800 hover:bg-green-100">
-                              {appliedCoupon.code}
-                            </Badge>
-                            <span className="text-sm font-medium text-green-800">
-                              Cupom aplicado!
-                            </span>
-                          </div>
-                          <div className="text-sm text-green-600 mt-1">
-                            Desconto: -{formatPrice(appliedCoupon.discount)}
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleRemoveCoupon}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-              
               <Card>
                 <CardHeader>
                   <CardTitle>Resumo do Pedido</CardTitle>
@@ -301,9 +215,63 @@ const Cart = () => {
                     <span>Subtotal</span>
                     <span>{formatPrice(subtotal)}</span>
                   </div>
+                  
+                  {/* Coupon Section - Subtle inline style */}
+                  {!appliedCoupon ? (
+                    <div className="border-t border-b py-3 space-y-2">
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Código promocional"
+                          value={couponCode}
+                          onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleApplyCoupon();
+                            }
+                          }}
+                          disabled={isValidatingCoupon}
+                          className="uppercase text-sm h-9"
+                        />
+                        <Button
+                          variant="outline"
+                          onClick={handleApplyCoupon}
+                          disabled={isValidatingCoupon || !couponCode.trim()}
+                          className="h-9 px-4"
+                          size="sm"
+                        >
+                          {isValidatingCoupon ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            'Aplicar'
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between border-t border-b py-3">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="text-xs">
+                          {appliedCoupon.code}
+                        </Badge>
+                        <span className="text-sm text-green-600">
+                          -{formatPrice(appliedCoupon.discount)}
+                        </span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleRemoveCoupon}
+                        className="h-7 px-2 text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  )}
+                  
                   {appliedCoupon && (
                     <div className="flex justify-between text-green-600">
-                      <span>Desconto ({appliedCoupon.code})</span>
+                      <span>Desconto</span>
                       <span>-{formatPrice(discount)}</span>
                     </div>
                   )}
