@@ -48,7 +48,7 @@ class ShippingMethodSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Cart, CartItem, Coupon, CouponUsage, CartHistory, AbandonedCart, Order, OrderStatusHistory, StockMovement, Payment
+from .models import Cart, CartItem, Coupon, CouponUsage, CartHistory, AbandonedCart, Order, OrderItem, OrderStatusHistory, StockMovement, Payment
 from products.serializers import ProductListSerializer, ColorSerializer
 
 
@@ -235,6 +235,20 @@ class CartMergeSerializer(serializers.Serializer):
         return value
 
 
+class OrderItemSerializer(serializers.ModelSerializer):
+    """Serializer for OrderItem with all product details"""
+    
+    class Meta:
+        model = OrderItem
+        fields = [
+            'id', 'product', 'product_name', 'sku', 'product_image',
+            'color', 'color_name', 'color_hex',
+            'quantity', 'unit_price', 'subtotal',
+            'weight', 'dimensions', 'created_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'subtotal']
+
+
 class OrderSerializer(serializers.ModelSerializer):
     subtotal = serializers.ReadOnlyField()
     is_delivered = serializers.ReadOnlyField()
@@ -242,6 +256,7 @@ class OrderSerializer(serializers.ModelSerializer):
     can_be_cancelled = serializers.ReadOnlyField()
     shipping_address_display = serializers.CharField(source='get_shipping_address_display', read_only=True)
     customer_info = serializers.DictField(source='get_customer_info', read_only=True)
+    items = OrderItemSerializer(many=True, read_only=True)
     
     class Meta:
         model = Order
@@ -250,7 +265,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'subtotal', 'status', 'shipping_method', 'shipping_address', 'billing_address',
             'tracking_number', 'estimated_delivery', 'delivered_at', 'notes', 'customer_notes',
             'created_at', 'updated_at', 'is_delivered', 'is_shipped', 'can_be_cancelled',
-            'shipping_address_display', 'customer_info'
+            'shipping_address_display', 'customer_info', 'items'
         ]
         read_only_fields = ['id', 'order_number', 'created_at', 'updated_at']
 

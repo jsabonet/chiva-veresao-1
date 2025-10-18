@@ -1375,17 +1375,32 @@ def paysuite_webhook(request):
                                     name = it.get('name') or (product.name if product else '')
                                     sku = getattr(product, 'sku', '') if product else (it.get('sku') or '')
                                     line_total = (unit_price * qty)
+                                    
+                                    # Get product image
+                                    product_image = ''
+                                    if product:
+                                        if hasattr(product, 'images') and product.images.exists():
+                                            first_image = product.images.first()
+                                            if first_image and hasattr(first_image, 'image'):
+                                                product_image = request.build_absolute_uri(first_image.image.url) if first_image.image else ''
+                                    
+                                    # Get color hex
+                                    color_hex = getattr(color, 'hex_code', '') if color else ''
 
                                     OrderItem.objects.create(
                                         order=order,
                                         product=product,
                                         product_name=name,
                                         sku=sku,
+                                        product_image=product_image,
                                         color=color,
                                         color_name=getattr(color, 'name', '') if color else (it.get('color_name') or ''),
+                                        color_hex=color_hex,
                                         quantity=qty,
                                         unit_price=unit_price,
-                                        line_total=line_total
+                                        subtotal=line_total,
+                                        weight=getattr(product, 'weight', None) if product else None,
+                                        dimensions=getattr(product, 'dimensions', '') if product else ''
                                     )
                                 except Exception:
                                     logger.exception('Failed to create OrderItem from payload item')
@@ -1397,16 +1412,29 @@ def paysuite_webhook(request):
                                         qty = ci.quantity
                                         unit_price = ci.price
                                         line_total = unit_price * qty
+                                        
+                                        # Get product image
+                                        product_image = ''
+                                        if ci.product:
+                                            if hasattr(ci.product, 'images') and ci.product.images.exists():
+                                                first_image = ci.product.images.first()
+                                                if first_image and hasattr(first_image, 'image'):
+                                                    product_image = request.build_absolute_uri(first_image.image.url) if first_image.image else ''
+                                        
                                         OrderItem.objects.create(
                                             order=order,
                                             product=ci.product,
                                             product_name=ci.product.name if ci.product else '',
                                             sku=getattr(ci.product, 'sku', ''),
+                                            product_image=product_image,
                                             color=ci.color,
                                             color_name=ci.color.name if ci.color else '',
+                                            color_hex=getattr(ci.color, 'hex_code', '') if ci.color else '',
                                             quantity=qty,
                                             unit_price=unit_price,
-                                            line_total=line_total
+                                            subtotal=line_total,
+                                            weight=getattr(ci.product, 'weight', None) if ci.product else None,
+                                            dimensions=getattr(ci.product, 'dimensions', '') if ci.product else ''
                                         )
                                     except Exception:
                                         logger.exception('Failed to create OrderItem from cart item')

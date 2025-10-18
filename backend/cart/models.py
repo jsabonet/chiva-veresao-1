@@ -516,8 +516,40 @@ class OrderItem(models.Model):
     """
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
     product = models.ForeignKey('products.Product', on_delete=models.SET_NULL, null=True, blank=True)
+    
+    # Snapshot fields - critical for fulfillment
     product_name = models.CharField(max_length=255, blank=True)
     sku = models.CharField(max_length=100, blank=True)
+    product_image = models.URLField(max_length=500, blank=True, null=True)
+    
+    # Color information
+    color = models.ForeignKey('products.Color', on_delete=models.SET_NULL, null=True, blank=True)
+    color_name = models.CharField(max_length=100, blank=True)
+    color_hex = models.CharField(max_length=7, blank=True)
+    
+    # Pricing snapshot
+    quantity = models.PositiveIntegerField(default=1)
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    
+    # Additional product details for shipping/handling
+    weight = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Peso em kg")
+    dimensions = models.CharField(max_length=100, blank=True, help_text="Dimensões (LxWxH)")
+    
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    
+    class Meta:
+        verbose_name = "Item do Pedido"
+        verbose_name_plural = "Itens do Pedido"
+        ordering = ['created_at']
+    
+    def __str__(self):
+        return f"{self.product_name} x{self.quantity}"
+    
+    def save(self, *args, **kwargs):
+        # Auto-calculate subtotal
+        self.subtotal = self.unit_price * self.quantity
+        super().save(*args, **kwargs)
 
 
 class ShippingMethod(models.Model):
