@@ -222,7 +222,8 @@ export default function Checkout() {
 
   const selectedShipping = availableMethods.find((m: any) => m.id === selectedShippingMethod) || methods.find((m: any) => m.id === selectedShippingMethod);
   const shippingCost = selectedShipping ? (Number((selectedShipping as any).price) || 0) : 0;
-  const total = subtotal + shippingCost;
+  const discountAmount = appliedCoupon?.discount || 0;
+  const total = Math.max(0, subtotal - discountAmount + shippingCost);
 
   // Helper: returns true when method's min_order gives free shipping for current subtotal
   const methodHasFreeShipping = (m: any) => {
@@ -735,6 +736,19 @@ export default function Checkout() {
                       <span className="text-sm text-gray-600">Subtotal:</span>
                       <span className="text-base font-semibold text-gray-900">{formatPrice(subtotal)}</span>
                     </div>
+                    
+                    {/* Show discount if coupon applied */}
+                    {appliedCoupon && discountAmount > 0 && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-green-600">
+                          Desconto ({appliedCoupon.code}):
+                        </span>
+                        <span className="text-base font-semibold text-green-600">
+                          -{formatPrice(discountAmount)}
+                        </span>
+                      </div>
+                    )}
+                    
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-600">Entrega:</span>
                       <span className={`text-base font-semibold ${shippingCost === 0 ? 'text-green-600' : 'text-gray-900'}`}>
