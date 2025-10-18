@@ -33,7 +33,7 @@ const Cart = () => {
                 Adicione alguns produtos ao seu carrinho para continuar comprando.
               </p>
             </div>
-            <Button asChild className="w-full sm:w-auto h-12 px-8 rounded-xl font-semibold text-base bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-lg">
+            <Button asChild className="w-full sm:w-auto h-12 px-8 rounded-xl font-semibold text-base bg-primary hover:bg-primary-hover shadow-lg">
               <Link to="/">
                 <ArrowLeft className="h-5 w-5 mr-2" />
                 Continuar Comprando
@@ -61,7 +61,7 @@ const Cart = () => {
               </Link>
             </Button>
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center shadow-lg">
                 <ShoppingCart className="h-6 w-6 text-white" />
               </div>
               <h1 className="text-3xl sm:text-4xl font-bold text-gray-900">Carrinho de Compras</h1>
@@ -86,7 +86,7 @@ const Cart = () => {
                       </div>
                       <div className="flex-1 min-w-0">
                         {item.category && (
-                          <p className="text-xs text-blue-600 uppercase tracking-wider mb-1 font-semibold">
+                          <p className="text-xs text-primary uppercase tracking-wider mb-1 font-semibold">
                             {item.category}
                           </p>
                         )}
@@ -98,7 +98,7 @@ const Cart = () => {
                             Cor: <span className="font-medium">{item.color_name}</span>
                           </p>
                         )}
-                        <p className="text-lg sm:text-xl font-bold text-blue-600 mt-2">
+                        <p className="text-lg sm:text-xl font-bold text-primary mt-2">
                           {formatPrice(item.price)}
                         </p>
                       </div>
@@ -159,7 +159,7 @@ const Cart = () => {
             {/* Order Summary */}
             <div className="lg:sticky lg:top-4 h-fit space-y-6">
               <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-                <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6">
+                <div className="bg-primary p-6">
                   <div className="flex items-center gap-3 text-white">
                     <Package className="h-6 w-6" />
                     <h2 className="text-xl font-bold">Resumo do Pedido</h2>
@@ -178,7 +178,7 @@ const Cart = () => {
                   <div className="h-px bg-gray-200"></div>
                   <div className="flex justify-between items-center pt-2">
                     <span className="text-lg font-bold text-gray-900">Total</span>
-                    <span className="text-2xl font-bold text-blue-600">{formatPrice(total)}</span>
+                    <span className="text-2xl font-bold text-primary">{formatPrice(total)}</span>
                   </div>
                 </div>
               </div>
@@ -202,22 +202,22 @@ const Cart = () => {
                 </Button>
               </div>
 
-              <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl p-5 border-2 border-blue-200">
+              <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl p-5 border-2 border-primary/30">
                 <div className="flex items-start gap-3 mb-3">
-                  <Truck className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                  <Truck className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
                   <h4 className="font-bold text-gray-900">Informações de Entrega</h4>
                 </div>
                 <ul className="text-sm text-gray-700 space-y-2 ml-8">
                   <li className="flex items-start gap-2">
-                    <span className="text-blue-600 font-bold">•</span>
+                    <span className="text-primary font-bold">•</span>
                     <span>Entrega gratuita em Maputo</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="text-blue-600 font-bold">•</span>
+                    <span className="text-primary font-bold">•</span>
                     <span>Prazo: 2-5 dias úteis</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="text-blue-600 font-bold">•</span>
+                    <span className="text-primary font-bold">•</span>
                     <span>Instalação disponível para máquinas</span>
                   </li>
                 </ul>

@@ -185,20 +185,20 @@ export default function OrderConfirmation() {
         if (isMobilePayment) {
           const methodName = lastPayment?.method === 'mpesa' ? 'M-Pesa' : 'e-Mola';
           return { 
-            icon: <Clock className="h-8 w-8 text-blue-600 animate-pulse" />, 
+            icon: <Clock className="h-8 w-8 text-primary animate-pulse" />, 
             title: `⏳ Aguardando confirmação ${methodName}`, 
             desc: `Complete o pagamento no checkout externo. Depois de finalizar, volte a esta página — o status será atualizado automaticamente a cada 3 segundos.`,
-            bgColor: 'bg-blue-50',
-            borderColor: 'border-blue-200',
+            bgColor: 'bg-primary/10',
+            borderColor: 'border-primary/30',
             textColor: 'text-blue-900'
           };
         }
         return { 
-          icon: <Clock className="h-8 w-8 text-blue-600 animate-pulse" />, 
+          icon: <Clock className="h-8 w-8 text-primary animate-pulse" />, 
           title: '⏳ Aguardando confirmação', 
           desc: 'Estamos confirmando seu pagamento com a operadora. Isso pode levar alguns instantes. Por favor, aguarde.',
-          bgColor: 'bg-blue-50',
-          borderColor: 'border-blue-200',
+          bgColor: 'bg-primary/10',
+          borderColor: 'border-primary/30',
           textColor: 'text-blue-900'
         };
     }
@@ -259,7 +259,7 @@ export default function OrderConfirmation() {
               ${status === 'paid' ? 'bg-gradient-to-br from-green-400 to-green-600' : ''}
               ${status === 'failed' ? 'bg-gradient-to-br from-red-400 to-red-600' : ''}
               ${status === 'cancelled' ? 'bg-gradient-to-br from-amber-400 to-amber-600' : ''}
-              ${(status === 'pending' || status === 'processing') ? 'bg-gradient-to-br from-blue-400 to-blue-600' : ''}
+              ${(status === 'pending' || status === 'processing') ? 'bg-gradient-to-br from-primary to-primary-hover' : ''}
               transition-all duration-300
             `}>
               {status === 'paid' && <CheckCircle2 className="h-10 w-10 sm:h-12 sm:w-12 text-white" />}
@@ -313,7 +313,7 @@ export default function OrderConfirmation() {
                     status === 'paid' ? 'text-green-600' :
                     status === 'failed' ? 'text-red-600' :
                     status === 'cancelled' ? 'text-amber-600' :
-                    'text-blue-600'
+                    'text-primary'
                   }`}>
                     {status === 'paid' ? 'Pago' :
                      status === 'failed' ? 'Falhou' :
@@ -340,7 +340,7 @@ export default function OrderConfirmation() {
               )}
 
               {!isFinal && (
-                <div className="flex items-center justify-center gap-2 text-xs text-blue-600 bg-blue-50 rounded-lg p-3">
+                <div className="flex items-center justify-center gap-2 text-xs text-primary bg-primary/10 rounded-lg p-3">
                   <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse" />
                   <span>Atualizando a cada 3 segundos</span>
                 </div>

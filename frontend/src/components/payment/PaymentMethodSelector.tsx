@@ -87,9 +87,9 @@ export default function PaymentMethodSelector({ isOpen, onClose, onSubmit, total
         </DialogHeader>
 
         <div className="mb-6">
-          <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-5 rounded-2xl border-2 border-blue-200">
-            <p className="text-sm text-blue-700 font-medium mb-1">Total a pagar</p>
-            <p className="text-3xl font-bold text-blue-900">{formatPrice(totalAmount)}</p>
+          <div className="bg-gradient-to-br from-primary/10 to-primary/5 p-5 rounded-2xl border-2 border-primary/30">
+            <p className="text-sm text-primary font-medium mb-1">Total a pagar</p>
+            <p className="text-3xl font-bold text-primary-foreground">{formatPrice(totalAmount)}</p>
           </div>
         </div>
 
@@ -102,10 +102,10 @@ export default function PaymentMethodSelector({ isOpen, onClose, onSubmit, total
                   key={method.id}
                   type="button"
                   onClick={() => setSelectedMethod(method.id)}
-                  className="w-full p-5 border-2 border-gray-200 rounded-2xl hover:border-blue-500 hover:bg-blue-50 transition-all duration-300 text-left group shadow-sm hover:shadow-lg"
+                  className="w-full p-5 border-2 border-gray-200 rounded-2xl hover:border-primary hover:bg-primary/5 transition-all duration-300 text-left group shadow-sm hover:shadow-lg"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform shadow-lg">
+                    <div className="w-14 h-14 rounded-xl bg-gradient-to-br bg-primary flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform shadow-lg">
                       {method.icon}
                     </div>
                     <div className="flex-1">
@@ -131,7 +131,7 @@ export default function PaymentMethodSelector({ isOpen, onClose, onSubmit, total
                         setSelectedMethod(null);
                         setFormData({});
                       }}
-                      className="text-sm text-blue-600 hover:text-blue-800 font-medium hover:underline flex items-center gap-1 mt-1"
+                      className="text-sm text-primary hover:text-primary-hover font-medium hover:underline flex items-center gap-1 mt-1"
                     >
                       <ArrowLeft className="h-3 w-3" />
                       Alterar método
@@ -141,9 +141,9 @@ export default function PaymentMethodSelector({ isOpen, onClose, onSubmit, total
                 </div>
               </div>
 
-              <div className="bg-blue-50 rounded-xl p-4 border-l-4 border-blue-500">
+              <div className="bg-blue-50 rounded-xl p-4 border-l-4 border-primary">
                 <p className="text-sm text-gray-700">
-                  Você selecionou <strong className="text-blue-700">{paymentMethods.find(m => m.id === selectedMethod)?.name}</strong>. Ao confirmar, será redirecionado para a página de finalização onde deverá preencher os dados do pedido e pagamento.
+                  Você selecionou <strong className="text-primary">{paymentMethods.find(m => m.id === selectedMethod)?.name}</strong>. Ao confirmar, será redirecionado para a página de finalização onde deverá preencher os dados do pedido e pagamento.
                 </p>
               </div>
 

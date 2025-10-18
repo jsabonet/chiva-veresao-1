@@ -470,8 +470,8 @@ const ProductDetails = () => {
                     onClick={() => selectImage(image, index)}
                     className={`flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-xl border-2 overflow-hidden transition-all duration-300 ${
                       selectedImage === image 
-                        ? 'border-blue-500 ring-4 ring-blue-200 scale-110 shadow-lg' 
-                        : 'border-gray-200 hover:border-blue-300 hover:scale-105'
+                        ? 'border-primary ring-4 ring-primary/30 scale-110 shadow-lg' 
+                        : 'border-gray-200 hover:border-primary/50 hover:scale-105'
                     }`}
                   >
                     <img
@@ -529,9 +529,9 @@ const ProductDetails = () => {
             </div>
 
             {/* Price */}
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl p-5 border-2 border-blue-200 shadow-lg">
+            <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl p-5 border-2 border-primary/30 shadow-lg">
               <div className="flex flex-wrap items-baseline gap-3">
-                <span className="text-3xl sm:text-4xl font-bold text-blue-900">{formatPrice(product.price)}</span>
+                <span className="text-3xl sm:text-4xl font-bold text-primary-foreground">{formatPrice(product.price)}</span>
                 {product.original_price && parseFloat(product.original_price) > parseFloat(product.price) && (
                   <span className="text-xl sm:text-2xl text-gray-500 line-through">
                     {formatPrice(product.original_price)}
@@ -649,7 +649,7 @@ const ProductDetails = () => {
                   <div className="flex flex-col sm:flex-row gap-3">
                     <Button 
                       size="lg" 
-                      className="w-full sm:flex-1 h-14 text-base font-semibold rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-xl" 
+                      className="w-full sm:flex-1 h-14 text-base font-semibold rounded-xl bg-gradient-to-r bg-primary hover:bg-primary-hover shadow-xl" 
                       onClick={handleAddToCart} 
                       disabled={isPreview}
                     >
@@ -699,8 +699,8 @@ const ProductDetails = () => {
                 </div>
                 <span className="text-sm font-semibold text-gray-900">Garantia de 1 ano</span>
               </div>
-              <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0">
+              <div className="flex items-center gap-3 p-3 bg-primary/10 rounded-xl">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br bg-primary flex items-center justify-center flex-shrink-0">
                   <Truck className="w-5 h-5 text-white" />
                 </div>
                 <span className="text-sm font-semibold text-gray-900">Entrega grátis</span>

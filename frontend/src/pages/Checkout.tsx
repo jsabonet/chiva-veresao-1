@@ -358,7 +358,7 @@ export default function Checkout() {
               <div
                 className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg ${
                   step >= s.number
-                    ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white scale-110'
+                    ? 'bg-primary text-white scale-110'
                     : 'bg-gray-200 text-gray-400'
                 }`}
               >
@@ -368,14 +368,14 @@ export default function Checkout() {
                   <s.icon className="h-6 w-6 sm:h-7 sm:w-7" />
                 )}
               </div>
-              <p className={`text-xs sm:text-sm mt-2 font-medium ${step >= s.number ? 'text-blue-600' : 'text-gray-400'}`}>
+              <p className={`text-xs sm:text-sm mt-2 font-medium ${step >= s.number ? 'text-primary' : 'text-gray-400'}`}>
                 {s.label}
               </p>
             </div>
             {idx < steps.length - 1 && (
               <div
                 className={`h-1 flex-1 mx-2 transition-all duration-300 ${
-                  step > s.number ? 'bg-gradient-to-r from-blue-500 to-blue-600' : 'bg-gray-200'
+                  step > s.number ? 'bg-primary' : 'bg-gray-200'
                 }`}
               />
             )}
@@ -411,7 +411,7 @@ export default function Checkout() {
               {step === 1 && (
                 <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8 animate-in slide-in-from-bottom-4 duration-500">
                   <div className="flex items-center gap-3 mb-6">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                    <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center shadow-lg">
                       <MapPin className="h-6 w-6 text-white" />
                     </div>
                     <div>
@@ -432,7 +432,7 @@ export default function Checkout() {
                           value={shippingAddress.name}
                           onChange={(e) => handleAddressChange('name', e.target.value)}
                           placeholder="Seu nome completo"
-                          className="h-12 rounded-xl border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                          className="h-12 rounded-xl border-gray-200 focus:border-primary focus:ring-primary"
                         />
                       </div>
                       <div className="space-y-2">
@@ -445,7 +445,7 @@ export default function Checkout() {
                           value={shippingAddress.phone}
                           onChange={(e) => handleAddressChange('phone', e.target.value)}
                           placeholder="+258 84 123 4567"
-                          className="h-12 rounded-xl border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                          className="h-12 rounded-xl border-gray-200 focus:border-primary focus:ring-primary"
                         />
                       </div>
                     </div>
@@ -461,7 +461,7 @@ export default function Checkout() {
                         value={shippingAddress.email}
                         onChange={(e) => handleAddressChange('email', e.target.value)}
                         placeholder="seu@email.com"
-                        className="h-12 rounded-xl border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                        className="h-12 rounded-xl border-gray-200 focus:border-primary focus:ring-primary"
                       />
                     </div>
 
@@ -475,7 +475,7 @@ export default function Checkout() {
                         value={shippingAddress.address}
                         onChange={(e) => handleAddressChange('address', e.target.value)}
                         placeholder="Rua, número, bairro"
-                        className="h-12 rounded-xl border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                        className="h-12 rounded-xl border-gray-200 focus:border-primary focus:ring-primary"
                       />
                     </div>
 
@@ -489,7 +489,7 @@ export default function Checkout() {
                           value={shippingAddress.city}
                           onChange={(e) => handleAddressChange('city', e.target.value)}
                           placeholder="Cidade"
-                          className="h-12 rounded-xl border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                          className="h-12 rounded-xl border-gray-200 focus:border-primary focus:ring-primary"
                         />
                       </div>
                       <div className="space-y-2">
@@ -500,7 +500,7 @@ export default function Checkout() {
                           value={shippingAddress.province}
                           onValueChange={(value) => handleAddressChange('province', value)}
                         >
-                          <SelectTrigger className="h-12 rounded-xl border-gray-200 focus:border-blue-500 focus:ring-blue-500">
+                          <SelectTrigger className="h-12 rounded-xl border-gray-200 focus:border-primary focus:ring-primary">
                             <SelectValue placeholder="Selecione" />
                           </SelectTrigger>
                           <SelectContent>
@@ -521,7 +521,7 @@ export default function Checkout() {
                           value={shippingAddress.postal_code}
                           onChange={(e) => handleAddressChange('postal_code', e.target.value)}
                           placeholder="1100"
-                          className="h-12 rounded-xl border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                          className="h-12 rounded-xl border-gray-200 focus:border-primary focus:ring-primary"
                         />
                       </div>
                     </div>
@@ -583,7 +583,7 @@ export default function Checkout() {
                             disabled={!m.enabled}
                             className={`w-full text-left rounded-2xl p-5 flex items-center gap-4 transition-all duration-300 ${
                               isSelected 
-                                ? 'bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-500 shadow-lg transform scale-105' 
+                                ? 'bg-gradient-to-br from-primary/10 to-primary/5 border-2 border-primary shadow-lg transform scale-105' 
                                 : 'bg-gray-50 border-2 border-gray-200 hover:border-blue-300 hover:shadow-md'
                             } ${!m.enabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                           >
@@ -610,7 +610,7 @@ export default function Checkout() {
                             </div>
                             {isSelected && (
                               <div className="flex-shrink-0">
-                                <Check className="h-6 w-6 text-blue-600" />
+                                <Check className="h-6 w-6 text-primary" />
                               </div>
                             )}
                           </button>
@@ -642,9 +642,9 @@ export default function Checkout() {
                           <CreditCard className="h-5 w-5 text-gray-600" />
                           <h3 className="font-bold text-gray-900">Pagamento</h3>
                         </div>
-                        <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 border-2 border-blue-200">
-                          <p className="font-bold text-blue-900 text-base">{paymentMethod.toUpperCase()}</p>
-                          {paymentPhone && <p className="text-sm text-blue-700 mt-1">{paymentPhone}</p>}
+                        <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-xl p-4 border-2 border-primary/30">
+                          <p className="font-bold text-primary-foreground text-base">{paymentMethod.toUpperCase()}</p>
+                          {paymentPhone && <p className="text-sm text-primary mt-1">{paymentPhone}</p>}
                         </div>
                       </div>
 
@@ -710,7 +710,7 @@ export default function Checkout() {
                 {step < 3 ? (
                   <Button 
                     onClick={handleNextStep} 
-                    className="w-full h-12 rounded-xl font-semibold text-base bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-lg sm:ml-auto"
+                    className="w-full h-12 rounded-xl font-semibold text-base bg-gradient-to-r bg-primary hover:bg-primary-hover shadow-lg sm:ml-auto"
                   >
                     Próximo
                     <ChevronRight className="h-5 w-5 ml-2" />
@@ -740,7 +740,7 @@ export default function Checkout() {
             {/* Order Summary Sidebar */}
             <div className="lg:sticky lg:top-4 h-fit">
               <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-                <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6">
+                <div className="bg-gradient-to-r bg-primary p-6">
                   <div className="flex items-center gap-3 text-white">
                     <ShoppingBag className="h-6 w-6" />
                     <h2 className="text-xl font-bold">Resumo do Pedido</h2>
@@ -785,7 +785,7 @@ export default function Checkout() {
                     <div className="pt-3 border-t-2 border-gray-200">
                       <div className="flex justify-between items-center">
                         <span className="text-lg font-bold text-gray-900">Total:</span>
-                        <span className="text-2xl font-bold text-blue-600">{formatPrice(total)}</span>
+                        <span className="text-2xl font-bold text-primary">{formatPrice(total)}</span>
                       </div>
                     </div>
                   </div>
