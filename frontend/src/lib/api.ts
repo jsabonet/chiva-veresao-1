@@ -819,6 +819,8 @@ export const couponsApi = {
     apiClient.get<CouponStats>('/cart/admin/coupons/stats/'),
   
   // Public endpoints
-  validate: (code: string) => 
-    apiClient.get<{ valid: boolean; coupon: Coupon; discount_amount: number; error_message?: string }>(`/cart/coupon/validate/?code=${code}`),
+  validate: (code: string, cartTotal?: number) => 
+    apiClient.get<{ valid: boolean; coupon: Coupon; discount_amount: number; error_message?: string }>(
+      `/cart/coupon/validate/?code=${code}${cartTotal ? `&cart_total=${cartTotal}` : ''}`
+    ),
 };

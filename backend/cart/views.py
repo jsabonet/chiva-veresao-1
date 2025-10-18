@@ -568,15 +568,23 @@ def validate_coupon(request):
         user = request.user if request.user.is_authenticated else None
         
         # Get cart total for validation
-        cart_total = None
-        if request.user.is_authenticated:
-            cart = Cart.objects.filter(user=request.user, status='active').first()
+        # Priority: 1) URL param, 2) User's cart, 3) None
+        cart_total_param = request.GET.get('cart_total')
+        if cart_total_param:
+            try:
+                cart_total = Decimal(cart_total_param)
+            except (ValueError, TypeError):
+                cart_total = None
         else:
-            session_key = request.session.session_key
-            cart = Cart.objects.filter(session_key=session_key, status='active').first() if session_key else None
-        
-        if cart:
-            cart_total = cart.subtotal
+            cart_total = None
+            if request.user.is_authenticated:
+                cart = Cart.objects.filter(user=request.user, status='active').first()
+            else:
+                session_key = request.session.session_key
+                cart = Cart.objects.filter(session_key=session_key, status='active').first() if session_key else None
+            
+            if cart:
+                cart_total = cart.subtotal
         
         is_valid = coupon.is_valid(user=user, cart_total=cart_total)
         

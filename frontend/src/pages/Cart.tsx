@@ -39,7 +39,8 @@ const Cart = () => {
 
     setIsValidatingCoupon(true);
     try {
-      const validation = await couponsApi.validate(couponCode.trim());
+      // Pass current cart subtotal to get accurate discount calculation
+      const validation = await couponsApi.validate(couponCode.trim(), subtotal);
       
       if (!validation.valid) {
         toast({
