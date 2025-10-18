@@ -66,14 +66,24 @@ interface Order {
   is_shipped: boolean;
   can_be_cancelled: boolean;
   shipping_address_display?: string;
+  items?: OrderItem[]; // Included from API
 }
 
 interface OrderItem {
   id: number;
-  name: string;
+  product: number | null;
+  product_name: string;
+  sku: string;
+  product_image: string | null;
+  color: number | null;
+  color_name: string;
+  color_hex: string;
   quantity: number;
-  price: number;
-  image: string;
+  unit_price: string;
+  subtotal: string;
+  weight: string | null;
+  dimensions: string;
+  created_at: string;
 }
 
 interface ApiResponse {
@@ -96,8 +106,6 @@ const OrdersManagement = () => {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isOrderDialogOpen, setIsOrderDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
-  const [loadingItems, setLoadingItems] = useState(false);
   const [itemsLoaded, setItemsLoaded] = useState(false);
   const [pagination, setPagination] = useState({
     page: 1,
@@ -260,58 +268,12 @@ const OrdersManagement = () => {
 
   const stats = getOrderStats();
 
-  const fetchOrderItems = async (orderId: number) => {
-    try {
-      setLoadingItems(true);
-      const token = await currentUser?.getIdToken();
-      
-      const response = await fetch(`/api/cart/orders/${orderId}/items/`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-      });
-
-      if (response.ok) {
-        const items = await response.json();
-        setOrderItems(items.items || []);
-        setItemsLoaded(true);
-      } else {
-        console.error(`Error fetching order items: ${response.status} ${response.statusText}`);
-        const errorData = await response.text();
-        console.error('Error response:', errorData);
-        setOrderItems([]);
-        
-        // Only show toast if it's not a 403 (permission) error
-        if (response.status !== 403) {
-          toast({
-            title: 'Aviso',
-            description: 'Não foi possível carregar os itens do pedido.',
-            variant: 'destructive',
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching order items:', error);
-      setOrderItems([]);
-      toast({
-        title: 'Erro',
-        description: 'Erro de conexão ao carregar itens do pedido.',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoadingItems(false);
-    }
-  };
+  // Items are now included in Order response - no need for separate fetch
 
   const handleViewOrder = (order: Order) => {
     setSelectedOrder(order);
-    setOrderItems([]);
-    setItemsLoaded(false);
     setIsOrderDialogOpen(true);
-    // Auto-load items when dialog opens
-    fetchOrderItems(order.id);
+    // Items are now included in the order response
   };
 
   const handleUpdateOrderStatus = async (orderId: number, newStatus: Order['status']) => {
@@ -678,94 +640,131 @@ const OrdersManagement = () => {
               </Card>
             </div>
 
-            {/* Itens e Resumo */}
+            {/* Itens e Resumo - MELHORADO */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg flex items-center justify-between">
-                  Itens do Pedido
-                  {!loadingItems && !itemsLoaded && (
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => fetchOrderItems(selectedOrder.id)}
-                    >
-                      Carregar Itens
-                    </Button>
-                  )}
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Package className="h-5 w-5" />
+                  Itens do Pedido ({selectedOrder.items?.length || 0})
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {/* Lista de Itens */}
-                  <div className="border rounded-lg">
-                    {loadingItems ? (
-                      <div className="p-4 text-center">
-                        <Package className="h-6 w-6 animate-spin mx-auto mb-2" />
-                        <p className="text-sm text-muted-foreground">Carregando itens do pedido...</p>
-                      </div>
-                    ) : orderItems.length > 0 ? (
-                      <div className="divide-y">
-                        {orderItems.map((item) => (
-                          <div key={item.id} className="p-4 flex items-center gap-4">
-                            <img 
-                              src={item.image || '/placeholder-product.jpg'} 
-                              alt={item.name}
-                              className="w-16 h-16 object-cover rounded-lg"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.src = '/placeholder-product.jpg';
-                              }}
-                            />
-                            <div className="flex-1">
-                              <h4 className="font-medium">{item.name}</h4>
-                              <p className="text-sm text-muted-foreground">
-                                Quantidade: {item.quantity}
-                              </p>
+                  {/* Lista de Itens com Design Profissional */}
+                  {selectedOrder.items && selectedOrder.items.length > 0 ? (
+                    <div className="space-y-3">
+                      {selectedOrder.items.map((item) => (
+                        <div 
+                          key={item.id} 
+                          className="border rounded-lg p-4 hover:shadow-md transition-shadow bg-gradient-to-r from-white to-gray-50"
+                        >
+                          <div className="flex flex-col sm:flex-row gap-4">
+                            {/* Imagem do Produto */}
+                            <div className="flex-shrink-0">
+                              <img 
+                                src={item.product_image || '/placeholder-product.jpg'} 
+                                alt={item.product_name}
+                                className="w-24 h-24 object-cover rounded-lg border-2 border-gray-200"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.src = '/placeholder-product.jpg';
+                                }}
+                              />
                             </div>
-                            <div className="text-right">
-                              <p className="font-medium">{formatPrice(item.price)}</p>
-                              <p className="text-sm text-muted-foreground">
-                                Total: {formatPrice(item.price * item.quantity)}
-                              </p>
+
+                            {/* Informações do Produto */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start justify-between gap-2 mb-2">
+                                <div className="flex-1">
+                                  <h4 className="font-bold text-base text-gray-900">{item.product_name}</h4>
+                                  {item.sku && (
+                                    <p className="text-sm text-gray-600 mt-1">
+                                      <span className="font-medium">SKU:</span>{' '}
+                                      <code className="bg-blue-50 px-2 py-0.5 rounded text-xs font-mono text-blue-700">
+                                        {item.sku}
+                                      </code>
+                                    </p>
+                                  )}
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-lg font-bold text-primary">{formatPrice(parseFloat(item.subtotal))}</p>
+                                  <p className="text-xs text-gray-500">Total</p>
+                                </div>
+                              </div>
+
+                              {/* Detalhes em Grid */}
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3 pt-3 border-t">
+                                <div>
+                                  <p className="text-xs text-gray-500 mb-1">Quantidade</p>
+                                  <p className="font-semibold text-sm">
+                                    <Badge variant="secondary">{item.quantity}x</Badge>
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-gray-500 mb-1">Preço Unit.</p>
+                                  <p className="font-semibold text-sm">{formatPrice(parseFloat(item.unit_price))}</p>
+                                </div>
+                                {item.color_name && (
+                                  <div>
+                                    <p className="text-xs text-gray-500 mb-1">Cor</p>
+                                    <div className="flex items-center gap-1.5">
+                                      {item.color_hex && (
+                                        <div 
+                                          className="w-4 h-4 rounded-full border-2 border-gray-300"
+                                          style={{ backgroundColor: item.color_hex }}
+                                        />
+                                      )}
+                                      <p className="font-semibold text-sm">{item.color_name}</p>
+                                    </div>
+                                  </div>
+                                )}
+                                {item.weight && (
+                                  <div>
+                                    <p className="text-xs text-gray-500 mb-1">Peso</p>
+                                    <p className="font-semibold text-sm">{parseFloat(item.weight).toFixed(2)} kg</p>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Dimensões se disponível */}
+                              {item.dimensions && (
+                                <div className="mt-2 pt-2 border-t">
+                                  <p className="text-xs text-gray-500">
+                                    <span className="font-medium">Dimensões:</span> {item.dimensions}
+                                  </p>
+                                </div>
+                              )}
                             </div>
                           </div>
-                        ))}
-                      </div>
-                    ) : itemsLoaded ? (
-                      <div className="p-4 text-center">
-                        <Package className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
-                        <p className="text-sm text-muted-foreground">Nenhum item encontrado neste pedido</p>
-                      </div>
-                    ) : (
-                      <div className="p-4 text-center">
-                        <Package className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
-                        <p className="text-sm text-muted-foreground">Aguardando carregamento dos itens...</p>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="mt-2"
-                          onClick={() => fetchOrderItems(selectedOrder.id)}
-                          disabled={loadingItems}
-                        >
-                          Tentar Novamente
-                        </Button>
-                      </div>
-                    )}
-                  </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-8 text-center border rounded-lg bg-gray-50">
+                      <Package className="h-12 w-12 mx-auto mb-3 text-gray-400" />
+                      <p className="text-gray-600 font-medium mb-1">Nenhum item encontrado</p>
+                      <p className="text-sm text-gray-500">Este pedido não possui itens registrados</p>
+                    </div>
+                  )}
                   
-                  {/* Resumo */}
-                  <div className="border-t pt-4 space-y-2">
-                    <div className="flex justify-between">
-                      <span>Subtotal:</span>
-                      <span>{formatPrice(parseFloat(selectedOrder.total_amount) - parseFloat(selectedOrder.shipping_cost))}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Frete:</span>
-                      <span>{parseFloat(selectedOrder.shipping_cost) === 0 ? 'Grátis' : formatPrice(parseFloat(selectedOrder.shipping_cost))}</span>
-                    </div>
-                    <div className="flex justify-between font-bold text-lg border-t pt-2">
-                      <span>Total do Pedido:</span>
-                      <span>{formatPrice(parseFloat(selectedOrder.total_amount))}</span>
+                  {/* Resumo Financeiro */}
+                  <div className="border rounded-lg bg-gradient-to-br from-primary/5 to-primary/10 p-4 space-y-3 mt-4">
+                    <h4 className="font-semibold text-sm text-gray-700 mb-2">Resumo Financeiro</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Subtotal:</span>
+                        <span className="font-semibold">{formatPrice(parseFloat(selectedOrder.total_amount) - parseFloat(selectedOrder.shipping_cost))}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Frete:</span>
+                        <span className={`font-semibold ${parseFloat(selectedOrder.shipping_cost) === 0 ? 'text-green-600' : ''}`}>
+                          {parseFloat(selectedOrder.shipping_cost) === 0 ? 'Grátis' : formatPrice(parseFloat(selectedOrder.shipping_cost))}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center pt-3 border-t-2 border-primary/20">
+                        <span className="font-bold text-base">Total do Pedido:</span>
+                        <span className="font-bold text-2xl text-primary">{formatPrice(parseFloat(selectedOrder.total_amount))}</span>
+                      </div>
                     </div>
                   </div>
                 </div>

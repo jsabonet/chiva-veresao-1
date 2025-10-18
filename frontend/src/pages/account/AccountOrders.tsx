@@ -49,13 +49,19 @@ interface Order {
 
 interface OrderItem {
   id: number;
-  name: string;
+  product: number;
+  product_name: string;
   sku: string;
-  price: string;
+  product_image?: string;
+  color?: number;
+  color_name?: string;
+  color_hex?: string;
   quantity: number;
-  color?: string;
-  image?: string;
-  total: string;
+  unit_price: string;
+  subtotal: string;
+  weight?: string;
+  dimensions?: string;
+  created_at: string;
 }
 
 interface StatusHistory {
@@ -302,39 +308,101 @@ const AccountOrders = () => {
             </div>
 
             {/* Items */}
-            {selectedOrder.items && (
+            {selectedOrder.items && selectedOrder.items.length > 0 && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Itens do Pedido</CardTitle>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Package className="h-5 w-5" />
+                    Itens do Pedido ({selectedOrder.items.length})
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-              {selectedOrder.items.map((item, index) => (
-                <div key={index} className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 p-4 border rounded-lg">
-                        <img
-                          src={item.image || '/placeholder.svg'}
-                          alt={item.name}
-                          className="w-16 h-16 rounded-md object-cover"
-                        />
-                        <div className="flex-1">
-                          <h4 className="font-medium">{item.name}</h4>
-                          <p className="text-sm text-muted-foreground">
-                            SKU: {item.sku}
-                          </p>
-                          {item.color && (
-                            <p className="text-sm text-muted-foreground">
-                              Cor: {item.color}
-                            </p>
-                          )}
-                          <p className="text-sm text-muted-foreground">
-                            Quantidade: {item.quantity} × {formatPrice(parseFloat(item.price))}
-                          </p>
+                  <div className="space-y-3">
+                    {selectedOrder.items.map((item) => (
+                      <div 
+                        key={item.id} 
+                        className="bg-gradient-to-br from-slate-50 to-gray-50 rounded-lg p-4 hover:shadow-md transition-shadow border border-gray-200"
+                      >
+                        {/* Header with Image and Basic Info */}
+                        <div className="flex items-start gap-4 mb-3">
+                          <img
+                            src={item.product_image || '/placeholder.svg'}
+                            alt={item.product_name}
+                            className="w-20 h-20 rounded-md object-cover border-2 border-white shadow-sm"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.src = '/placeholder.svg';
+                            }}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold text-gray-900 mb-1 line-clamp-2">
+                              {item.product_name}
+                            </h4>
+                            <div className="flex flex-wrap items-center gap-2 mb-2">
+                              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 font-mono text-xs">
+                                SKU: {item.sku}
+                              </Badge>
+                              {item.color_name && item.color_hex && (
+                                <Badge variant="outline" className="bg-white border-gray-300 flex items-center gap-1.5">
+                                  <div 
+                                    className="w-3 h-3 rounded-full border border-gray-300"
+                                    style={{ backgroundColor: item.color_hex }}
+                                  />
+                                  <span className="text-xs">{item.color_name}</span>
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-lg font-bold text-gray-900">
+                              {formatPrice(parseFloat(item.subtotal))}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {item.quantity}x {formatPrice(parseFloat(item.unit_price))}
+                            </div>
+                          </div>
                         </div>
-                        <div className="w-full sm:w-auto text-right">
-                          <p className="font-medium">{formatPrice(parseFloat(item.total))}</p>
+
+                        {/* Specs Grid */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
+                          <div className="bg-white rounded p-2 border border-gray-200">
+                            <div className="text-xs text-gray-500 mb-0.5">Quantidade</div>
+                            <div className="font-semibold text-gray-900">{item.quantity} un.</div>
+                          </div>
+                          
+                          <div className="bg-white rounded p-2 border border-gray-200">
+                            <div className="text-xs text-gray-500 mb-0.5">Preço Unit.</div>
+                            <div className="font-semibold text-gray-900">{formatPrice(parseFloat(item.unit_price))}</div>
+                          </div>
+
+                          {item.weight && (
+                            <div className="bg-white rounded p-2 border border-gray-200">
+                              <div className="text-xs text-gray-500 mb-0.5">Peso</div>
+                              <div className="font-semibold text-gray-900">{item.weight}</div>
+                            </div>
+                          )}
+
+                          {item.dimensions && (
+                            <div className="bg-white rounded p-2 border border-gray-200">
+                              <div className="text-xs text-gray-500 mb-0.5">Dimensões</div>
+                              <div className="font-semibold text-gray-900 text-xs">{item.dimensions}</div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
+                  </div>
+
+                  {/* Total */}
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-gray-600">Subtotal dos Itens:</span>
+                      <span className="text-lg font-bold text-gray-900">
+                        {formatPrice(
+                          selectedOrder.items.reduce((sum, item) => sum + parseFloat(item.subtotal), 0)
+                        )}
+                      </span>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
