@@ -80,17 +80,25 @@ const AdminSettings = () => {
         if (method === 'PATCH') return await (apiClient as any).patch(url, opts.body ? JSON.parse(opts.body) : {});
         if (method === 'DELETE') return await (apiClient as any).delete(url);
       }
-    } catch (e) {
-      // If apiClient throws, fall back to fetch implementation below
+    } catch (e: any) {
+      // If it's a validation error (400), re-throw it instead of falling back
+      if (e?.message?.includes('400') || e?.message?.includes('already exists')) {
+        throw e;
+      }
+      // For other errors, fall back to fetch implementation below
       console.warn('apiClient request failed, falling back to fetch', e);
     }
 
+    // Build absolute URL for fallback fetch
+    const baseUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+    const fullUrl = url.startsWith('http') ? url : `${baseUrl}${url}`;
+    
     const headers = Object.assign({}, opts.headers || {}, {
       'X-CSRFToken': getCSRFToken(),
       'Content-Type': opts.body ? 'application/json' : undefined,
     });
 
-    return await fetch(url, Object.assign({ credentials: 'include', headers }, opts));
+    return await fetch(fullUrl, Object.assign({ credentials: 'include', headers }, opts));
   };
 
   // Load server shipping methods
@@ -272,10 +280,19 @@ const AdminSettings = () => {
     if (!editingCoupon) return;
     
     try {
+      // Prepare payload - remove read-only fields
       const payload = {
-        ...editingCoupon,
+        code: editingCoupon.code,
+        name: editingCoupon.name,
+        description: editingCoupon.description || '',
+        discount_type: editingCoupon.discount_type,
+        discount_value: Number(editingCoupon.discount_value),
+        minimum_amount: editingCoupon.minimum_amount ? Number(editingCoupon.minimum_amount) : null,
         valid_from: new Date(editingCoupon.valid_from).toISOString(),
         valid_until: new Date(editingCoupon.valid_until).toISOString(),
+        max_uses: editingCoupon.max_uses ? Number(editingCoupon.max_uses) : null,
+        max_uses_per_user: editingCoupon.max_uses_per_user ? Number(editingCoupon.max_uses_per_user) : null,
+        is_active: Boolean(editingCoupon.is_active),
       };
       
       if (isCreatingCoupon) {
@@ -298,9 +315,18 @@ const AdminSettings = () => {
       
       setEditingCoupon(null);
       setIsCreatingCoupon(false);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Save coupon failed', err);
-      toast({ title: 'Erro', description: 'Não foi possível salvar o cupom.', variant: 'destructive' });
+      
+      // Try to extract error message from response
+      let errorMessage = 'Não foi possível salvar o cupom.';
+      if (err?.message && err.message.includes('already exists')) {
+        errorMessage = 'Este código de cupom já existe. Use outro código.';
+      } else if (err?.message) {
+        errorMessage = err.message;
+      }
+      
+      toast({ title: 'Erro', description: errorMessage, variant: 'destructive' });
     }
   };
   
