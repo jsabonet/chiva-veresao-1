@@ -1876,3 +1876,177 @@ def debug_add_to_cart(request):
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+# ============================================
+# COUPON MANAGEMENT - ADMIN API
+# ============================================
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAdmin])
+def admin_coupons_list_create(request):
+    """
+    Admin endpoint to list all coupons or create a new one
+    GET: List all coupons with filters
+    POST: Create new coupon
+    """
+    if request.method == 'GET':
+        try:
+            coupons = Coupon.objects.all().order_by('-created_at')
+            
+            # Optional filters
+            is_active = request.GET.get('is_active')
+            if is_active is not None:
+                coupons = coupons.filter(is_active=is_active.lower() == 'true')
+            
+            discount_type = request.GET.get('discount_type')
+            if discount_type:
+                coupons = coupons.filter(discount_type=discount_type)
+            
+            # Check validity status
+            search = request.GET.get('search')
+            if search:
+                coupons = coupons.filter(
+                    code__icontains=search
+                ) | coupons.filter(
+                    name__icontains=search
+                )
+            
+            serializer = CouponSerializer(coupons, many=True, context={'request': request})
+            return Response(serializer.data)
+            
+        except Exception as e:
+            logger.error(f"Error listing coupons: {str(e)}")
+            return Response(
+                {'error': 'Failed to list coupons'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    elif request.method == 'POST':
+        try:
+            serializer = CouponSerializer(data=request.data, context={'request': request})
+            if serializer.is_valid():
+                coupon = serializer.save()
+                logger.info(f"Admin created coupon: {coupon.code}")
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+        except Exception as e:
+            logger.error(f"Error creating coupon: {str(e)}")
+            return Response(
+                {'error': 'Failed to create coupon'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+@api_view(['GET', 'PUT', 'DELETE'])
+@permission_classes([IsAdmin])
+def admin_coupon_detail(request, coupon_id):
+    """
+    Admin endpoint to retrieve, update or delete a specific coupon
+    GET: Get coupon details
+    PUT: Update coupon
+    DELETE: Delete coupon
+    """
+    try:
+        coupon = get_object_or_404(Coupon, id=coupon_id)
+    except Coupon.DoesNotExist:
+        return Response(
+            {'error': 'Coupon not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    if request.method == 'GET':
+        try:
+            serializer = CouponSerializer(coupon, context={'request': request})
+            return Response(serializer.data)
+        except Exception as e:
+            logger.error(f"Error getting coupon: {str(e)}")
+            return Response(
+                {'error': 'Failed to get coupon'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    elif request.method == 'PUT':
+        try:
+            serializer = CouponSerializer(
+                coupon, 
+                data=request.data, 
+                partial=True,
+                context={'request': request}
+            )
+            if serializer.is_valid():
+                serializer.save()
+                logger.info(f"Admin updated coupon: {coupon.code}")
+                return Response(serializer.data)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+        except Exception as e:
+            logger.error(f"Error updating coupon: {str(e)}")
+            return Response(
+                {'error': 'Failed to update coupon'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    elif request.method == 'DELETE':
+        try:
+            coupon_code = coupon.code
+            coupon.delete()
+            logger.info(f"Admin deleted coupon: {coupon_code}")
+            return Response(
+                {'message': f'Coupon {coupon_code} deleted successfully'},
+                status=status.HTTP_204_NO_CONTENT
+            )
+        except Exception as e:
+            logger.error(f"Error deleting coupon: {str(e)}")
+            return Response(
+                {'error': 'Failed to delete coupon'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+@api_view(['GET'])
+@permission_classes([IsAdmin])
+def admin_coupon_stats(request):
+    """
+    Get statistics about coupons usage
+    """
+    try:
+        from django.db.models import Count, Sum, Q
+        from .models import CouponUsage
+        
+        total_coupons = Coupon.objects.count()
+        active_coupons = Coupon.objects.filter(is_active=True).count()
+        expired_coupons = Coupon.objects.filter(
+            valid_until__lt=timezone.now()
+        ).count()
+        
+        # Most used coupons
+        most_used = Coupon.objects.order_by('-used_count')[:5].values(
+            'code', 'name', 'used_count', 'max_uses'
+        )
+        
+        # Recent usage
+        recent_usage = CouponUsage.objects.select_related(
+            'coupon', 'user'
+        ).order_by('-used_at')[:10].values(
+            'coupon__code',
+            'coupon__name',
+            'user__username',
+            'used_at'
+        )
+        
+        return Response({
+            'total_coupons': total_coupons,
+            'active_coupons': active_coupons,
+            'expired_coupons': expired_coupons,
+            'most_used': list(most_used),
+            'recent_usage': list(recent_usage),
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting coupon stats: {str(e)}")
+        return Response(
+            {'error': 'Failed to get coupon stats'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+

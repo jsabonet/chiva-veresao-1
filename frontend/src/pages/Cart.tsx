@@ -11,14 +11,17 @@ import { formatPrice } from '@/lib/formatPrice';
 import { useCart } from '@/contexts/CartContext';
 import { usePayments } from '@/hooks/usePayments';
 import PaymentMethodSelector from '@/components/payment/PaymentMethodSelector';
+import { CouponInput, AppliedCoupon } from '@/components/ui/CouponComponents';
 
 const Cart = () => {
   const { items, updateQuantity, removeItem, subtotal } = useCart();
   const { initiatePayment } = usePayments();
   const navigate = useNavigate();
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount: number } | null>(null);
   const shipping = 0; // TODO: calcular dinamicamente no futuro
-  const total = useMemo(() => subtotal + shipping, [subtotal, shipping]);
+  const discount = appliedCoupon?.discount || 0;
+  const total = useMemo(() => Math.max(0, subtotal - discount + shipping), [subtotal, discount, shipping]);
 
   if (items.length === 0) {
     return (
@@ -150,6 +153,21 @@ const Cart = () => {
 
             {/* Order Summary */}
             <div className="space-y-6">
+              {/* Coupon Section */}
+              {!appliedCoupon ? (
+                <CouponInput 
+                  onCouponApplied={(code, discountAmount) => {
+                    setAppliedCoupon({ code, discount: discountAmount });
+                  }}
+                />
+              ) : (
+                <AppliedCoupon
+                  couponCode={appliedCoupon.code}
+                  discountAmount={appliedCoupon.discount}
+                  onRemove={() => setAppliedCoupon(null)}
+                />
+              )}
+              
               <Card>
                 <CardHeader>
                   <CardTitle>Resumo do Pedido</CardTitle>
@@ -159,6 +177,12 @@ const Cart = () => {
                     <span>Subtotal</span>
                     <span>{formatPrice(subtotal)}</span>
                   </div>
+                  {appliedCoupon && (
+                    <div className="flex justify-between text-green-600">
+                      <span>Desconto ({appliedCoupon.code})</span>
+                      <span>-{formatPrice(discount)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
                     <span>Entrega</span>
                     <span>{formatPrice(shipping)}</span>

@@ -763,3 +763,62 @@ export const promotionsApi = {
   updateAdmin: (id: number, data: Partial<Promotion>) => apiClient.put<Promotion>(`/admin/promotions/${id}/`, data),
   deleteAdmin: (id: number) => apiClient.delete(`/admin/promotions/${id}/`),
 };
+
+// Coupons API
+export interface Coupon {
+  id: number;
+  code: string;
+  name: string;
+  description?: string;
+  discount_type: 'percentage' | 'fixed';
+  discount_value: number | string;
+  minimum_amount?: number | string | null;
+  valid_from: string;
+  valid_until: string;
+  max_uses?: number | null;
+  used_count: number;
+  max_uses_per_user?: number | null;
+  is_active: boolean;
+  is_currently_valid?: boolean;
+  usage_percentage?: number | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface CouponStats {
+  total_coupons: number;
+  active_coupons: number;
+  expired_coupons: number;
+  most_used: Array<{
+    code: string;
+    name: string;
+    used_count: number;
+    max_uses: number | null;
+  }>;
+  recent_usage: Array<{
+    coupon__code: string;
+    coupon__name: string;
+    user__username: string;
+    used_at: string;
+  }>;
+}
+
+export const couponsApi = {
+  // Admin endpoints
+  listAdmin: (params?: Record<string, string>) => 
+    apiClient.get<Coupon[]>('/cart/admin/coupons/', params),
+  getAdmin: (id: number) => 
+    apiClient.get<Coupon>(`/cart/admin/coupons/${id}/`),
+  createAdmin: (data: Partial<Coupon>) => 
+    apiClient.post<Coupon>('/cart/admin/coupons/', data),
+  updateAdmin: (id: number, data: Partial<Coupon>) => 
+    apiClient.put<Coupon>(`/cart/admin/coupons/${id}/`, data),
+  deleteAdmin: (id: number) => 
+    apiClient.delete(`/cart/admin/coupons/${id}/`),
+  statsAdmin: () => 
+    apiClient.get<CouponStats>('/cart/admin/coupons/stats/'),
+  
+  // Public endpoints
+  validate: (code: string) => 
+    apiClient.get<{ valid: boolean; coupon: Coupon; discount_amount: number; error_message?: string }>(`/cart/coupon/validate/?code=${code}`),
+};

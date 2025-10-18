@@ -15,7 +15,14 @@ import {
   CreditCard,
   Truck,
   Users,
-  FileText
+  FileText,
+  Tag,
+  Plus,
+  Edit,
+  Trash2,
+  Calendar,
+  Percent,
+  DollarSign
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { apiClient } from '@/lib/api';
@@ -47,6 +54,12 @@ const AdminSettings = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  
+  // Coupons state
+  const [coupons, setCoupons] = useState<any[]>([]);
+  const [isCouponsLoading, setIsCouponsLoading] = useState(false);
+  const [editingCoupon, setEditingCoupon] = useState<any | null>(null);
+  const [isCreatingCoupon, setIsCreatingCoupon] = useState(false);
 
   // Small helper: read CSRF token from cookies (Django default name)
   const getCSRFToken = () => {
@@ -86,7 +99,7 @@ const AdminSettings = () => {
     (async () => {
       setIsLoading(true);
       try {
-  const res = await safeFetch('/cart/admin/shipping-methods/');
+        const res = await safeFetch('/cart/admin/shipping-methods/');
         if (!res) return;
         // res may be a fetch Response or apiClient result
         const data = typeof res.json === 'function' ? await res.json() : res;
@@ -101,6 +114,27 @@ const AdminSettings = () => {
       }
     })();
     return () => { mounted = false; };
+  }, []);
+  
+  // Load coupons
+  const loadCoupons = async () => {
+    setIsCouponsLoading(true);
+    try {
+      const res = await safeFetch('/cart/admin/coupons/');
+      const data = typeof res.json === 'function' ? await res.json() : res;
+      if (Array.isArray(data)) {
+        setCoupons(data);
+      }
+    } catch (err) {
+      console.error('Failed to load coupons', err);
+      toast({ title: 'Erro', description: 'Não foi possível carregar os cupons.', variant: 'destructive' });
+    } finally {
+      setIsCouponsLoading(false);
+    }
+  };
+  
+  useEffect(() => {
+    loadCoupons();
   }, []);
 
   const handleSettingChange = (key: string, value: any) => {
@@ -199,12 +233,93 @@ const AdminSettings = () => {
     }
     try {
       // safeFetch/apiClient will throw on error; if it completes, treat as success
-  await safeFetch(`/cart/admin/shipping-methods/${id}/`, { method: 'DELETE' });
+      await safeFetch(`/cart/admin/shipping-methods/${id}/`, { method: 'DELETE' });
       setSettings((s: any) => ({ ...s, shippingMethods: (s.shippingMethods || []).filter((m: any) => m.id !== id) }));
     } catch (err) {
       console.error('Delete shipping method failed', err);
       toast({ title: 'Erro', description: 'Não foi possível remover o método de envio.' });
     }
+  };
+  
+  // Coupon management functions
+  const handleCreateCoupon = () => {
+    setEditingCoupon({
+      code: '',
+      name: '',
+      description: '',
+      discount_type: 'percentage',
+      discount_value: 0,
+      minimum_amount: null,
+      valid_from: new Date().toISOString().slice(0, 16),
+      valid_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16),
+      max_uses: null,
+      max_uses_per_user: null,
+      is_active: true,
+    });
+    setIsCreatingCoupon(true);
+  };
+  
+  const handleEditCoupon = (coupon: any) => {
+    setEditingCoupon({
+      ...coupon,
+      valid_from: coupon.valid_from ? new Date(coupon.valid_from).toISOString().slice(0, 16) : '',
+      valid_until: coupon.valid_until ? new Date(coupon.valid_until).toISOString().slice(0, 16) : '',
+    });
+    setIsCreatingCoupon(false);
+  };
+  
+  const handleSaveCoupon = async () => {
+    if (!editingCoupon) return;
+    
+    try {
+      const payload = {
+        ...editingCoupon,
+        valid_from: new Date(editingCoupon.valid_from).toISOString(),
+        valid_until: new Date(editingCoupon.valid_until).toISOString(),
+      };
+      
+      if (isCreatingCoupon) {
+        const res = await safeFetch('/cart/admin/coupons/', { 
+          method: 'POST', 
+          body: JSON.stringify(payload) 
+        });
+        const data = typeof res.json === 'function' ? await res.json() : res;
+        setCoupons([data, ...coupons]);
+        toast({ title: 'Sucesso', description: 'Cupom criado com sucesso!' });
+      } else {
+        const res = await safeFetch(`/cart/admin/coupons/${editingCoupon.id}/`, { 
+          method: 'PUT', 
+          body: JSON.stringify(payload) 
+        });
+        const data = typeof res.json === 'function' ? await res.json() : res;
+        setCoupons(coupons.map(c => c.id === data.id ? data : c));
+        toast({ title: 'Sucesso', description: 'Cupom atualizado com sucesso!' });
+      }
+      
+      setEditingCoupon(null);
+      setIsCreatingCoupon(false);
+    } catch (err) {
+      console.error('Save coupon failed', err);
+      toast({ title: 'Erro', description: 'Não foi possível salvar o cupom.', variant: 'destructive' });
+    }
+  };
+  
+  const handleDeleteCoupon = async (id: number) => {
+    if (!confirm('Tem certeza que deseja excluir este cupom?')) return;
+    
+    try {
+      await safeFetch(`/cart/admin/coupons/${id}/`, { method: 'DELETE' });
+      setCoupons(coupons.filter(c => c.id !== id));
+      toast({ title: 'Sucesso', description: 'Cupom excluído com sucesso!' });
+    } catch (err) {
+      console.error('Delete coupon failed', err);
+      toast({ title: 'Erro', description: 'Não foi possível excluir o cupom.', variant: 'destructive' });
+    }
+  };
+  
+  const handleCancelEditCoupon = () => {
+    setEditingCoupon(null);
+    setIsCreatingCoupon(false);
   };
 
   const handleSave = async () => {
@@ -223,16 +338,25 @@ const AdminSettings = () => {
     <AdminLayout>
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold">Configurações de Envio</h1>
-          <p className="text-muted-foreground">Gerencie os métodos de envio e configurações relacionadas</p>
+          <h1 className="text-2xl font-bold">Configurações da Loja</h1>
+          <p className="text-muted-foreground">Gerencie envios, cupons e configurações relacionadas</p>
         </div>
-        <Button onClick={handleSave} disabled={isSaving}>
-          <Save className="h-4 w-4 mr-2" />
-          {isSaving ? 'Salvando...' : 'Salvar Configurações'}
-        </Button>
       </div>
 
-      <div className="space-y-6">
+      <Tabs defaultValue="shipping" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="shipping" className="flex items-center gap-2">
+            <Truck className="h-4 w-4" />
+            Métodos de Envio
+          </TabsTrigger>
+          <TabsTrigger value="coupons" className="flex items-center gap-2">
+            <Tag className="h-4 w-4" />
+            Cupons de Desconto
+          </TabsTrigger>
+        </TabsList>
+        
+        {/* Shipping Tab */}
+        <TabsContent value="shipping" className="space-y-6">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -319,47 +443,248 @@ const AdminSettings = () => {
             </div>
           </CardContent>
         </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Truck className="h-5 w-5" />
-              Configurações de Envio
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="freeShippingMinimum">Frete Grátis Acima de (MZN)</Label>
-                <Input
-                  id="freeShippingMinimum"
-                  type="number"
-                  value={settings.freeShippingMinimum}
-                  onChange={(e) => handleSettingChange('freeShippingMinimum', parseInt(e.target.value || '0'))}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="shippingCost">Custo de Envio Padrão (MZN)</Label>
-                <Input
-                  id="shippingCost"
-                  type="number"
-                  value={settings.shippingCost}
-                  onChange={(e) => handleSettingChange('shippingCost', parseInt(e.target.value || '0'))}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="deliveryTime">Tempo de Entrega</Label>
-              <Input
-                id="deliveryTime"
-                value={settings.deliveryTime}
-                onChange={(e) => handleSettingChange('deliveryTime', e.target.value)}
-              />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+        </TabsContent>
+        
+        {/* Coupons Tab */}
+        <TabsContent value="coupons" className="space-y-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Tag className="h-5 w-5" />
+                Cupons de Desconto
+              </CardTitle>
+              <Button onClick={handleCreateCoupon} disabled={!!editingCoupon}>
+                <Plus className="h-4 w-4 mr-2" />
+                Novo Cupom
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {isCouponsLoading ? (
+                <div className="text-center py-8 text-muted-foreground">Carregando cupons...</div>
+              ) : editingCoupon ? (
+                <div className="border rounded-lg p-6 space-y-4">
+                  <h3 className="text-lg font-semibold">
+                    {isCreatingCoupon ? 'Criar Novo Cupom' : 'Editar Cupom'}
+                  </h3>
+                  
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="coupon-code">Código *</Label>
+                      <Input
+                        id="coupon-code"
+                        value={editingCoupon.code}
+                        onChange={(e) => setEditingCoupon({ ...editingCoupon, code: e.target.value.toUpperCase() })}
+                        placeholder="EX: DESCONTO10"
+                        className="uppercase"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="coupon-name">Nome *</Label>
+                      <Input
+                        id="coupon-name"
+                        value={editingCoupon.name}
+                        onChange={(e) => setEditingCoupon({ ...editingCoupon, name: e.target.value })}
+                        placeholder="Nome do cupom"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="coupon-description">Descrição</Label>
+                    <Textarea
+                      id="coupon-description"
+                      value={editingCoupon.description}
+                      onChange={(e) => setEditingCoupon({ ...editingCoupon, description: e.target.value })}
+                      placeholder="Descrição do cupom"
+                      rows={2}
+                    />
+                  </div>
+                  
+                  <div className="grid md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="discount-type">Tipo de Desconto *</Label>
+                      <Select
+                        value={editingCoupon.discount_type}
+                        onValueChange={(value) => setEditingCoupon({ ...editingCoupon, discount_type: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="percentage">Percentual (%)</SelectItem>
+                          <SelectItem value="fixed">Valor Fixo (MZN)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="discount-value">Valor do Desconto *</Label>
+                      <Input
+                        id="discount-value"
+                        type="number"
+                        value={editingCoupon.discount_value}
+                        onChange={(e) => setEditingCoupon({ ...editingCoupon, discount_value: Number(e.target.value) })}
+                        placeholder={editingCoupon.discount_type === 'percentage' ? '10' : '100'}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="minimum-amount">Valor Mínimo (MZN)</Label>
+                      <Input
+                        id="minimum-amount"
+                        type="number"
+                        value={editingCoupon.minimum_amount || ''}
+                        onChange={(e) => setEditingCoupon({ ...editingCoupon, minimum_amount: e.target.value ? Number(e.target.value) : null })}
+                        placeholder="Opcional"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="valid-from">Válido De *</Label>
+                      <Input
+                        id="valid-from"
+                        type="datetime-local"
+                        value={editingCoupon.valid_from}
+                        onChange={(e) => setEditingCoupon({ ...editingCoupon, valid_from: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="valid-until">Válido Até *</Label>
+                      <Input
+                        id="valid-until"
+                        type="datetime-local"
+                        value={editingCoupon.valid_until}
+                        onChange={(e) => setEditingCoupon({ ...editingCoupon, valid_until: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="max-uses">Máximo de Usos</Label>
+                      <Input
+                        id="max-uses"
+                        type="number"
+                        value={editingCoupon.max_uses || ''}
+                        onChange={(e) => setEditingCoupon({ ...editingCoupon, max_uses: e.target.value ? Number(e.target.value) : null })}
+                        placeholder="Ilimitado"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="max-uses-per-user">Máximo por Usuário</Label>
+                      <Input
+                        id="max-uses-per-user"
+                        type="number"
+                        value={editingCoupon.max_uses_per_user || ''}
+                        onChange={(e) => setEditingCoupon({ ...editingCoupon, max_uses_per_user: e.target.value ? Number(e.target.value) : null })}
+                        placeholder="Ilimitado"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-4">
+                    <Label htmlFor="coupon-active">Cupom Ativo</Label>
+                    <Switch
+                      id="coupon-active"
+                      checked={editingCoupon.is_active}
+                      onCheckedChange={(checked) => setEditingCoupon({ ...editingCoupon, is_active: checked })}
+                    />
+                  </div>
+                  
+                  <div className="flex gap-2 pt-4">
+                    <Button onClick={handleSaveCoupon}>
+                      <Save className="h-4 w-4 mr-2" />
+                      Salvar Cupom
+                    </Button>
+                    <Button variant="outline" onClick={handleCancelEditCoupon}>
+                      Cancelar
+                    </Button>
+                  </div>
+                </div>
+              ) : coupons.length === 0 ? (
+                <div className="text-center py-12">
+                  <Tag className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Nenhum cupom criado</h3>
+                  <p className="text-muted-foreground mb-4">Crie seu primeiro cupom de desconto</p>
+                  <Button onClick={handleCreateCoupon}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Criar Cupom
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {coupons.map((coupon) => (
+                    <div key={coupon.id} className="border rounded-lg p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <span className="font-mono font-bold text-lg">{coupon.code}</span>
+                            {coupon.is_active ? (
+                              <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Ativo</span>
+                            ) : (
+                              <span className="px-2 py-1 bg-gray-100 text-gray-800 text-xs rounded-full">Inativo</span>
+                            )}
+                            {coupon.is_currently_valid && (
+                              <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">Válido</span>
+                            )}
+                          </div>
+                          
+                          <p className="text-sm font-medium mb-1">{coupon.name}</p>
+                          {coupon.description && (
+                            <p className="text-sm text-muted-foreground mb-2">{coupon.description}</p>
+                          )}
+                          
+                          <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                            <div className="flex items-center gap-1">
+                              {coupon.discount_type === 'percentage' ? (
+                                <Percent className="h-4 w-4" />
+                              ) : (
+                                <DollarSign className="h-4 w-4" />
+                              )}
+                              <span>
+                                {coupon.discount_type === 'percentage' 
+                                  ? `${coupon.discount_value}%` 
+                                  : `${coupon.discount_value} MZN`}
+                              </span>
+                            </div>
+                            
+                            {coupon.minimum_amount && (
+                              <span>Mín: {coupon.minimum_amount} MZN</span>
+                            )}
+                            
+                            <div className="flex items-center gap-1">
+                              <Calendar className="h-4 w-4" />
+                              <span>
+                                {new Date(coupon.valid_from).toLocaleDateString()} - {new Date(coupon.valid_until).toLocaleDateString()}
+                              </span>
+                            </div>
+                            
+                            {coupon.max_uses && (
+                              <span>
+                                Usos: {coupon.used_count}/{coupon.max_uses}
+                                {coupon.usage_percentage && ` (${coupon.usage_percentage}%)`}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="sm" onClick={() => handleEditCoupon(coupon)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="destructive" size="sm" onClick={() => handleDeleteCoupon(coupon.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </AdminLayout>
   );
 };

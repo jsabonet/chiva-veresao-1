@@ -146,22 +146,31 @@ class UpdateCartItemSerializer(serializers.Serializer):
 
 
 class CouponSerializer(serializers.ModelSerializer):
-    """Serializer for coupons"""
+    """Serializer for coupons - supports full CRUD for admin"""
     is_currently_valid = serializers.SerializerMethodField()
+    usage_percentage = serializers.SerializerMethodField()
     
     class Meta:
         model = Coupon
         fields = [
             'id', 'code', 'name', 'description', 'discount_type',
             'discount_value', 'minimum_amount', 'valid_from',
-            'valid_until', 'is_active', 'is_currently_valid'
+            'valid_until', 'max_uses', 'used_count', 'max_uses_per_user',
+            'is_active', 'is_currently_valid', 'usage_percentage',
+            'created_at', 'updated_at'
         ]
-        read_only_fields = ['id']
+        read_only_fields = ['id', 'used_count', 'created_at', 'updated_at']
     
     def get_is_currently_valid(self, obj):
         request = self.context.get('request')
         user = request.user if request and request.user.is_authenticated else None
         return obj.is_valid(user=user)
+    
+    def get_usage_percentage(self, obj):
+        """Calculate usage percentage for coupons with max_uses"""
+        if obj.max_uses:
+            return round((obj.used_count / obj.max_uses) * 100, 2)
+        return None
 
 
 class ApplyCouponSerializer(serializers.Serializer):

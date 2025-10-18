@@ -47,6 +47,11 @@ urlpatterns = [
     # Stock Management - Admin
     path('admin/stock/report/', order_views.stock_report, name='stock_report'),
     path('admin/stock/adjust/', order_views.adjust_stock, name='adjust_stock'),
+    
+    # Coupon Management - Admin
+    path('admin/coupons/', views.admin_coupons_list_create, name='admin_coupons_list_create'),
+    path('admin/coupons/<int:coupon_id>/', views.admin_coupon_detail, name='admin_coupon_detail'),
+    path('admin/coupons/stats/', views.admin_coupon_stats, name='admin_coupon_stats'),
 
     # Shipping methods management (admin)
     path('admin/shipping-methods/', views.shipping_methods_list_create, name='shipping_methods_list_create'),
