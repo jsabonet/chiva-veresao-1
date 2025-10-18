@@ -601,9 +601,11 @@ def validate_coupon(request):
         })
         
     except Exception as e:
+        import traceback
         logger.error(f"Error validating coupon: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
         return Response(
-            {'error': 'Failed to validate coupon'},
+            {'error': 'Failed to validate coupon', 'detail': str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
