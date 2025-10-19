@@ -326,111 +326,132 @@ const AccountOrders = () => {
               </Card>
             </div>
 
-            {/* Items */}
-            {selectedOrder.items && selectedOrder.items.length > 0 && (
-              <Card className="border-2 border-purple-100 shadow-md">
-                <CardHeader className="bg-gradient-to-br from-purple-50 to-pink-50 pb-3">
-                  <CardTitle className="text-base sm:text-lg flex items-center gap-2 text-purple-900">
-                    <Package className="h-4 w-4 sm:h-5 sm:w-5" />
-                    Itens do Pedido ({selectedOrder.items.length})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-4">
-                  <div className="space-y-3 sm:space-y-4">
-                    {selectedOrder.items.map((item) => (
-                      <div 
-                        key={item.id} 
-                        className="bg-gradient-to-br from-slate-50 via-gray-50 to-zinc-50 rounded-xl p-3 sm:p-4 hover:shadow-lg transition-all duration-200 border-2 border-gray-200 hover:border-purple-300"
-                      >
-                        {/* Header with Image and Basic Info */}
-                        <div className="flex items-start gap-3 sm:gap-4 mb-3">
-                          <div className="relative flex-shrink-0">
-                            <img
-                              src={item.product_image || '/placeholder.svg'}
-                              alt={item.product_name}
-                              className="w-16 h-16 sm:w-24 sm:h-24 rounded-lg object-cover border-2 border-white shadow-lg ring-2 ring-gray-200"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.src = '/placeholder.svg';
-                              }}
-                            />
-                            <div className="absolute -top-2 -right-2 bg-purple-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shadow-md">
-                              {item.quantity}
+            {/* Items - Always show card with fallback, align with OrdersManagement */}
+            <Card className="border-2 border-purple-100 shadow-md">
+              <CardHeader className="bg-gradient-to-br from-purple-50 to-pink-50 pb-3">
+                <CardTitle className="text-base sm:text-lg flex items-center gap-2 text-purple-900">
+                  <Package className="h-4 w-4 sm:h-5 sm:w-5" />
+                  Itens do Pedido ({selectedOrder.items?.length || 0})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <div className="space-y-3 sm:space-y-4">
+                  {selectedOrder.items && selectedOrder.items.length > 0 ? (
+                    <div className="space-y-3">
+                      {selectedOrder.items.map((item) => (
+                        <div
+                          key={item.id}
+                          className="bg-gradient-to-br from-slate-50 via-gray-50 to-zinc-50 rounded-xl p-3 sm:p-4 hover:shadow-lg transition-all duration-200 border-2 border-gray-200 hover:border-purple-300"
+                        >
+                          {/* Header with Image and Basic Info */}
+                          <div className="flex items-start gap-3 sm:gap-4 mb-3">
+                            <div className="relative flex-shrink-0">
+                              <img
+                                src={item.product_image || '/placeholder-product.jpg'}
+                                alt={item.product_name}
+                                className="w-16 h-16 sm:w-24 sm:h-24 rounded-lg object-cover border-2 border-white shadow-lg ring-2 ring-gray-200"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.src = '/placeholder-product.jpg';
+                                }}
+                              />
+                              <div className="absolute -top-2 -right-2 bg-purple-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shadow-md">
+                                {item.quantity}
+                              </div>
                             </div>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-bold text-sm sm:text-base text-gray-900 mb-2 line-clamp-2 leading-tight">
-                              {item.product_name}
-                            </h4>
-                            <div className="flex flex-wrap items-center gap-2">
-                              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300 font-mono text-xs px-2 py-0.5">
-                                <span className="hidden sm:inline">SKU: </span>{item.sku}
-                              </Badge>
-                              {item.color_name && item.color_hex && (
-                                <Badge variant="outline" className="bg-white border-gray-300 flex items-center gap-1.5 px-2 py-0.5">
-                                  <div 
-                                    className="w-3 h-3 rounded-full border-2 border-gray-400 shadow-sm"
-                                    style={{ backgroundColor: item.color_hex }}
-                                  />
-                                  <span className="text-xs font-medium">{item.color_name}</span>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-bold text-sm sm:text-base text-gray-900 mb-2 line-clamp-2 leading-tight">
+                                {item.product_name}
+                              </h4>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300 font-mono text-xs px-2 py-0.5">
+                                  <span className="hidden sm:inline">SKU: </span>{item.sku}
                                 </Badge>
-                              )}
+                                {item.color_name && (
+                                  <Badge variant="outline" className="bg-white border-gray-300 flex items-center gap-1.5 px-2 py-0.5">
+                                    {item.color_hex && (
+                                      <div
+                                        className="w-3 h-3 rounded-full border-2 border-gray-400 shadow-sm"
+                                        style={{ backgroundColor: item.color_hex }}
+                                      />
+                                    )}
+                                    <span className="text-xs font-medium">{item.color_name}</span>
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                            <div className="text-right flex-shrink-0">
+                              <div className="text-base sm:text-lg font-bold text-purple-700">
+                                {formatPrice(parseFloat(item.subtotal))}
+                              </div>
+                              <div className="text-[10px] sm:text-xs text-gray-600 mt-0.5">
+                                {item.quantity}x {formatPrice(parseFloat(item.unit_price))}
+                              </div>
                             </div>
                           </div>
-                          <div className="text-right flex-shrink-0">
-                            <div className="text-base sm:text-lg font-bold text-purple-700">
-                              {formatPrice(parseFloat(item.subtotal))}
+
+                          {/* Specs Grid */}
+                          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 text-xs sm:text-sm">
+                            <div className="bg-white rounded-lg p-2 sm:p-2.5 border-2 border-gray-200 hover:border-blue-300 transition-colors">
+                              <div className="text-[10px] sm:text-xs text-gray-500 mb-0.5 font-medium">Quantidade</div>
+                              <div className="font-bold text-gray-900">{item.quantity} un.</div>
                             </div>
-                            <div className="text-[10px] sm:text-xs text-gray-600 mt-0.5">
-                              {item.quantity}x {formatPrice(parseFloat(item.unit_price))}
+                            
+                            <div className="bg-white rounded-lg p-2 sm:p-2.5 border-2 border-gray-200 hover:border-green-300 transition-colors">
+                              <div className="text-[10px] sm:text-xs text-gray-500 mb-0.5 font-medium">Preço Unit.</div>
+                              <div className="font-bold text-green-700">{formatPrice(parseFloat(item.unit_price))}</div>
                             </div>
+
+                            {item.weight && (
+                              <div className="bg-white rounded-lg p-2 sm:p-2.5 border-2 border-gray-200 hover:border-orange-300 transition-colors">
+                                <div className="text-[10px] sm:text-xs text-gray-500 mb-0.5 font-medium">Peso</div>
+                                <div className="font-bold text-gray-900">{item.weight}</div>
+                              </div>
+                            )}
+
+                            {item.dimensions && (
+                              <div className="bg-white rounded-lg p-2 sm:p-2.5 border-2 border-gray-200 hover:border-purple-300 transition-colors">
+                                <div className="text-[10px] sm:text-xs text-gray-500 mb-0.5 font-medium">Dimensões</div>
+                                <div className="font-bold text-gray-900 text-[10px] sm:text-xs">{item.dimensions}</div>
+                              </div>
+                            )}
                           </div>
                         </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-8 text-center border rounded-lg bg-gray-50">
+                      <Package className="h-12 w-12 mx-auto mb-3 text-gray-400" />
+                      <p className="text-gray-600 font-medium mb-1">Nenhum item encontrado</p>
+                      <p className="text-sm text-gray-500">Este pedido não possui itens registrados</p>
+                    </div>
+                  )}
 
-                        {/* Specs Grid */}
-                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 text-xs sm:text-sm">
-                          <div className="bg-white rounded-lg p-2 sm:p-2.5 border-2 border-gray-200 hover:border-blue-300 transition-colors">
-                            <div className="text-[10px] sm:text-xs text-gray-500 mb-0.5 font-medium">Quantidade</div>
-                            <div className="font-bold text-gray-900">{item.quantity} un.</div>
-                          </div>
-                          
-                          <div className="bg-white rounded-lg p-2 sm:p-2.5 border-2 border-gray-200 hover:border-green-300 transition-colors">
-                            <div className="text-[10px] sm:text-xs text-gray-500 mb-0.5 font-medium">Preço Unit.</div>
-                            <div className="font-bold text-green-700">{formatPrice(parseFloat(item.unit_price))}</div>
-                          </div>
-
-                          {item.weight && (
-                            <div className="bg-white rounded-lg p-2 sm:p-2.5 border-2 border-gray-200 hover:border-orange-300 transition-colors">
-                              <div className="text-[10px] sm:text-xs text-gray-500 mb-0.5 font-medium">Peso</div>
-                              <div className="font-bold text-gray-900">{item.weight}</div>
-                            </div>
-                          )}
-
-                          {item.dimensions && (
-                            <div className="bg-white rounded-lg p-2 sm:p-2.5 border-2 border-gray-200 hover:border-purple-300 transition-colors">
-                              <div className="text-[10px] sm:text-xs text-gray-500 mb-0.5 font-medium">Dimensões</div>
-                              <div className="font-bold text-gray-900 text-[10px] sm:text-xs">{item.dimensions}</div>
-                            </div>
-                          )}
-                        </div>
+                  {/* Financial Summary to match admin modal */}
+                  <div className="border rounded-lg bg-gradient-to-br from-primary/5 to-primary/10 p-4 space-y-3 mt-4">
+                    <h4 className="font-semibold text-sm text-gray-700 mb-2">Resumo Financeiro</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Subtotal:</span>
+                        <span className="font-semibold">
+                          {formatPrice(Math.max(0, parseFloat(selectedOrder.total_amount) - parseFloat(selectedOrder.shipping_cost)))}
+                        </span>
                       </div>
-                    ))}
-                  </div>
-
-                  {/* Total */}
-                  <div className="mt-4 pt-4 border-t-2 border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50 -mx-6 px-6 py-4 rounded-b-lg">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-bold text-purple-900">Subtotal dos Itens:</span>
-                      <span className="text-xl sm:text-2xl font-black text-purple-700">
-                        {formatPrice(
-                          selectedOrder.items.reduce((sum, item) => sum + parseFloat(item.subtotal), 0)
-                        )}
-                      </span>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Frete:</span>
+                        <span className={`font-semibold ${parseFloat(selectedOrder.shipping_cost) === 0 ? 'text-green-600' : ''}`}>
+                          {parseFloat(selectedOrder.shipping_cost) === 0 ? 'Grátis' : formatPrice(parseFloat(selectedOrder.shipping_cost))}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center pt-3 border-t-2 border-primary/20">
+                        <span className="font-bold text-base">Total do Pedido:</span>
+                        <span className="font-bold text-2xl text-primary">{formatPrice(parseFloat(selectedOrder.total_amount))}</span>
+                      </div>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Status History */}
             {selectedOrder.status_history && selectedOrder.status_history.length > 0 && (
