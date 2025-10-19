@@ -18,7 +18,9 @@ import {
   RotateCcw,
   Award,
   Minus,
-  Plus
+  Plus,
+  MessageSquare,
+  Package
 } from 'lucide-react';
 import StarRating from '@/components/ui/StarRating';
 import ReviewForm from '@/components/ui/ReviewForm';
@@ -492,6 +494,25 @@ const ProductDetails = () => {
               <h1 className="text-2xl sm:text-3xl font-bold mb-2 break-words leading-tight">{product.name}</h1>
               {/* Meta tags are injected into <head> via Helmet for SEO (not shown to customers) */}
               <p className="text-sm sm:text-base text-muted-foreground">SKU: {product.sku}</p>
+              
+              {/* Strategic Rating Display - International Standard */}
+              {product.total_reviews && product.total_reviews > 0 && (
+                <button
+                  onClick={() => document.getElementById('reviews-section')?.scrollIntoView({ behavior: 'smooth' })}
+                  className="flex items-center gap-2 mt-3 hover:opacity-80 transition-opacity group"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <StarRating rating={Math.round(product.average_rating ?? 0)} readOnly size="sm" />
+                    <span className="font-semibold text-sm">
+                      {(product.average_rating ?? 0).toFixed(1)}
+                    </span>
+                  </div>
+                  <span className="text-sm text-muted-foreground group-hover:text-primary transition-colors">
+                    ({product.total_reviews.toLocaleString()} {product.total_reviews === 1 ? 'avaliação' : 'avaliações'})
+                  </span>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                </button>
+              )}
             </div>
 
             {/* Badges */}
@@ -685,183 +706,540 @@ const ProductDetails = () => {
           </div>
         </div>
 
-        {/* Product Details Tabs */}
-        <Tabs defaultValue="specifications" className="w-full">
-          <TabsList className="w-full h-auto flex sm:grid sm:grid-cols-3 gap-1 sm:gap-2 overflow-x-auto scrollbar-hide p-1">
-            <TabsTrigger 
-              value="specifications" 
-              className="min-w-[120px] sm:min-w-0 text-xs sm:text-sm py-2 sm:py-2.5 px-3 sm:px-4 whitespace-nowrap"
-            >
-              Especificações
-            </TabsTrigger>
-            <TabsTrigger 
-              value="description" 
-              className="min-w-[120px] sm:min-w-0 text-xs sm:text-sm py-2 sm:py-2.5 px-3 sm:px-4 whitespace-nowrap"
-            >
-              Descrição Completa
-            </TabsTrigger>
-            <TabsTrigger 
-              value="reviews" 
-              className="min-w-[120px] sm:min-w-0 text-xs sm:text-sm py-2 sm:py-2.5 px-3 sm:px-4 whitespace-nowrap"
-            >
-              Avaliações
-            </TabsTrigger>
-          </TabsList>          <TabsContent value="specifications" className="mt-4 sm:mt-6">
+        {/* Related Products Section - Modern Professional Design */}
+        {product.category && (
+          <section className="my-12 bg-gradient-to-br from-blue-50/50 to-indigo-50/50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-2xl p-6 lg:p-8 border border-blue-100/50">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl lg:text-3xl font-bold flex items-center gap-3">
+                  <Package className="w-7 h-7 text-blue-600" />
+                  Produtos Relacionados
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Outros clientes também visualizaram estes produtos
+                </p>
+              </div>
+              <Button variant="outline" size="sm" className="hidden sm:flex">
+                Ver Todos
+                <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+            </div>
+
+            {/* Products Grid/Carousel */}
+            <div className="relative">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 lg:gap-4">
+                {/* Placeholder cards - Will be replaced with actual products from API */}
+                {[1, 2, 3, 4].map((item) => (
+                  <Card key={item} className="group hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden border-2 hover:border-blue-300">
+                    <div className="aspect-square bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 relative overflow-hidden">
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <Package className="w-12 h-12 text-gray-400 group-hover:scale-110 transition-transform" />
+                      </div>
+                      <div className="absolute top-2 right-2 bg-blue-600 text-white text-xs px-2 py-1 rounded-full font-semibold">
+                        -15%
+                      </div>
+                    </div>
+                    <CardContent className="p-3 lg:p-4">
+                      <div className="space-y-2">
+                        <h3 className="font-semibold text-sm line-clamp-2 group-hover:text-blue-600 transition-colors">
+                          Produto Exemplo {item}
+                        </h3>
+                        <div className="flex items-center gap-1">
+                          <div className="flex gap-0.5">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <Star key={star} className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                            ))}
+                          </div>
+                          <span className="text-xs text-muted-foreground">(45)</span>
+                        </div>
+                        <div className="flex items-baseline gap-2">
+                          <span className="font-bold text-lg text-blue-600">$99</span>
+                          <span className="text-xs text-muted-foreground line-through">$116</span>
+                        </div>
+                        <Button size="sm" className="w-full" variant="outline">
+                          <ShoppingCart className="w-4 h-4 mr-1" />
+                          Adicionar
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Carousel Navigation Arrows (for future carousel implementation) */}
+              <Button
+                variant="secondary"
+                size="icon"
+                className="absolute -left-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity hidden lg:flex shadow-xl"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </Button>
+              <Button
+                variant="secondary"
+                size="icon"
+                className="absolute -right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity hidden lg:flex shadow-xl"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </Button>
+            </div>
+
+            {/* Info Banner */}
+            <div className="mt-6 bg-blue-100 dark:bg-blue-950 rounded-lg p-4 flex items-center gap-3">
+              <svg className="w-5 h-5 text-blue-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+              <p className="text-sm text-blue-900 dark:text-blue-200">
+                <strong>Nota:</strong> A seção de produtos relacionados será populada automaticamente com produtos da mesma categoria em breve.
+              </p>
+            </div>
+          </section>
+        )}
+
+        {/* Product Details - Mobile: Stacked sections (international standard), Desktop: Tabs */}
+        <div className="w-full">
+          {/* Mobile: Stacked Sections */}
+          <div className="block md:hidden space-y-6">
+            {/* Specifications Section */}
             <Card>
-              <CardContent className="pt-4 sm:pt-6 px-4 sm:px-6">
+              <CardContent className="pt-6">
+                <h2 className="text-xl font-bold mb-4">Especificações</h2>
                 {specifications.length > 0 ? (
-                  <div className="space-y-3 sm:space-y-4">
+                  <div className="space-y-3">
                     {specifications.map(([key, value]) => (
-                      <div key={key} className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-2 py-2 sm:py-3 border-b last:border-b-0">
-                        <span className="font-medium text-sm sm:text-base capitalize">
+                      <div key={key} className="flex justify-between gap-2 py-2 border-b last:border-b-0">
+                        <span className="font-medium text-sm capitalize">
                           {key.replace(/_/g, ' ')}:
                         </span>
-                        <span className="text-muted-foreground text-sm sm:text-base break-words sm:text-right">{value}</span>
+                        <span className="text-muted-foreground text-sm text-right">{value}</span>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-muted-foreground text-center py-6 sm:py-8 text-sm sm:text-base">
+                  <p className="text-muted-foreground text-center py-6 text-sm">
                     Especificações não disponíveis para este produto.
                   </p>
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
 
-          <TabsContent value="description" className="mt-4 sm:mt-6">
+            {/* Description Section */}
             <Card>
-              <CardContent className="pt-4 sm:pt-6 px-4 sm:px-6">
+              <CardContent className="pt-6">
+                <h2 className="text-xl font-bold mb-4">Descrição Completa</h2>
                 <div className="prose prose-sm max-w-none">
-                  <p className="text-sm sm:text-base leading-relaxed">{product.description}</p>
+                  <p className="text-sm leading-relaxed">{product.description}</p>
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
 
-          <TabsContent value="reviews" className="mt-4 sm:mt-6">
-            <Card>
-              <CardContent className="pt-4 sm:pt-6 px-4 sm:px-6">
-                <div className="space-y-8">
-                  {/* Review Summary */}
-                  <div className="flex flex-col lg:flex-row gap-8 pb-6 border-b">
-                    {/* Overall Rating */}
-                    <div className="flex-1 flex flex-col items-center lg:items-start">
-                      <div className="flex flex-col items-center lg:items-start gap-2">
-                        <div className="text-4xl font-bold">
+            {/* Reviews Section - Modern Professional Design */}
+            <Card id="reviews-section" className="overflow-hidden">
+              <CardContent className="p-0">
+                {/* Header with Gradient */}
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 px-6 py-5 border-b">
+                  <h2 className="text-2xl font-bold flex items-center gap-2">
+                    <MessageSquare className="w-6 h-6 text-blue-600" />
+                    Avaliações de Clientes
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Opiniões reais de quem já comprou este produto
+                  </p>
+                </div>
+
+                <div className="p-6 space-y-6">
+                  {/* Review Summary - Modern Card Layout */}
+                  <div className="bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-950/20 dark:to-orange-950/20 rounded-xl p-6 border border-yellow-200/50">
+                    <div className="flex flex-col items-center text-center gap-4">
+                      {/* Large Rating Display */}
+                      <div>
+                        <div className="text-6xl font-extrabold bg-gradient-to-br from-yellow-600 to-orange-600 bg-clip-text text-transparent">
                           {(product?.average_rating ?? 0).toFixed(1)}
-                          <span className="text-lg text-muted-foreground">/5</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <StarRating rating={Math.round(product?.average_rating ?? 0)} readOnly size="lg" />
-                          <span className="text-sm text-muted-foreground">
-                            {product?.total_reviews ?? 0} {(product?.total_reviews ?? 0) === 1 ? 'avaliação' : 'avaliações'}
-                          </span>
+                        <div className="text-sm text-muted-foreground font-medium mt-1">
+                          de 5 estrelas
                         </div>
                       </div>
-                      {/* Verified Purchase Summary */}
-                      <div className="mt-4 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-2">
-                          <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                          </svg>
-                          90% compras verificadas
+
+                      {/* Stars */}
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="flex gap-1">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Star 
+                              key={star}
+                              className={`w-7 h-7 ${
+                                star <= Math.round(product?.average_rating ?? 0)
+                                  ? 'fill-yellow-400 text-yellow-400'
+                                  : 'text-gray-300'
+                              }`}
+                            />
+                          ))}
                         </div>
+                        <span className="text-sm font-semibold text-muted-foreground">
+                          {product?.total_reviews ?? 0} {(product?.total_reviews ?? 0) === 1 ? 'avaliação' : 'avaliações'}
+                        </span>
+                      </div>
+
+                      {/* Verified Badge */}
+                      <div className="flex items-center gap-2 bg-white dark:bg-gray-950 px-4 py-2 rounded-full border border-green-200 dark:border-green-800">
+                        <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        <span className="text-sm font-semibold text-green-700 dark:text-green-400">
+                          90% Compras Verificadas
+                        </span>
                       </div>
                     </div>
+                  </div>
 
-                    {/* Rating Distribution (real data) */}
-                    <div className="flex-1 flex flex-col gap-2">
-                      {[5, 4, 3, 2, 1].map((stars) => {
-                        const count = product?.rating_distribution?.[stars] || 0;
-                        const total = product?.total_reviews || 1;
-                        const percent = Math.round((count / total) * 100);
-                        return (
-                          <div key={stars} className="flex items-center gap-2">
-                            <div className="w-12 text-sm whitespace-nowrap">{stars} estrelas</div>
-                            <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                              <div 
-                                className="h-full bg-yellow-400 rounded-full"
-                                style={{ width: `${percent}%` }}
-                                aria-label={`Barra de ${stars} estrelas: ${percent}%`}
-                              />
-                            </div>
-                            <div className="w-12 text-sm text-right text-muted-foreground">
-                              {percent}%
-                            </div>
+                  {/* Rating Distribution - Modern Bars */}
+                  <div className="space-y-3">
+                    <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
+                      Distribuição de Avaliações
+                    </h3>
+                    {[5, 4, 3, 2, 1].map((stars) => {
+                      const count = product?.rating_distribution?.[stars] || 0;
+                      const total = product?.total_reviews || 1;
+                      const percent = Math.round((count / total) * 100);
+                      return (
+                        <button
+                          key={stars}
+                          onClick={() => setFilter(stars.toString())}
+                          className="flex items-center gap-3 w-full hover:bg-gray-50 dark:hover:bg-gray-900 p-2 rounded-lg transition-colors group"
+                        >
+                          <div className="flex items-center gap-1 w-16">
+                            <span className="text-sm font-medium">{stars}</span>
+                            <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
                           </div>
-                        );
-                      })}
-                    </div>
+                          <div className="flex-1 h-3 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-full transition-all duration-300 group-hover:from-yellow-500 group-hover:to-yellow-600"
+                              style={{ width: `${percent}%` }}
+                            />
+                          </div>
+                          <div className="w-16 text-sm font-medium text-right">
+                            {count} <span className="text-muted-foreground">({percent}%)</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
 
-                    {/* Review CTA */}
-                    <div className="flex-1 flex flex-col items-center lg:items-start gap-4">
-                      <div className="text-center lg:text-left">
-                        <h4 className="font-semibold mb-2">Compartilhe sua opinião</h4>
-                        <p className="text-sm text-muted-foreground mb-4">
-                          Ajude outros compradores a fazer a melhor escolha
-                        </p>
-                      </div>
-                      <Button onClick={() => document.getElementById('review-form')?.scrollIntoView({ behavior: 'smooth' })}>
-                        Avaliar Produto
+                  {/* CTA Button - Prominent */}
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/50 dark:to-indigo-950/50 rounded-xl p-6 border border-blue-200/50">
+                    <div className="text-center space-y-3">
+                      <h3 className="font-bold text-lg">Já comprou este produto?</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Sua opinião é muito importante para outros clientes
+                      </p>
+                      <Button 
+                        size="lg"
+                        className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg"
+                        onClick={() => document.getElementById('review-form')?.scrollIntoView({ behavior: 'smooth' })}
+                      >
+                        <MessageSquare className="w-5 h-5 mr-2" />
+                        Escrever Avaliação
                       </Button>
                     </div>
                   </div>
 
-                  {/* Reviews List Section */}
-                  <div className="space-y-6">
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                      <h3 className="text-lg font-semibold">Avaliações dos Clientes</h3>
-                      <div className="flex items-center gap-4">
-                        <label htmlFor="review-sort" className="sr-only">Ordenar avaliações</label>
+                  {/* Filters & Sort - Modern Design */}
+                  <div className="space-y-3 pt-6 border-t">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-bold text-lg">
+                        Todas as Avaliações
+                      </h3>
+                      {filter !== 'all' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setFilter('all')}
+                          className="text-xs"
+                        >
+                          Limpar filtro
+                        </Button>
+                      )}
+                    </div>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div className="relative">
                         <select
-                          id="review-sort"
-                          className="text-sm border rounded-md px-2 py-1"
+                          className="w-full text-sm border-2 border-gray-200 dark:border-gray-700 rounded-lg px-4 py-2.5 pr-10 bg-white dark:bg-gray-950 appearance-none cursor-pointer focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-colors"
                           value={sort}
                           onChange={e => setSort(e.target.value)}
                           aria-label="Ordenar avaliações"
                         >
-                          <option value="recent">Mais recentes</option>
-                          <option value="helpful">Mais úteis</option>
-                          <option value="highest">Maior avaliação</option>
-                          <option value="lowest">Menor avaliação</option>
+                          <option value="recent">🕒 Mais recentes</option>
+                          <option value="helpful">👍 Mais úteis</option>
+                          <option value="highest">⭐ Maior avaliação</option>
+                          <option value="lowest">📊 Menor avaliação</option>
                         </select>
-                        <label htmlFor="review-filter" className="sr-only">Filtrar por estrelas</label>
+                        <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground rotate-90 pointer-events-none" />
+                      </div>
+                      
+                      <div className="relative">
                         <select
-                          id="review-filter"
-                          className="text-sm border rounded-md px-2 py-1"
+                          className="w-full text-sm border-2 border-gray-200 dark:border-gray-700 rounded-lg px-4 py-2.5 pr-10 bg-white dark:bg-gray-950 appearance-none cursor-pointer focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-colors"
                           value={filter}
                           onChange={e => setFilter(e.target.value)}
                           aria-label="Filtrar por estrelas"
                         >
-                          <option value="all">Todas as estrelas</option>
-                          <option value="5">5 estrelas</option>
-                          <option value="4">4 estrelas</option>
-                          <option value="3">3 estrelas</option>
-                          <option value="2">2 estrelas</option>
-                          <option value="1">1 estrela</option>
+                          <option value="all">⭐ Todas as estrelas</option>
+                          <option value="5">⭐⭐⭐⭐⭐ 5 estrelas</option>
+                          <option value="4">⭐⭐⭐⭐ 4 estrelas</option>
+                          <option value="3">⭐⭐⭐ 3 estrelas</option>
+                          <option value="2">⭐⭐ 2 estrelas</option>
+                          <option value="1">⭐ 1 estrela</option>
                         </select>
+                        <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground rotate-90 pointer-events-none" />
                       </div>
                     </div>
-
-                    <ReviewList 
-                      productId={product!.id}
-                      initialReviews={product?.reviews || []}
-                      sort={sort}
-                      filter={filter}
-                    />
                   </div>
+
+                  {/* Reviews List */}
+                  <ReviewList 
+                    productId={product!.id}
+                    initialReviews={product?.reviews || []}
+                    sort={sort}
+                    filter={filter}
+                  />
 
                   {/* Review Form */}
                   <div id="review-form" className="pt-6 border-t">
-                    <h3 className="text-lg font-semibold mb-4">Avaliar Produto</h3>
-                    <ReviewForm productId={product.id} onReviewSubmitted={() => window.location.reload()} />
+                    <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 rounded-xl p-6 border">
+                      <h3 className="text-xl font-bold mb-2 flex items-center gap-2">
+                        <Star className="w-6 h-6 text-yellow-500" />
+                        Deixe sua Avaliação
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-6">
+                        Conte-nos o que você achou do produto
+                      </p>
+                      <ReviewForm productId={product.id} onReviewSubmitted={() => window.location.reload()} />
+                    </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
-        </Tabs>
+          </div>
+
+          {/* Desktop: Tabs */}
+          <div className="hidden md:block">
+            <Tabs defaultValue="specifications" className="w-full">
+              <TabsList className="w-full grid grid-cols-3 gap-2 p-1">
+                <TabsTrigger 
+                  value="specifications" 
+                  className="text-sm py-2.5 px-4"
+                >
+                  Especificações
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="description" 
+                  className="text-sm py-2.5 px-4"
+                >
+                  Descrição Completa
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="reviews" 
+                  className="text-sm py-2.5 px-4"
+                >
+                  Avaliações
+                </TabsTrigger>
+              </TabsList>              <TabsContent value="specifications" className="mt-6">
+                <Card>
+                  <CardContent className="pt-6 px-6">
+                    {specifications.length > 0 ? (
+                      <div className="space-y-4">
+                        {specifications.map(([key, value]) => (
+                          <div key={key} className="flex justify-between gap-2 py-3 border-b last:border-b-0">
+                            <span className="font-medium text-base capitalize">
+                              {key.replace(/_/g, ' ')}:
+                            </span>
+                            <span className="text-muted-foreground text-base text-right">{value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground text-center py-8">
+                        Especificações não disponíveis para este produto.
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="description" className="mt-6">
+                <Card>
+                  <CardContent className="pt-6 px-6">
+                    <div className="prose prose-sm max-w-none">
+                      <p className="text-base leading-relaxed">{product.description}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="reviews" className="mt-6">
+                <Card className="overflow-hidden">
+                  <CardContent className="p-8">
+                    <div className="space-y-8">
+                      {/* Review Summary - Desktop 3-Column Layout */}
+                      <div className="bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-950/20 dark:to-orange-950/20 rounded-2xl p-8 border border-yellow-200/50">
+                        <div className="grid grid-cols-3 gap-8 items-center">
+                          {/* Overall Rating */}
+                          <div className="flex flex-col items-center text-center">
+                            <div className="text-6xl font-extrabold bg-gradient-to-br from-yellow-600 to-orange-600 bg-clip-text text-transparent mb-2">
+                              {(product?.average_rating ?? 0).toFixed(1)}
+                            </div>
+                            <div className="text-sm text-muted-foreground font-medium mb-3">
+                              de 5 estrelas
+                            </div>
+                            <div className="flex gap-1 mb-3">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <Star 
+                                  key={star}
+                                  className={`w-6 h-6 ${
+                                    star <= Math.round(product?.average_rating ?? 0)
+                                      ? 'fill-yellow-400 text-yellow-400'
+                                      : 'text-gray-300'
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                            <span className="text-sm font-semibold text-muted-foreground">
+                              {product?.total_reviews ?? 0} {(product?.total_reviews ?? 0) === 1 ? 'avaliação' : 'avaliações'}
+                            </span>
+                            <div className="flex items-center gap-2 bg-white dark:bg-gray-950 px-3 py-1.5 rounded-full border border-green-200 dark:border-green-800 mt-3">
+                              <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                              </svg>
+                              <span className="text-xs font-semibold text-green-700 dark:text-green-400">
+                                90% Verificadas
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Rating Distribution */}
+                          <div className="flex flex-col gap-3">
+                            {[5, 4, 3, 2, 1].map((stars) => {
+                              const count = product?.rating_distribution?.[stars] || 0;
+                              const total = product?.total_reviews || 1;
+                              const percent = Math.round((count / total) * 100);
+                              return (
+                                <button
+                                  key={stars}
+                                  onClick={() => setFilter(stars.toString())}
+                                  className="flex items-center gap-3 hover:bg-white/50 dark:hover:bg-gray-900/50 p-2 rounded-lg transition-colors group"
+                                >
+                                  <div className="flex items-center gap-1 w-14">
+                                    <span className="text-sm font-medium">{stars}</span>
+                                    <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" />
+                                  </div>
+                                  <div className="flex-1 h-2.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                    <div 
+                                      className="h-full bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-full transition-all"
+                                      style={{ width: `${percent}%` }}
+                                    />
+                                  </div>
+                                  <div className="w-16 text-sm font-medium text-right">
+                                    <span className="text-muted-foreground">{count}</span> ({percent}%)
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          {/* Review CTA */}
+                          <div className="flex flex-col gap-4 items-center text-center">
+                            <div>
+                              <h4 className="font-bold text-lg mb-2">Já comprou?</h4>
+                              <p className="text-sm text-muted-foreground">
+                                Compartilhe sua experiência e ajude outros clientes
+                              </p>
+                            </div>
+                            <Button 
+                              size="lg"
+                              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg"
+                              onClick={() => document.getElementById('review-form')?.scrollIntoView({ behavior: 'smooth' })}
+                            >
+                              <MessageSquare className="w-5 h-5 mr-2" />
+                              Escrever Avaliação
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Filters & Sort */}
+                      <div className="flex justify-between items-center pt-4 border-t">
+                        <h3 className="text-xl font-bold">
+                          Todas as Avaliações
+                        </h3>
+                        <div className="flex items-center gap-3">
+                          {filter !== 'all' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setFilter('all')}
+                            >
+                              Limpar filtro
+                            </Button>
+                          )}
+                          <div className="relative">
+                            <select
+                              className="text-sm border-2 border-gray-200 dark:border-gray-700 rounded-lg px-4 py-2 pr-10 bg-white dark:bg-gray-950 appearance-none cursor-pointer focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                              value={sort}
+                              onChange={e => setSort(e.target.value)}
+                            >
+                              <option value="recent">🕒 Mais recentes</option>
+                              <option value="helpful">👍 Mais úteis</option>
+                              <option value="highest">⭐ Maior avaliação</option>
+                              <option value="lowest">📊 Menor avaliação</option>
+                            </select>
+                            <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground rotate-90 pointer-events-none" />
+                          </div>
+                          <div className="relative">
+                            <select
+                              className="text-sm border-2 border-gray-200 dark:border-gray-700 rounded-lg px-4 py-2 pr-10 bg-white dark:bg-gray-950 appearance-none cursor-pointer focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                              value={filter}
+                              onChange={e => setFilter(e.target.value)}
+                            >
+                              <option value="all">⭐ Todas</option>
+                              <option value="5">⭐⭐⭐⭐⭐ 5</option>
+                              <option value="4">⭐⭐⭐⭐ 4</option>
+                              <option value="3">⭐⭐⭐ 3</option>
+                              <option value="2">⭐⭐ 2</option>
+                              <option value="1">⭐ 1</option>
+                            </select>
+                            <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground rotate-90 pointer-events-none" />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Reviews List */}
+                      <ReviewList 
+                        productId={product!.id}
+                        initialReviews={product?.reviews || []}
+                        sort={sort}
+                        filter={filter}
+                      />
+
+                      {/* Review Form */}
+                      <div id="review-form" className="pt-8 border-t">
+                        <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 rounded-2xl p-8 border">
+                          <h3 className="text-2xl font-bold mb-2 flex items-center gap-2">
+                            <Star className="w-7 h-7 text-yellow-500" />
+                            Deixe sua Avaliação
+                          </h3>
+                          <p className="text-sm text-muted-foreground mb-6">
+                            Conte-nos o que você achou do produto
+                          </p>
+                          <ReviewForm productId={product.id} onReviewSubmitted={() => window.location.reload()} />
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </div>
+        </div>
       </main>
       <Footer />
     </div>
