@@ -67,6 +67,7 @@ const ProductDetails = () => {
 
   // Related products hook (safe, will no-op when undefined)
   const { data: relatedData, loading: relatedLoading, error: relatedError } = useProductsByCategory(relatedCategoryId);
+  const MAX_RELATED = 8;
 
   // Preview mode from query string
   const searchParams = new URLSearchParams(location.search);
@@ -554,10 +555,16 @@ const ProductDetails = () => {
               )}
             </div>
 
-            {/* Description */}
-            <div className="prose prose-sm max-w-none break-words">
-              <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">{product.description}</p>
-            </div>
+            {/* Short Description (from product.short_description) */}
+            {product.short_description ? (
+              <div className="prose prose-sm max-w-none break-words">
+                <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">{product.short_description}</p>
+              </div>
+            ) : (
+              <div className="prose prose-sm max-w-none break-words">
+                <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">{product.description}</p>
+              </div>
+            )}
 
             {/* Color selection */}
             {product.colors && product.colors.length > 0 && (
@@ -758,7 +765,7 @@ const ProductDetails = () => {
                   <div className="text-sm text-muted-foreground">Sem produtos relacionados nesta categoria.</div>
                 ) : (
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 lg:gap-4">
-                    {relatedProducts.map((rp) => (
+                    {relatedProducts.slice(0, MAX_RELATED).map((rp) => (
                       <ProductCard key={rp.id} product={rp} />
                     ))}
                   </div>

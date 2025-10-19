@@ -470,7 +470,7 @@ const Header = () => {
           On desktop we keep the spacer height equal to headerHeight so layout is stable. */}
       <div
         aria-hidden
-        className={`w-full transition-[height] duration-300 ease-in-out md:!h-[auto]`}
+        className={`w-full transition-[height] duration-300 ease-in-out`}
         style={{ height: (() => {
           // On desktop, always reserve full header height
           if (typeof window !== 'undefined' && window.innerWidth >= 768) return `${headerHeight}px`;

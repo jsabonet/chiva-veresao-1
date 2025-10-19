@@ -82,9 +82,9 @@ const ProductCard = ({ product }: ProductCardProps) => {
   return (
     <Link 
       to={`/produto/${getProductSlug()}`} 
-      className="group block"
+      className="group block h-full"
     >
-      <Card className="h-full transition-all duration-300 hover:shadow-lg border-0 bg-white">
+      <Card className="h-full flex flex-col transition-all duration-300 hover:shadow-lg border-0 bg-white">
         <div className="relative overflow-hidden rounded-lg bg-gray-100 aspect-square">
           <img
             src={getImageUrl(getMainImage())}
@@ -125,7 +125,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
           </div>
         </div>
 
-        <CardContent className="p-4">
+        <CardContent className="p-4 flex-1 flex flex-col justify-between">
           <div className="space-y-2">
             {/* Category */}
             <Badge variant="outline" className="text-xs">
