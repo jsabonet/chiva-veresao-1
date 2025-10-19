@@ -222,86 +222,105 @@ const AccountOrders = () => {
 
     return (
       <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
-    <DialogContent className="max-w-full sm:max-w-4xl h-full sm:max-h-[80vh] overflow-y-auto p-4 sm:p-6">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-3">
-              Pedido {selectedOrder.order_number}
-              <Badge className={statusConfig[selectedOrder.status as keyof typeof statusConfig]?.color || 'bg-gray-100 text-gray-800'}>
+        <DialogContent className="max-w-[95vw] sm:max-w-5xl max-h-[95vh] overflow-hidden flex flex-col p-0">
+          {/* Header - Fixed */}
+          <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-6 pb-4 border-b bg-gradient-to-r from-blue-50 to-indigo-50 sticky top-0 z-10">
+            <DialogTitle className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+              <span className="text-lg sm:text-xl font-bold">Pedido {selectedOrder.order_number}</span>
+              <Badge className={`${statusConfig[selectedOrder.status as keyof typeof statusConfig]?.color || 'bg-gray-100 text-gray-800'} w-fit`}>
                 <StatusIcon className="h-3 w-3 mr-1" />
                 {statusConfig[selectedOrder.status as keyof typeof statusConfig]?.label || selectedOrder.status}
               </Badge>
             </DialogTitle>
           </DialogHeader>
 
-          <div className="grid gap-6">
-            {/* Order Info */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Calendar className="h-5 w-5" />
+          {/* Scrollable Content */}
+          <div className="overflow-y-auto px-4 sm:px-6 pb-6 pt-4">
+            <div className="grid gap-4 sm:gap-6">
+              {/* Order Info */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+              <Card className="border-2 border-blue-100 shadow-sm hover:shadow-md transition-shadow">
+                <CardHeader className="bg-gradient-to-br from-blue-50 to-indigo-50 pb-3">
+                  <CardTitle className="text-base sm:text-lg flex items-center gap-2 text-blue-900">
+                    <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
                     Informações do Pedido
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Data:</span>
-                    <span>{formatDate(selectedOrder.created_at)}</span>
+                <CardContent className="space-y-3 pt-4">
+                  <div className="flex justify-between items-start text-sm">
+                    <span className="text-gray-600 font-medium">Data:</span>
+                    <span className="text-right font-semibold text-gray-900">{formatDate(selectedOrder.created_at)}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Total:</span>
-                    <span className="font-medium">{formatPrice(parseFloat(selectedOrder.total_amount))}</span>
+                  <Separator className="my-2" />
+                  <div className="flex justify-between items-start text-sm">
+                    <span className="text-gray-600 font-medium">Total:</span>
+                    <span className="text-right font-bold text-lg text-blue-700">{formatPrice(parseFloat(selectedOrder.total_amount))}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Entrega:</span>
-                    <span>{parseFloat(selectedOrder.shipping_cost) === 0 ? 'Grátis' : formatPrice(parseFloat(selectedOrder.shipping_cost))}</span>
+                  <div className="flex justify-between items-start text-sm">
+                    <span className="text-gray-600 font-medium">Entrega:</span>
+                    <span className="text-right font-semibold text-green-700">
+                      {parseFloat(selectedOrder.shipping_cost) === 0 ? 'Grátis' : formatPrice(parseFloat(selectedOrder.shipping_cost))}
+                    </span>
                   </div>
                   {selectedOrder.estimated_delivery && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Previsão de Entrega:</span>
-                      <span>{new Date(selectedOrder.estimated_delivery).toLocaleDateString('pt-PT')}</span>
-                    </div>
+                    <>
+                      <Separator className="my-2" />
+                      <div className="flex justify-between items-start text-sm">
+                        <span className="text-gray-600 font-medium">Previsão de Entrega:</span>
+                        <span className="text-right font-semibold text-indigo-700">
+                          {new Date(selectedOrder.estimated_delivery).toLocaleDateString('pt-PT')}
+                        </span>
+                      </div>
+                    </>
                   )}
                   {selectedOrder.tracking_number && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Rastreamento:</span>
-                      <code className="bg-muted px-2 py-1 rounded text-sm">{selectedOrder.tracking_number}</code>
-                    </div>
+                    <>
+                      <Separator className="my-2" />
+                      <div className="flex flex-col gap-1">
+                        <span className="text-gray-600 font-medium text-sm">Rastreamento:</span>
+                        <code className="bg-blue-100 text-blue-800 px-3 py-2 rounded text-xs sm:text-sm font-mono border border-blue-200 break-all">
+                          {selectedOrder.tracking_number}
+                        </code>
+                      </div>
+                    </>
                   )}
                 </CardContent>
               </Card>
 
               {/* Shipping Info */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <MapPin className="h-5 w-5" />
+              <Card className="border-2 border-green-100 shadow-sm hover:shadow-md transition-shadow">
+                <CardHeader className="bg-gradient-to-br from-green-50 to-emerald-50 pb-3">
+                  <CardTitle className="text-base sm:text-lg flex items-center gap-2 text-green-900">
+                    <MapPin className="h-4 w-4 sm:h-5 sm:w-5" />
                     Entrega
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent className="space-y-3 pt-4">
                   <div>
-                    <span className="text-sm text-muted-foreground">Método:</span>
-                    <p className="font-medium">
+                    <span className="text-xs sm:text-sm text-gray-600 font-medium">Método:</span>
+                    <p className="font-semibold text-gray-900 mt-1">
                       {shippingMethodNames[selectedOrder.shipping_method as keyof typeof shippingMethodNames] || selectedOrder.shipping_method}
                     </p>
                   </div>
                   
                   {selectedOrder.shipping_address && (
-                    <div>
-                      <span className="text-sm text-muted-foreground">Endereço:</span>
-                      <div className="bg-muted p-3 rounded-lg text-sm">
-                        <p className="font-medium">{selectedOrder.shipping_address.name}</p>
-                        <p>{selectedOrder.shipping_address.address}</p>
-                        <p>{selectedOrder.shipping_address.city}, {selectedOrder.shipping_address.province}</p>
-                        {selectedOrder.shipping_address.phone && (
-                          <p className="flex items-center gap-1 mt-1">
-                            <Phone className="h-3 w-3" />
-                            {selectedOrder.shipping_address.phone}
-                          </p>
-                        )}
+                    <>
+                      <Separator />
+                      <div>
+                        <span className="text-xs sm:text-sm text-gray-600 font-medium">Endereço:</span>
+                        <div className="bg-gradient-to-br from-gray-50 to-slate-50 p-3 sm:p-4 rounded-lg text-xs sm:text-sm mt-2 border border-gray-200">
+                          <p className="font-bold text-gray-900 mb-2">{selectedOrder.shipping_address.name}</p>
+                          <p className="text-gray-700">{selectedOrder.shipping_address.address}</p>
+                          <p className="text-gray-700">{selectedOrder.shipping_address.city}, {selectedOrder.shipping_address.province}</p>
+                          {selectedOrder.shipping_address.phone && (
+                            <p className="flex items-center gap-1.5 mt-2 pt-2 border-t border-gray-300 text-gray-800 font-medium">
+                              <Phone className="h-3 w-3" />
+                              {selectedOrder.shipping_address.phone}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    </>
                   )}
                 </CardContent>
               </Card>
@@ -309,83 +328,88 @@ const AccountOrders = () => {
 
             {/* Items */}
             {selectedOrder.items && selectedOrder.items.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Package className="h-5 w-5" />
+              <Card className="border-2 border-purple-100 shadow-md">
+                <CardHeader className="bg-gradient-to-br from-purple-50 to-pink-50 pb-3">
+                  <CardTitle className="text-base sm:text-lg flex items-center gap-2 text-purple-900">
+                    <Package className="h-4 w-4 sm:h-5 sm:w-5" />
                     Itens do Pedido ({selectedOrder.items.length})
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
+                <CardContent className="pt-4">
+                  <div className="space-y-3 sm:space-y-4">
                     {selectedOrder.items.map((item) => (
                       <div 
                         key={item.id} 
-                        className="bg-gradient-to-br from-slate-50 to-gray-50 rounded-lg p-4 hover:shadow-md transition-shadow border border-gray-200"
+                        className="bg-gradient-to-br from-slate-50 via-gray-50 to-zinc-50 rounded-xl p-3 sm:p-4 hover:shadow-lg transition-all duration-200 border-2 border-gray-200 hover:border-purple-300"
                       >
                         {/* Header with Image and Basic Info */}
-                        <div className="flex items-start gap-4 mb-3">
-                          <img
-                            src={item.product_image || '/placeholder.svg'}
-                            alt={item.product_name}
-                            className="w-20 h-20 rounded-md object-cover border-2 border-white shadow-sm"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.src = '/placeholder.svg';
-                            }}
-                          />
+                        <div className="flex items-start gap-3 sm:gap-4 mb-3">
+                          <div className="relative flex-shrink-0">
+                            <img
+                              src={item.product_image || '/placeholder.svg'}
+                              alt={item.product_name}
+                              className="w-16 h-16 sm:w-24 sm:h-24 rounded-lg object-cover border-2 border-white shadow-lg ring-2 ring-gray-200"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.src = '/placeholder.svg';
+                              }}
+                            />
+                            <div className="absolute -top-2 -right-2 bg-purple-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shadow-md">
+                              {item.quantity}
+                            </div>
+                          </div>
                           <div className="flex-1 min-w-0">
-                            <h4 className="font-semibold text-gray-900 mb-1 line-clamp-2">
+                            <h4 className="font-bold text-sm sm:text-base text-gray-900 mb-2 line-clamp-2 leading-tight">
                               {item.product_name}
                             </h4>
-                            <div className="flex flex-wrap items-center gap-2 mb-2">
-                              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 font-mono text-xs">
-                                SKU: {item.sku}
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300 font-mono text-xs px-2 py-0.5">
+                                <span className="hidden sm:inline">SKU: </span>{item.sku}
                               </Badge>
                               {item.color_name && item.color_hex && (
-                                <Badge variant="outline" className="bg-white border-gray-300 flex items-center gap-1.5">
+                                <Badge variant="outline" className="bg-white border-gray-300 flex items-center gap-1.5 px-2 py-0.5">
                                   <div 
-                                    className="w-3 h-3 rounded-full border border-gray-300"
+                                    className="w-3 h-3 rounded-full border-2 border-gray-400 shadow-sm"
                                     style={{ backgroundColor: item.color_hex }}
                                   />
-                                  <span className="text-xs">{item.color_name}</span>
+                                  <span className="text-xs font-medium">{item.color_name}</span>
                                 </Badge>
                               )}
                             </div>
                           </div>
-                          <div className="text-right">
-                            <div className="text-lg font-bold text-gray-900">
+                          <div className="text-right flex-shrink-0">
+                            <div className="text-base sm:text-lg font-bold text-purple-700">
                               {formatPrice(parseFloat(item.subtotal))}
                             </div>
-                            <div className="text-xs text-gray-500">
+                            <div className="text-[10px] sm:text-xs text-gray-600 mt-0.5">
                               {item.quantity}x {formatPrice(parseFloat(item.unit_price))}
                             </div>
                           </div>
                         </div>
 
                         {/* Specs Grid */}
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
-                          <div className="bg-white rounded p-2 border border-gray-200">
-                            <div className="text-xs text-gray-500 mb-0.5">Quantidade</div>
-                            <div className="font-semibold text-gray-900">{item.quantity} un.</div>
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 text-xs sm:text-sm">
+                          <div className="bg-white rounded-lg p-2 sm:p-2.5 border-2 border-gray-200 hover:border-blue-300 transition-colors">
+                            <div className="text-[10px] sm:text-xs text-gray-500 mb-0.5 font-medium">Quantidade</div>
+                            <div className="font-bold text-gray-900">{item.quantity} un.</div>
                           </div>
                           
-                          <div className="bg-white rounded p-2 border border-gray-200">
-                            <div className="text-xs text-gray-500 mb-0.5">Preço Unit.</div>
-                            <div className="font-semibold text-gray-900">{formatPrice(parseFloat(item.unit_price))}</div>
+                          <div className="bg-white rounded-lg p-2 sm:p-2.5 border-2 border-gray-200 hover:border-green-300 transition-colors">
+                            <div className="text-[10px] sm:text-xs text-gray-500 mb-0.5 font-medium">Preço Unit.</div>
+                            <div className="font-bold text-green-700">{formatPrice(parseFloat(item.unit_price))}</div>
                           </div>
 
                           {item.weight && (
-                            <div className="bg-white rounded p-2 border border-gray-200">
-                              <div className="text-xs text-gray-500 mb-0.5">Peso</div>
-                              <div className="font-semibold text-gray-900">{item.weight}</div>
+                            <div className="bg-white rounded-lg p-2 sm:p-2.5 border-2 border-gray-200 hover:border-orange-300 transition-colors">
+                              <div className="text-[10px] sm:text-xs text-gray-500 mb-0.5 font-medium">Peso</div>
+                              <div className="font-bold text-gray-900">{item.weight}</div>
                             </div>
                           )}
 
                           {item.dimensions && (
-                            <div className="bg-white rounded p-2 border border-gray-200">
-                              <div className="text-xs text-gray-500 mb-0.5">Dimensões</div>
-                              <div className="font-semibold text-gray-900 text-xs">{item.dimensions}</div>
+                            <div className="bg-white rounded-lg p-2 sm:p-2.5 border-2 border-gray-200 hover:border-purple-300 transition-colors">
+                              <div className="text-[10px] sm:text-xs text-gray-500 mb-0.5 font-medium">Dimensões</div>
+                              <div className="font-bold text-gray-900 text-[10px] sm:text-xs">{item.dimensions}</div>
                             </div>
                           )}
                         </div>
@@ -394,10 +418,10 @@ const AccountOrders = () => {
                   </div>
 
                   {/* Total */}
-                  <div className="mt-4 pt-4 border-t border-gray-200">
+                  <div className="mt-4 pt-4 border-t-2 border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50 -mx-6 px-6 py-4 rounded-b-lg">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-gray-600">Subtotal dos Itens:</span>
-                      <span className="text-lg font-bold text-gray-900">
+                      <span className="text-sm font-bold text-purple-900">Subtotal dos Itens:</span>
+                      <span className="text-xl sm:text-2xl font-black text-purple-700">
                         {formatPrice(
                           selectedOrder.items.reduce((sum, item) => sum + parseFloat(item.subtotal), 0)
                         )}
@@ -452,6 +476,7 @@ const AccountOrders = () => {
                 </CardContent>
               </Card>
             )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
