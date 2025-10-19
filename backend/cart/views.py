@@ -1236,6 +1236,75 @@ def initiate_payment(request):
             # Link payment to created order
             payment.order = order
             payment.save(update_fields=['order'])
+            
+            # Immediately snapshot cart items into OrderItems so admin can see what to ship,
+            # even before payment confirmation. The paid path (webhook/polling) is idempotent
+            # and will skip if items already exist.
+            try:
+                from .models import OrderItem
+                from decimal import Decimal
+                # Prefer the prepared cart_items_data saved above for consistency
+                items_payload = cart_items_data or []
+                created_count = 0
+                if items_payload:
+                    logger.info(f"📝 Creating {len(items_payload)} provisional OrderItems for order {order.id} at initiation")
+                    for it in items_payload:
+                        try:
+                            # Use _id fields to avoid extra queries; fall back to None
+                            product_id = it.get('product_id') or it.get('product')
+                            color_id = it.get('color_id') or it.get('color')
+                            qty = int(it.get('quantity', 1))
+                            unit_price = Decimal(str(it.get('unit_price') or it.get('price') or '0'))
+
+                            OrderItem.objects.create(
+                                order=order,
+                                product_id=product_id,
+                                product_name=it.get('name', ''),
+                                sku=it.get('sku', ''),
+                                product_image=it.get('product_image', ''),
+                                color_id=color_id,
+                                color_name=it.get('color_name', ''),
+                                color_hex='',  # color hex may be added later when available
+                                quantity=qty,
+                                unit_price=unit_price,
+                                subtotal=unit_price * qty,
+                            )
+                            created_count += 1
+                        except Exception as e:
+                            logger.exception(f"❌ Failed to create provisional OrderItem: {e}")
+                else:
+                    # Fallback: snapshot directly from cart if items_payload empty (shouldn't happen)
+                    if cart and cart.items.exists():
+                        logger.info(f"🛒 Snapshotting {cart.items.count()} cart items into OrderItems for order {order.id}")
+                        for ci in cart.items.select_related('product', 'color').all():
+                            try:
+                                product_image = ''
+                                if ci.product and hasattr(ci.product, 'images') and ci.product.images.exists():
+                                    first_image = ci.product.images.first()
+                                    if first_image and hasattr(first_image, 'image') and first_image.image:
+                                        product_image = request.build_absolute_uri(first_image.image.url)
+
+                                OrderItem.objects.create(
+                                    order=order,
+                                    product_id=ci.product.id if ci.product else None,
+                                    product_name=ci.product.name if ci.product else '',
+                                    sku=getattr(ci.product, 'sku', ''),
+                                    product_image=product_image,
+                                    color_id=ci.color.id if ci.color else None,
+                                    color_name=ci.color.name if ci.color else '',
+                                    color_hex=getattr(ci.color, 'hex_code', '') if ci.color else '',
+                                    quantity=ci.quantity,
+                                    unit_price=ci.price,
+                                    subtotal=ci.price * ci.quantity,
+                                )
+                                created_count += 1
+                            except Exception as e:
+                                logger.exception(f"❌ Failed to snapshot cart item into OrderItem: {e}")
+
+                if created_count > 0:
+                    logger.info(f"✅ Created {created_count} provisional OrderItems for order {order.order_number}")
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to create provisional OrderItems at initiation (non-fatal): {e}")
             # Expose order id to frontend
             response_data['order_id'] = order.id
         except Exception as e:
