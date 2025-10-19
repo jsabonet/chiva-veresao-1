@@ -969,6 +969,23 @@ def initiate_payment(request):
             'bankName': payment_data.get('bankName')
         } if method == 'transfer' else None
 
+        # Prepare cart items data for order creation in webhook
+        cart_items_data = []
+        for cart_item in cart.items.select_related('product', 'color').all():
+            item_data = {
+                'product_id': cart_item.product.id if cart_item.product else None,
+                'product': cart_item.product.id if cart_item.product else None,
+                'name': cart_item.product.name if cart_item.product else '',
+                'sku': getattr(cart_item.product, 'sku', '') if cart_item.product else '',
+                'color_id': cart_item.color.id if cart_item.color else None,
+                'color': cart_item.color.id if cart_item.color else None,
+                'color_name': cart_item.color.name if cart_item.color else '',
+                'quantity': cart_item.quantity,
+                'price': str(cart_item.price),
+                'unit_price': str(cart_item.price),
+            }
+            cart_items_data.append(item_data)
+
         # Create payment record (no order yet). Keep original request payload inside request_data
         payment = Payment.objects.create(
             order=None,
@@ -983,6 +1000,7 @@ def initiate_payment(request):
                 'shipping_method': shipping_method,
                 'customer_notes': customer_notes,
                 'shipping_cost': str(shipping_cost),
+                'items': cart_items_data,  # Include cart items for order creation in webhook
                 'meta': {k: v for k, v in request.data.items() if k not in ['shipping_address','billing_address','shipping_method','customer_notes','shipping_amount']}
             }
         )
