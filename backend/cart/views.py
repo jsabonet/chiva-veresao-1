@@ -1662,7 +1662,92 @@ def payment_status(request, order_id: int):
                             # If payment succeeded, trigger the full order completion flow
                             if new_status == 'paid':
                                 from .stock_management import OrderManager
+                                from .models import OrderItem
                                 try:
+                                    # CRITICAL: Create OrderItems if they don't exist (webhook fallback)
+                                    if latest_payment.order and not latest_payment.order.items.exists():
+                                        logger.info(f"🔧 Creating OrderItems via polling for order {latest_payment.order.id}")
+                                        
+                                        # Get items from payment.request_data
+                                        rd = latest_payment.request_data or {}
+                                        items_payload = rd.get('items', [])
+                                        
+                                        if items_payload:
+                                            logger.info(f"📦 Found {len(items_payload)} items in payment.request_data")
+                                            for it in items_payload:
+                                                try:
+                                                    product = None
+                                                    color = None
+                                                    qty = int(it.get('quantity', 1))
+                                                    unit_price = Decimal(str(it.get('unit_price') or it.get('price', 0)))
+                                                    
+                                                    pid = it.get('product_id') or it.get('product')
+                                                    if pid:
+                                                        try:
+                                                            product = Product.objects.get(id=pid)
+                                                        except Exception:
+                                                            pass
+                                                    
+                                                    cid = it.get('color_id') or it.get('color')
+                                                    if cid:
+                                                        try:
+                                                            color = Color.objects.get(id=cid)
+                                                        except Exception:
+                                                            pass
+                                                    
+                                                    product_image = it.get('product_image', '')
+                                                    color_hex = getattr(color, 'hex_code', '') if color else ''
+                                                    
+                                                    OrderItem.objects.create(
+                                                        order=latest_payment.order,
+                                                        product=product,
+                                                        product_name=it.get('name', ''),
+                                                        sku=it.get('sku', ''),
+                                                        product_image=product_image,
+                                                        color=color,
+                                                        color_name=it.get('color_name', ''),
+                                                        color_hex=color_hex,
+                                                        quantity=qty,
+                                                        unit_price=unit_price,
+                                                        subtotal=unit_price * qty,
+                                                        weight=getattr(product, 'weight', None) if product else None,
+                                                        dimensions=getattr(product, 'dimensions', '') if product else ''
+                                                    )
+                                                    logger.info(f"✅ Created OrderItem: {it.get('name', 'Product')}")
+                                                except Exception as e:
+                                                    logger.exception(f"❌ Failed to create OrderItem: {e}")
+                                        else:
+                                            # Fallback: try to get from cart
+                                            cart = latest_payment.cart
+                                            if cart and cart.items.exists():
+                                                logger.info(f"🛒 Fallback: creating items from cart {cart.id}")
+                                                for ci in cart.items.select_related('product', 'color').all():
+                                                    try:
+                                                        product_image = ''
+                                                        if ci.product and hasattr(ci.product, 'images') and ci.product.images.exists():
+                                                            first_image = ci.product.images.first()
+                                                            if first_image and hasattr(first_image, 'image') and first_image.image:
+                                                                product_image = request.build_absolute_uri(first_image.image.url)
+                                                        
+                                                        OrderItem.objects.create(
+                                                            order=latest_payment.order,
+                                                            product=ci.product,
+                                                            product_name=ci.product.name if ci.product else '',
+                                                            sku=getattr(ci.product, 'sku', ''),
+                                                            product_image=product_image,
+                                                            color=ci.color,
+                                                            color_name=ci.color.name if ci.color else '',
+                                                            color_hex=getattr(ci.color, 'hex_code', '') if ci.color else '',
+                                                            quantity=ci.quantity,
+                                                            unit_price=ci.price,
+                                                            subtotal=ci.price * ci.quantity,
+                                                            weight=getattr(ci.product, 'weight', None) if ci.product else None,
+                                                            dimensions=getattr(ci.product, 'dimensions', '') if ci.product else ''
+                                                        )
+                                                        logger.info(f"✅ Created OrderItem from cart: {ci.product.name if ci.product else 'Product'}")
+                                                    except Exception as e:
+                                                        logger.exception(f"❌ Failed to create OrderItem from cart: {e}")
+                                    
                                     OrderManager.update_order_status(
                                         order=latest_payment.order,
                                         new_status='paid',
