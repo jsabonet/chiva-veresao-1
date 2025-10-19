@@ -9,6 +9,17 @@
 				"$eslint-stylish"
 			],
 			"group": "build"
+		},
+		{
+			"label": "build-frontend",
+			"type": "shell",
+			"command": "npm run build",
+			"args": [],
+			"problemMatcher": [
+				"$tsc",
+				"$eslint - stylish"
+			],
+			"group": "build"
 		}
 	]
 }

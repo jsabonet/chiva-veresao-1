@@ -22,16 +22,17 @@ import {
   MessageSquare,
   Package
 } from 'lucide-react';
-import StarRating from '@/components/ui/StarRating';
+import Rating from '@/components/ui/Rating';
 import ReviewForm from '@/components/ui/ReviewForm';
 import ReviewList from '@/components/ui/ReviewList';
 import { Helmet } from 'react-helmet-async';
-import { useProductBySlug, useProduct } from '@/hooks/useApi';
+import { useProductBySlug, useProduct, useProductsByCategory } from '@/hooks/useApi';
 import { formatPrice, getImageUrl, type Product } from '@/lib/api';
 import { useCart } from '@/contexts/CartContext';
 import { toast } from '@/hooks/use-toast';
 import { FavoriteButton } from '@/components/ui/FavoriteButton';
 import { ShareButton } from '@/components/ui/ShareButton';
+import ProductCard from '@/components/ui/ProductCard';
 
 const ProductDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -56,6 +57,16 @@ const ProductDetails = () => {
   const product = productBySlug || productById;
   const loading = loadingBySlug || loadingById;
   const error = productBySlug ? errorBySlug : (productById ? errorById : 'Produto não encontrado');
+
+  // Compute category id early to use in hooks safely
+  const relatedCategoryId: number | undefined = (() => {
+    const cat = product?.category as any;
+    if (!cat) return undefined;
+    return typeof cat === 'object' ? cat.id : (cat as number);
+  })();
+
+  // Related products hook (safe, will no-op when undefined)
+  const { data: relatedData, loading: relatedLoading, error: relatedError } = useProductsByCategory(relatedCategoryId);
 
   // Preview mode from query string
   const searchParams = new URLSearchParams(location.search);
@@ -499,18 +510,17 @@ const ProductDetails = () => {
               {product.total_reviews && product.total_reviews > 0 && (
                 <button
                   onClick={() => document.getElementById('reviews-section')?.scrollIntoView({ behavior: 'smooth' })}
-                  className="flex items-center gap-2 mt-3 hover:opacity-80 transition-opacity group"
+                  className="flex items-center gap-2 mt-3 hover:opacity-90 transition"
                 >
-                  <div className="flex items-center gap-1.5">
-                    <StarRating rating={Math.round(product.average_rating ?? 0)} readOnly size="sm" />
-                    <span className="font-semibold text-sm">
-                      {(product.average_rating ?? 0).toFixed(1)}
-                    </span>
-                  </div>
-                  <span className="text-sm text-muted-foreground group-hover:text-primary transition-colors">
-                    ({product.total_reviews.toLocaleString()} {product.total_reviews === 1 ? 'avaliação' : 'avaliações'})
-                  </span>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                  <Rating
+                    value={product.average_rating ?? 0}
+                    count={product.total_reviews}
+                    size="sm"
+                    showValue={true}
+                    className="text-foreground"
+                    colorClass="text-yellow-400"
+                  />
+                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
                 </button>
               )}
             </div>
@@ -706,94 +716,57 @@ const ProductDetails = () => {
           </div>
         </div>
 
-        {/* Related Products Section - Modern Professional Design */}
-        {product.category && (
-          <section className="my-12 bg-gradient-to-br from-blue-50/50 to-indigo-50/50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-2xl p-6 lg:p-8 border border-blue-100/50">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-2xl lg:text-3xl font-bold flex items-center gap-3">
-                  <Package className="w-7 h-7 text-blue-600" />
-                  Produtos Relacionados
-                </h2>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Outros clientes também visualizaram estes produtos
-                </p>
-              </div>
-              <Button variant="outline" size="sm" className="hidden sm:flex">
-                Ver Todos
-                <ChevronRight className="w-4 h-4 ml-1" />
-              </Button>
-            </div>
+        {/* Related Products Section - Now using real data */}
+        {categoryId ? (
+            (() => {
+              const relatedProducts = (relatedData?.products || []).filter(p => p.id !== product.id).slice(0, 8);
+              return (
+              <section className="my-12 bg-gradient-to-br from-blue-50/50 to-indigo-50/50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-2xl p-6 lg:p-8 border border-blue-100/50">
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h2 className="text-2xl lg:text-3xl font-bold flex items-center gap-3">
+                      <Package className="w-7 h-7 text-blue-600" />
+                      Produtos Relacionados
+                    </h2>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Outros clientes também visualizaram estes produtos
+                    </p>
+                  </div>
+                  <Link to={`/products?category=${categoryId}`} className="hidden sm:inline-flex">
+                    <Button variant="outline" size="sm">
+                      Ver Todos
+                      <ChevronRight className="w-4 h-4 ml-1" />
+                    </Button>
+                  </Link>
+                </div>
 
-            {/* Products Grid/Carousel */}
-            <div className="relative">
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 lg:gap-4">
-                {/* Placeholder cards - Will be replaced with actual products from API */}
-                {[1, 2, 3, 4].map((item) => (
-                  <Card key={item} className="group hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden border-2 hover:border-blue-300">
-                    <div className="aspect-square bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 relative overflow-hidden">
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <Package className="w-12 h-12 text-gray-400 group-hover:scale-110 transition-transform" />
-                      </div>
-                      <div className="absolute top-2 right-2 bg-blue-600 text-white text-xs px-2 py-1 rounded-full font-semibold">
-                        -15%
-                      </div>
-                    </div>
-                    <CardContent className="p-3 lg:p-4">
-                      <div className="space-y-2">
-                        <h3 className="font-semibold text-sm line-clamp-2 group-hover:text-blue-600 transition-colors">
-                          Produto Exemplo {item}
-                        </h3>
-                        <div className="flex items-center gap-1">
-                          <div className="flex gap-0.5">
-                            {[1, 2, 3, 4, 5].map((star) => (
-                              <Star key={star} className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                            ))}
-                          </div>
-                          <span className="text-xs text-muted-foreground">(45)</span>
-                        </div>
-                        <div className="flex items-baseline gap-2">
-                          <span className="font-bold text-lg text-blue-600">$99</span>
-                          <span className="text-xs text-muted-foreground line-through">$116</span>
-                        </div>
-                        <Button size="sm" className="w-full" variant="outline">
-                          <ShoppingCart className="w-4 h-4 mr-1" />
-                          Adicionar
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-
-              {/* Carousel Navigation Arrows (for future carousel implementation) */}
-              <Button
-                variant="secondary"
-                size="icon"
-                className="absolute -left-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity hidden lg:flex shadow-xl"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </Button>
-              <Button
-                variant="secondary"
-                size="icon"
-                className="absolute -right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity hidden lg:flex shadow-xl"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </Button>
-            </div>
-
-            {/* Info Banner */}
-            <div className="mt-6 bg-blue-100 dark:bg-blue-950 rounded-lg p-4 flex items-center gap-3">
-              <svg className="w-5 h-5 text-blue-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-              </svg>
-              <p className="text-sm text-blue-900 dark:text-blue-200">
-                <strong>Nota:</strong> A seção de produtos relacionados será populada automaticamente com produtos da mesma categoria em breve.
-              </p>
-            </div>
-          </section>
-        )}
+                {relatedLoading ? (
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 lg:gap-4">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <Card key={i} className="animate-pulse">
+                        <div className="aspect-square bg-gray-200 rounded-lg" />
+                        <CardContent className="p-4 space-y-2">
+                          <div className="h-4 bg-gray-200 rounded w-3/4" />
+                          <div className="h-4 bg-gray-200 rounded w-1/2" />
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : relatedError ? (
+                  <div className="text-sm text-destructive">Não foi possível carregar os produtos relacionados.</div>
+                ) : relatedProducts.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">Sem produtos relacionados nesta categoria.</div>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 lg:gap-4">
+                    {relatedProducts.map((rp) => (
+                      <ProductCard key={rp.id} product={rp} />
+                    ))}
+                  </div>
+                )}
+              </section>
+            );
+            })()
+        ) : null}
 
         {/* Product Details - Mobile: Stacked sections (international standard), Desktop: Tabs */}
         <div className="w-full">
@@ -852,28 +825,15 @@ const ProductDetails = () => {
                     <div className="flex flex-col items-center text-center gap-4">
                       {/* Large Rating Display */}
                       <div>
-                        <div className="text-6xl font-extrabold bg-gradient-to-br from-yellow-600 to-orange-600 bg-clip-text text-transparent">
-                          {(product?.average_rating ?? 0).toFixed(1)}
-                        </div>
+                        <Rating value={product?.average_rating ?? 0} size="lg" showValue className="text-6xl" />
                         <div className="text-sm text-muted-foreground font-medium mt-1">
                           de 5 estrelas
                         </div>
                       </div>
 
-                      {/* Stars */}
+                      {/* Stars + count */}
                       <div className="flex flex-col items-center gap-2">
-                        <div className="flex gap-1">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <Star 
-                              key={star}
-                              className={`w-7 h-7 ${
-                                star <= Math.round(product?.average_rating ?? 0)
-                                  ? 'fill-yellow-400 text-yellow-400'
-                                  : 'text-gray-300'
-                              }`}
-                            />
-                          ))}
-                        </div>
+                        <Rating value={product?.average_rating ?? 0} size="lg" showValue={false} />
                         <span className="text-sm font-semibold text-muted-foreground">
                           {product?.total_reviews ?? 0} {(product?.total_reviews ?? 0) === 1 ? 'avaliação' : 'avaliações'}
                         </span>
@@ -1130,7 +1090,7 @@ const ProductDetails = () => {
                                 >
                                   <div className="flex items-center gap-1 w-14">
                                     <span className="text-sm font-medium">{stars}</span>
-                                    <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" />
+                                    <svg className="w-3.5 h-3.5 text-yellow-400" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27z"/></svg>
                                   </div>
                                   <div className="flex-1 h-2.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                                     <div 

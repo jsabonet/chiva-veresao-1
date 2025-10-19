@@ -8,11 +8,12 @@ import { Card } from './card';
 import { Button } from './button';
 import { apiClient } from '@/lib/api';
 import { formatReviewerName } from '@/lib/utils';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 
 
 
-export type ReviewSortOption = 'recent' | 'highest' | '`lowest';
+export type ReviewSortOption = 'recent' | 'highest' | 'lowest';
 
 interface ReviewListProps {
   productId: number;
@@ -104,40 +105,62 @@ const ReviewList: React.FC<ReviewListProps> = ({
           return null;
         }
         return (
-          <Card 
-            key={review.id} 
+          <Card
+            key={review.id}
             className={`p-4 ${isPending ? 'bg-yellow-50' : ''} ${isRejected ? 'bg-red-50' : ''}`}
           >
-            <div className="flex justify-between items-start mb-2">
-              <div>
-                <div className="font-medium">{formatReviewerName(review.user_first_name ? `${review.user_first_name} ${review.user_last_name || ''}` : review.user_name, review.user_email)}</div>
-                <div className="text-sm text-muted-foreground">
-                  {formatDistanceToNow(new Date(review.created_at), {
-                    addSuffix: true,
-                    locale: ptBR
-                  })}
+            <div className="flex items-start gap-3">
+              <Avatar className="h-10 w-10">
+                {/* No user avatar from API, fallback with initials */}
+                <AvatarImage src={undefined} alt="" />
+                <AvatarFallback>
+                  {formatReviewerName(
+                    review.user_first_name ? `${review.user_first_name} ${review.user_last_name || ''}` : review.user_name,
+                    review.user_email
+                  ).slice(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="font-medium truncate">
+                      {formatReviewerName(
+                        review.user_first_name ? `${review.user_first_name} ${review.user_last_name || ''}` : review.user_name,
+                        review.user_email
+                      )}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {formatDistanceToNow(new Date(review.created_at), {
+                        addSuffix: true,
+                        locale: ptBR,
+                      })}
+                    </div>
+                    {isOwnReview && (isPending || isRejected) && (
+                      <div className="mt-1">
+                        <span
+                          className={`text-[10px] px-2 py-0.5 rounded ${
+                            isPending ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
+                          }`}
+                        >
+                          {isPending ? 'Aguardando aprovação' : 'Avaliação rejeitada'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <StarRating rating={review.rating} readOnly size="sm" />
                 </div>
-                {isOwnReview && (isPending || isRejected) && (
-                  <div className="mt-1">
-                    <span className={`text-xs px-2 py-1 rounded ${
-                      isPending ? 'bg-yellow-100 text-yellow-800' : 
-                      'bg-red-100 text-red-800'
-                    }`}>
-                      {isPending ? 'Aguardando aprovação' : 'Avaliação rejeitada'}
-                    </span>
+                {review.comment && (
+                  <p className="text-sm mt-2 whitespace-pre-line">
+                    {review.comment}
+                  </p>
+                )}
+                {isOwnReview && isRejected && review.moderation_notes && (
+                  <div className="mt-2 p-2 bg-red-100 rounded text-xs">
+                    <strong>Motivo da rejeição:</strong> {review.moderation_notes}
                   </div>
                 )}
               </div>
-              <StarRating rating={review.rating} readOnly size="sm" />
             </div>
-            {review.comment && (
-              <p className="text-sm mt-2 whitespace-pre-line">{review.comment}</p>
-            )}
-            {isOwnReview && isRejected && review.moderation_notes && (
-              <div className="mt-2 p-2 bg-red-100 rounded text-sm">
-                <strong>Motivo da rejeição:</strong> {review.moderation_notes}
-              </div>
-            )}
           </Card>
         );
       })}
