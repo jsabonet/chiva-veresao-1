@@ -972,11 +972,20 @@ def initiate_payment(request):
         # Prepare cart items data for order creation in webhook
         cart_items_data = []
         for cart_item in cart.items.select_related('product', 'color').all():
+            # Get product image URL
+            product_image_url = ''
+            if cart_item.product:
+                if hasattr(cart_item.product, 'images') and cart_item.product.images.exists():
+                    first_image = cart_item.product.images.first()
+                    if first_image and hasattr(first_image, 'image') and first_image.image:
+                        product_image_url = request.build_absolute_uri(first_image.image.url)
+            
             item_data = {
                 'product_id': cart_item.product.id if cart_item.product else None,
                 'product': cart_item.product.id if cart_item.product else None,
                 'name': cart_item.product.name if cart_item.product else '',
                 'sku': getattr(cart_item.product, 'sku', '') if cart_item.product else '',
+                'product_image': product_image_url,
                 'color_id': cart_item.color.id if cart_item.color else None,
                 'color': cart_item.color.id if cart_item.color else None,
                 'color_name': cart_item.color.name if cart_item.color else '',
@@ -985,6 +994,9 @@ def initiate_payment(request):
                 'unit_price': str(cart_item.price),
             }
             cart_items_data.append(item_data)
+        
+        # Log cart items for debugging
+        logger.info(f"💾 Saving {len(cart_items_data)} items to payment.request_data for cart {cart.id}")
 
         # Create payment record (no order yet). Keep original request payload inside request_data
         payment = Payment.objects.create(
@@ -1367,6 +1379,8 @@ def paysuite_webhook(request):
                             items_payload = rd_meta.get('items') or rd.get('items')
                         else:
                             items_payload = rd.get('items')
+                        
+                        logger.info(f"📦 Webhook creating order items: found {len(items_payload) if items_payload else 0} items in request_data")
 
                         if items_payload and isinstance(items_payload, list):
                             for it in items_payload:
@@ -1394,9 +1408,9 @@ def paysuite_webhook(request):
                                     sku = getattr(product, 'sku', '') if product else (it.get('sku') or '')
                                     line_total = (unit_price * qty)
                                     
-                                    # Get product image
-                                    product_image = ''
-                                    if product:
+                                    # Get product image - prefer from payload, fallback to product
+                                    product_image = it.get('product_image', '')
+                                    if not product_image and product:
                                         if hasattr(product, 'images') and product.images.exists():
                                             first_image = product.images.first()
                                             if first_image and hasattr(first_image, 'image'):
@@ -1404,6 +1418,8 @@ def paysuite_webhook(request):
                                     
                                     # Get color hex
                                     color_hex = getattr(color, 'hex_code', '') if color else ''
+                                    
+                                    logger.info(f"  ✅ Creating OrderItem: {name} (SKU: {sku}, Image: {'Yes' if product_image else 'No'})")
 
                                     OrderItem.objects.create(
                                         order=order,
