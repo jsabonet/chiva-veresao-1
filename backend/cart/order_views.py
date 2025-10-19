@@ -75,24 +75,49 @@ def order_detail(request, order_id):
         Q(id=order_id) & (Q(user=request.user) | Q(user__isnull=True))
     )
     
-    # Serialize order
+    # Serialize order (includes OrderItem snapshots under 'items')
     order_data = OrderSerializer(order).data
-    
-    # Add cart items information
-    if order.cart:
-        cart_items = []
-        for item in order.cart.items.all():
-            cart_items.append({
-                'id': item.product.id,
-                'name': item.product.name,
-                'sku': item.product.sku,
-                'price': str(item.price),
-                'quantity': item.quantity,
-                'color': item.color.name if item.color else None,
-                'image': item.product.get_main_image(),
-                'total': str(item.price * item.quantity)
-            })
-        order_data['items'] = cart_items
+
+    # Fallback: if no OrderItems snapshot yet, attempt to include cart items
+    # mapped to the OrderItemSerializer schema so frontend can render consistently.
+    try:
+        if (not order_data.get('items')) and order.cart and order.cart.items.exists():
+            cart_items_serialized = []
+            for ci in order.cart.items.select_related('product', 'color').all():
+                # Try to build absolute image URL if possible
+                img_url = ''
+                try:
+                    if ci.product and hasattr(ci.product, 'images') and ci.product.images.exists():
+                        first_image = ci.product.images.first()
+                        if first_image and hasattr(first_image, 'image') and first_image.image:
+                            img_url = request.build_absolute_uri(first_image.image.url)
+                    elif ci.product and hasattr(ci.product, 'get_main_image'):
+                        img = ci.product.get_main_image()
+                        if img:
+                            img_url = request.build_absolute_uri(img) if not img.startswith('http') else img
+                except Exception:
+                    img_url = ''
+
+                cart_items_serialized.append({
+                    # Match OrderItem fields
+                    'id': ci.id,
+                    'product': ci.product.id if ci.product else None,
+                    'product_name': ci.product.name if ci.product else '',
+                    'sku': getattr(ci.product, 'sku', '') if ci.product else '',
+                    'product_image': img_url,
+                    'color': ci.color.id if ci.color else None,
+                    'color_name': ci.color.name if ci.color else '',
+                    'color_hex': getattr(ci.color, 'hex_code', '') if ci.color else '',
+                    'quantity': ci.quantity,
+                    'unit_price': str(ci.price),
+                    'subtotal': str(ci.price * ci.quantity),
+                    'weight': getattr(ci.product, 'weight', None) if ci.product else None,
+                    'dimensions': getattr(ci.product, 'dimensions', '') if ci.product else '',
+                    'created_at': order.created_at.isoformat() if hasattr(order, 'created_at') else ''
+                })
+            order_data['items'] = cart_items_serialized
+    except Exception as e:
+        logger.warning(f"Could not include cart items fallback: {e}")
     
     # Add status history
     status_history = OrderStatusHistorySerializer(
