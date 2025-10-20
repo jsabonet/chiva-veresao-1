@@ -879,9 +879,14 @@ class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Review.objects.all()
     serializer_class = ReviewSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
     
     def get_queryset(self):
-        return Review.objects.filter(user=self.request.user)
+        # Only allow owners to update/delete; reads require auth due to get_queryset scoping
+        if self.request.user and self.request.user.is_authenticated:
+            return Review.objects.filter(user=self.request.user)
+        # Anonymous users shouldn't access this detail endpoint
+        return Review.objects.none()
 
 
 @api_view(['GET'])

@@ -10,17 +10,38 @@ interface ReviewFormModalProps {
   productId: number;
   onSubmitted?: () => void;
   trigger?: React.ReactNode;
+  // Edit support
+  mode?: 'create' | 'edit';
+  review?: { id: number; rating: number; comment?: string } | null;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-const ReviewFormModal: React.FC<ReviewFormModalProps> = ({ productId, onSubmitted, trigger }) => {
+const ReviewFormModal: React.FC<ReviewFormModalProps> = ({ productId, onSubmitted, trigger, mode = 'create', review = null, open: controlledOpen, onOpenChange }) => {
   const { toast } = useToast();
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const open = controlledOpen !== undefined ? controlledOpen : uncontrolledOpen;
+  const setOpen = (v: boolean) => {
+    if (onOpenChange) onOpenChange(v);
+    else setUncontrolledOpen(v);
+  };
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [lastSubmitAt, setLastSubmitAt] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Prefill when editing
+  React.useEffect(() => {
+    if (mode === 'edit' && review) {
+      setRating(review.rating || 0);
+      setComment(review.comment || '');
+    } else if (mode === 'create') {
+      setRating(0);
+      setComment('');
+    }
+  }, [mode, review?.id]);
 
   const onSelectFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
@@ -52,10 +73,17 @@ const ReviewFormModal: React.FC<ReviewFormModalProps> = ({ productId, onSubmitte
       const fd = new FormData();
       fd.append('rating', String(rating));
       fd.append('comment', comment.trim());
-      fd.append('product', String(productId));
+      if (mode === 'create') {
+        fd.append('product', String(productId));
+      }
       files.forEach((f, i) => fd.append('images', f, f.name));
-      await apiClient.postFormData(`/products/${productId}/reviews/`, fd);
-      toast({ title: 'Avaliação enviada', description: 'Sua avaliação foi enviada para moderação.' });
+      if (mode === 'edit' && review) {
+        await apiClient.putFormData(`/reviews/${review.id}/`, fd);
+        toast({ title: 'Avaliação atualizada', description: 'Sua avaliação foi atualizada e aguarda nova moderação.' });
+      } else {
+        await apiClient.postFormData(`/products/${productId}/reviews/`, fd);
+        toast({ title: 'Avaliação enviada', description: 'Sua avaliação foi enviada para moderação.' });
+      }
       setOpen(false);
       reset();
       onSubmitted?.();
@@ -68,16 +96,16 @@ const ReviewFormModal: React.FC<ReviewFormModalProps> = ({ productId, onSubmitte
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {trigger || (
-          <Button variant="default">Escrever avaliação</Button>
-        )}
-      </DialogTrigger>
+      {trigger && controlledOpen === undefined && (
+        <DialogTrigger asChild>
+          {trigger}
+        </DialogTrigger>
+      )}
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Deixe sua avaliação</DialogTitle>
+          <DialogTitle>{mode === 'edit' ? 'Edite sua avaliação' : 'Deixe sua avaliação'}</DialogTitle>
           <DialogDescription>
-            Avaliações ajudam outros clientes. Sua avaliação será moderada antes de aparecer publicamente.
+            Avaliações ajudam outros clientes. {mode === 'edit' ? 'Alterações serão moderadas novamente.' : 'Sua avaliação será moderada antes de aparecer publicamente.'}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">

@@ -98,6 +98,7 @@ export interface Review {
   images?: string[]; // optional list of image URLs associated with this review
   helpful_count?: number;
   user_has_voted_helpful?: boolean;
+  verified_buyer?: boolean;
 }
 
 interface ReviewModerationRequest {
@@ -465,14 +466,13 @@ class ApiClient {
     }
   }
 
+  // PUT with multipart/form-data (for updating resources with files)
   async putFormData<T>(endpoint: string, formData: FormData): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
-    let authHeaders = {};
+    let authHeaders = {} as Record<string, string>;
     try {
       const token = await this.waitForAuth();
-      if (token) {
-        authHeaders = { 'Authorization': `Bearer ${token}` };
-      }
+      if (token) authHeaders['Authorization'] = `Bearer ${token}`;
     } catch (e) {
       // ignore
     }
@@ -482,36 +482,33 @@ class ApiClient {
       body: formData,
       headers: {
         ...authHeaders,
-        // Don't set Content-Type header, let browser set it with boundary
+        // Let browser set Content-Type with boundary
       },
+      credentials: 'include',
     };
 
     try {
       const response = await fetch(url, config);
-      
       if (!response.ok) {
         let errorMessage = `HTTP error! status: ${response.status}`;
         try {
           const errorData = await response.json();
           console.error('API Error Details:', errorData);
           errorMessage += ` - ${JSON.stringify(errorData)}`;
-        } catch (jsonError) {
-          console.error('Failed to parse error response as JSON');
-        }
+        } catch {}
         throw new Error(errorMessage);
       }
-      
       const contentType = response.headers.get('content-type');
       if (response.status === 204 || !contentType?.includes('application/json')) {
         return null as T;
       }
-      
       return await response.json();
     } catch (error) {
       console.error('API request failed:', error);
       throw error;
     }
   }
+
 }
 
 // Create API client instance

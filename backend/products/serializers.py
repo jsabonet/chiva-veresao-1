@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Product, Category, Color, ProductImage, Subcategory, Favorite, Review, ReviewImage, ReviewHelpfulVote
+from cart.models import OrderItem
 
 class ColorSerializer(serializers.ModelSerializer):
     """Serializer for Color model"""
@@ -101,6 +102,7 @@ class ReviewSerializer(serializers.ModelSerializer):
     images = serializers.SerializerMethodField()
     helpful_count = serializers.IntegerField(read_only=True)
     user_has_voted_helpful = serializers.SerializerMethodField()
+    verified_buyer = serializers.SerializerMethodField()
 
 
     class Meta:
@@ -109,7 +111,7 @@ class ReviewSerializer(serializers.ModelSerializer):
             'id', 'product', 'user', 'user_name', 'user_email',
             'user_first_name', 'user_last_name',
             'rating', 'comment', 'created_at', 'updated_at',
-            'product_name', 'moderated_by', 'moderation_notes', 'status', 'images', 'helpful_count', 'user_has_voted_helpful'
+            'product_name', 'moderated_by', 'moderation_notes', 'status', 'images', 'helpful_count', 'user_has_voted_helpful', 'verified_buyer'
         ]
         # user should be read-only for create requests; view will attach the user
         read_only_fields = ['id', 'user', 'user_name', 'user_email', 'user_first_name', 'user_last_name', 'created_at', 'updated_at',
@@ -180,6 +182,17 @@ class ReviewSerializer(serializers.ModelSerializer):
             except Exception:
                 return False
         return False
+
+    def get_verified_buyer(self, obj):
+        """Return True if the review's author has purchased this product."""
+        try:
+            return OrderItem.objects.filter(
+                order__user=obj.user,
+                product=obj.product,
+                order__status__in=['paid', 'confirmed', 'processing', 'shipped', 'delivered']
+            ).exists()
+        except Exception:
+            return False
 
 
 class ProductDetailSerializer(serializers.ModelSerializer):

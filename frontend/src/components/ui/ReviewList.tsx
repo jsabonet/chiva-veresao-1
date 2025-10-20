@@ -10,6 +10,8 @@ import { apiClient } from '@/lib/api';
 import { formatReviewerName } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import ImageLightbox from '@/components/ui/ImageLightbox';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import ReviewFormModal from '@/components/ui/ReviewFormModal';
 
 
 
@@ -39,6 +41,8 @@ const ReviewList: React.FC<ReviewListProps> = ({
   const [loading, setLoading] = React.useState(false);
   const [hasMore, setHasMore] = React.useState(true);
   const [lightbox, setLightbox] = React.useState<{ urls: string[]; index: number } | null>(null);
+  const [editing, setEditing] = React.useState<Review | null>(null);
+  const [deleting, setDeleting] = React.useState<Review | null>(null);
   const PAGE_SIZE = pageSize;
   const api = apiClient;
 
@@ -91,6 +95,24 @@ const ReviewList: React.FC<ReviewListProps> = ({
       setReviews(prev => prev.map(r => r.id === reviewId ? { ...r, helpful_count: res.helpful_count, user_has_voted_helpful: res.user_has_voted_helpful } as any : r));
     } catch (e) {
       console.error('Error toggling helpful:', e);
+    }
+  };
+
+  const handleEdited = () => {
+    // Reload from first page to reflect updated content and moderation reset
+    setPage(1);
+    loadReviews(1);
+  };
+
+  const confirmDelete = async (review: Review) => {
+    try {
+      await api.delete(`/reviews/${review.id}/`);
+      // Optimistically remove from list
+      setReviews(prev => prev.filter(r => r.id !== review.id));
+    } catch (e) {
+      console.error('Failed to delete review', e);
+    } finally {
+      setDeleting(null);
     }
   };
 
@@ -167,6 +189,11 @@ const ReviewList: React.FC<ReviewListProps> = ({
                         review.user_first_name ? `${review.user_first_name} ${review.user_last_name || ''}` : review.user_name,
                         review.user_email
                       )}
+                      {review.verified_buyer && (
+                        <span className="ml-2 inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
+                          Comprador verificado
+                        </span>
+                      )}
                     </div>
                     <div className="text-xs text-muted-foreground">
                       {formatDistanceToNow(new Date(review.created_at), {
@@ -212,8 +239,8 @@ const ReviewList: React.FC<ReviewListProps> = ({
                   </button>
                   {isOwnReview && (
                     <>
-                      <button className="text-xs px-2 py-1 rounded border hover:bg-accent">Editar</button>
-                      <button className="text-xs px-2 py-1 rounded border hover:bg-accent text-red-600">Excluir</button>
+                      <button onClick={() => setEditing(review)} className="text-xs px-2 py-1 rounded border hover:bg-accent">Editar</button>
+                      <button onClick={() => setDeleting(review)} className="text-xs px-2 py-1 rounded border hover:bg-accent text-red-600">Excluir</button>
                     </>
                   )}
                 </div>
@@ -242,6 +269,30 @@ const ReviewList: React.FC<ReviewListProps> = ({
     {lightbox && (
       <ImageLightbox urls={lightbox.urls} index={lightbox.index} open={!!lightbox} onOpenChange={(o) => !o && setLightbox(null)} />
     )}
+    {editing && (
+      <ReviewFormModal
+        productId={productId}
+        onSubmitted={() => { setEditing(null); handleEdited(); }}
+        review={editing}
+        mode="edit"
+        open
+        onOpenChange={(o: boolean) => !o && setEditing(null)}
+      />
+    )}
+    <AlertDialog open={!!deleting} onOpenChange={(o)=>!o && setDeleting(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Excluir avaliação?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Esta ação não pode ser desfeita. A avaliação será removida permanentemente.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogAction onClick={() => deleting && confirmDelete(deleting)}>Excluir</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
     </>
   );
 };
