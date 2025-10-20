@@ -168,7 +168,7 @@ const ReviewList: React.FC<ReviewListProps> = ({
         return (
           <Card
             key={review.id}
-            className={`p-4 ${isPending ? 'bg-yellow-50' : ''} ${isRejected ? 'bg-red-50' : ''}`}
+            className={`p-4 border-0 shadow-none md:border md:shadow-sm ${isPending ? 'bg-yellow-50 md:bg-yellow-50' : ''} ${isRejected ? 'bg-red-50 md:bg-red-50' : ''}`}
           >
             <div className="flex items-start gap-3">
               <Avatar className="h-10 w-10">

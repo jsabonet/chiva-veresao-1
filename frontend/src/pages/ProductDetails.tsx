@@ -414,7 +414,7 @@ const ProductDetails = () => {
           <div className="space-y-3 lg:space-y-4">
             {/* Main Image with Navigation */}
             <div className="relative group">
-              <div className="aspect-square rounded-lg overflow-hidden bg-gray-100 border border-gray-200">
+              <div className="aspect-square rounded-lg overflow-hidden bg-muted md:border md:border-border">
                 <img
                   src={getImageUrl(selectedImage)}
                   alt={product.name}
@@ -480,10 +480,10 @@ const ProductDetails = () => {
                   <button
                     key={index}
                     onClick={() => selectImage(image, index)}
-                    className={`flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-md border-2 overflow-hidden gallery-thumbnail ${
+                    className={`flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-md overflow-hidden gallery-thumbnail transition-all ${
                       selectedImage === image 
-                        ? 'border-primary ring-2 ring-primary/20 active' 
-                        : 'border-gray-200 hover:border-gray-300'
+                        ? 'ring-2 ring-primary ring-offset-2' 
+                        : 'opacity-60 hover:opacity-100'
                     }`}
                   >
                     <img
@@ -520,7 +520,7 @@ const ProductDetails = () => {
                     size="sm"
                     showValue={true}
                     className="text-foreground"
-                    colorClass="text-yellow-400"
+                    colorClass="text-yellow-500"
                   />
                   <ChevronRight className="w-4 h-4 text-muted-foreground" />
                 </button>
@@ -591,8 +591,8 @@ const ProductDetails = () => {
                         aria-label={color.name}
                         aria-pressed={isSelected}
                         title={color.name}
-                        className={`h-8 w-8 sm:h-10 sm:w-10 rounded-full border-2 ring-offset-2 transition focus:outline-none focus:ring-2 focus:ring-primary/40 ${
-                          isSelected ? 'border-primary ring-2 ring-primary/40' : 'border-gray-300 hover:border-gray-400'
+                        className={`h-8 w-8 sm:h-10 sm:w-10 rounded-full ring-offset-2 transition focus:outline-none focus:ring-2 focus:ring-primary/40 ${
+                          isSelected ? 'ring-2 ring-primary' : 'ring-1 ring-border hover:ring-2 hover:ring-primary/40'
                         } flex items-center justify-center overflow-hidden`}
                         style={hasHex ? { backgroundColor: color.hex_code } : undefined}
                       >
@@ -634,7 +634,7 @@ const ProductDetails = () => {
               <div className="space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
                   <span className="text-sm font-medium">Quantidade:</span>
-                  <div className="flex items-center border rounded-md w-fit">
+                  <div className="flex items-center rounded-md w-fit border border-border">
                     <Button
                       variant="ghost"
                       size="sm"
@@ -703,7 +703,7 @@ const ProductDetails = () => {
             )}
 
             {/* Features */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 p-4 bg-gray-50 rounded-lg">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 p-4 md:p-6 bg-muted/50 md:bg-muted rounded-lg md:border md:border-border">
               <div className="flex items-center gap-2">
                 <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 flex-shrink-0" />
                 <span className="text-sm">Garantia de 1 ano</span>
@@ -729,7 +729,7 @@ const ProductDetails = () => {
             (() => {
               const relatedProducts = (relatedData?.products || []).filter(p => p.id !== product.id).slice(0, 8);
               return (
-              <section className="my-12 bg-gradient-to-br from-blue-50/50 to-indigo-50/50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-2xl p-6 lg:p-8 border border-blue-100/50">
+              <section className="my-12 bg-gradient-to-br from-primary/5 to-primary/10 dark:from-primary/10 dark:to-primary/20 rounded-2xl p-6 lg:p-8 md:border md:border-primary/20">
                 <div className="flex items-center justify-between mb-6">
                   <div>
                     <h2 className="text-2xl lg:text-3xl font-bold flex items-center gap-3">
@@ -781,9 +781,9 @@ const ProductDetails = () => {
           {/* Mobile: Stacked Sections */}
           <div className="block md:hidden space-y-6">
             {/* Specifications Section */}
-            <Card>
-              <CardContent className="pt-6">
-                <h2 className="text-xl font-bold mb-4">Especificações</h2>
+            <Card className="border-0 shadow-none md:border md:shadow-sm">
+              <CardContent className="pt-6 px-0 md:px-6">
+                <h2 className="text-xl font-bold mb-4 px-0">Especificações</h2>
                 {specifications.length > 0 ? (
                   <div className="space-y-3">
                     {specifications.map(([key, value]) => (
@@ -804,8 +804,8 @@ const ProductDetails = () => {
             </Card>
 
             {/* Description Section */}
-            <Card>
-              <CardContent className="pt-6">
+            <Card className="border-0 shadow-none md:border md:shadow-sm">
+              <CardContent className="pt-6 px-0 md:px-6">
                 <h2 className="text-xl font-bold mb-4">Descrição Completa</h2>
                 <div className="prose prose-sm max-w-none">
                   <p className="text-sm leading-relaxed">{product.description}</p>
@@ -813,81 +813,108 @@ const ProductDetails = () => {
               </CardContent>
             </Card>
 
-            {/* Reviews Section - Minimalist */}
-            <Card id="reviews-section" className="overflow-hidden">
-              <CardContent className="p-6">
-                <div className="mb-4">
-                  <h2 className="text-xl font-bold flex items-center gap-2">
-                    <MessageSquare className="w-5 h-5 text-blue-600" />
-                    Avaliações
-                  </h2>
+            {/* Reviews Section - Modern Design */}
+            <div id="reviews-section" className="scroll-mt-20">
+              <div className="mb-6">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="p-2 rounded-lg bg-primary/10">
+                    <MessageSquare className="w-5 h-5 text-primary" />
+                  </div>
+                  <h2 className="text-2xl font-bold">Avaliações de Clientes</h2>
                 </div>
-                <ProfessionalReviews productId={product.id} />
-              </CardContent>
-            </Card>
+                <p className="text-sm text-muted-foreground">
+                  Veja o que nossos clientes têm a dizer sobre este produto
+                </p>
+              </div>
+              <ProfessionalReviews productId={product.id} />
+            </div>
           </div>
 
-          {/* Desktop: Tabs */}
+          {/* Desktop: Modern Tabs */}
           <div className="hidden md:block">
             <Tabs defaultValue="specifications" className="w-full">
-              <TabsList className="w-full grid grid-cols-3 gap-2 p-1">
+              <TabsList className="w-full grid grid-cols-3 gap-3 p-1.5 bg-muted/50 rounded-xl">
                 <TabsTrigger 
                   value="specifications" 
-                  className="text-sm py-2.5 px-4"
+                  className="text-sm py-3 px-4 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
                 >
-                  Especificações
+                  <div className="flex items-center gap-2">
+                    <Package className="w-4 h-4" />
+                    <span>Especificações</span>
+                  </div>
                 </TabsTrigger>
                 <TabsTrigger 
                   value="description" 
-                  className="text-sm py-2.5 px-4"
+                  className="text-sm py-3 px-4 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
                 >
-                  Descrição Completa
+                  <div className="flex items-center gap-2">
+                    <Award className="w-4 h-4" />
+                    <span>Descrição</span>
+                  </div>
                 </TabsTrigger>
                 <TabsTrigger 
                   value="reviews" 
-                  className="text-sm py-2.5 px-4"
+                  className="text-sm py-3 px-4 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm transition-all"
                 >
-                  Avaliações
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4" />
+                    <span>Avaliações</span>
+                  </div>
                 </TabsTrigger>
               </TabsList>              <TabsContent value="specifications" className="mt-6">
-                <Card>
+                <Card className="border-border/50">
                   <CardContent className="pt-6 px-6">
                     {specifications.length > 0 ? (
-                      <div className="space-y-4">
+                      <div className="space-y-3">
                         {specifications.map(([key, value]) => (
-                          <div key={key} className="flex justify-between gap-2 py-3 border-b last:border-b-0">
-                            <span className="font-medium text-base capitalize">
-                              {key.replace(/_/g, ' ')}:
+                          <div key={key} className="flex justify-between gap-4 py-3 border-b border-border/40 last:border-b-0 hover:bg-muted/30 transition-colors rounded px-2">
+                            <span className="font-medium text-base capitalize flex items-center gap-2">
+                              <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+                              {key.replace(/_/g, ' ')}
                             </span>
-                            <span className="text-muted-foreground text-base text-right">{value}</span>
+                            <span className="text-muted-foreground text-base text-right font-medium">{value}</span>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <p className="text-muted-foreground text-center py-8">
-                        Especificações não disponíveis para este produto.
-                      </p>
+                      <div className="text-center py-12">
+                        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted mb-4">
+                          <Package className="w-8 h-8 text-muted-foreground" />
+                        </div>
+                        <p className="text-muted-foreground">
+                          Especificações não disponíveis para este produto.
+                        </p>
+                      </div>
                     )}
                   </CardContent>
                 </Card>
               </TabsContent>
 
               <TabsContent value="description" className="mt-6">
-                <Card>
+                <Card className="border-border/50">
                   <CardContent className="pt-6 px-6">
                     <div className="prose prose-sm max-w-none">
-                      <p className="text-base leading-relaxed">{product.description}</p>
+                      <p className="text-base leading-relaxed text-foreground/90">{product.description}</p>
                     </div>
                   </CardContent>
                 </Card>
               </TabsContent>
 
               <TabsContent value="reviews" className="mt-6">
-                <Card className="overflow-hidden">
-                  <CardContent className="p-8">
-                    <ProfessionalReviews productId={product.id} />
-                  </CardContent>
-                </Card>
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-primary/10">
+                      <MessageSquare className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold">Avaliações de Clientes</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Veja o que nossos clientes têm a dizer
+                      </p>
+                    </div>
+                  </div>
+                  <ProfessionalReviews productId={product.id} />
+                </div>
               </TabsContent>
             </Tabs>
           </div>
