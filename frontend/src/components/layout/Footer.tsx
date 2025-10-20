@@ -24,11 +24,8 @@ const Footer = () => {
   ];
 
   const paymentMethods = [
-    'Cartão de Crédito/Débito',
     'M-Pesa',
-    'Carteira Digital',
-    'Transferência Bancária',
-    'Pagamento na Entrega'
+    'E-mola',
   ];
 
   return (
@@ -38,18 +35,6 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* Company Info */}
           <div className="space-y-4">
-            {/* <div>
-              <img 
-                src="/lovable-uploads/image.png" 
-                alt="Chiva Computer & Service" 
-                className="h-12 w-auto mb-4"
-              />
-              <p className="text-sm text-muted-foreground">
-                Há mais de 15 anos oferecendo soluções completas em computadores 
-                e produtos de informática para todo Moçambique.
-              </p>
-            </div> */}
-            
             {/* Social Media */}
             <div>
               <h4 className="font-semibold mb-3">Redes Sociais</h4>
@@ -122,7 +107,7 @@ const Footer = () => {
               </div>
               <div className="flex items-start space-x-2 text-sm">
                 <MapPin className="h-4 w-4 text-primary mt-0.5" />
-                <span>Av. Julius Nyerere, 1234<br />Maputo, Moçambique</span>
+                <span>Nampula Shopping 1 andar loja 20<br />Nampula, Moçambique</span>
               </div>
               <div className="flex items-center space-x-2 text-sm">
                 <Clock className="h-4 w-4 text-primary" />

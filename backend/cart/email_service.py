@@ -4,6 +4,8 @@ Serviço de Email usando Brevo (Sendinblue) - TOTALMENTE GRATUITO
 """
 
 import logging
+import os
+from pathlib import Path
 from typing import Dict, List, Optional
 from decimal import Decimal
 from django.conf import settings
@@ -24,6 +26,9 @@ class EmailService:
         self.sender_name = settings.BREVO_SENDER_NAME
         self.admin_email = settings.ADMIN_EMAIL
         self.enabled = settings.EMAIL_NOTIFICATIONS_ENABLED
+        
+        # Diretório dos templates
+        self.templates_dir = Path(__file__).parent / 'email_templates'
 
         # Lazy import para evitar erro se SDK não estiver instalado
         if self.enabled and self.api_key:
@@ -42,6 +47,43 @@ class EmailService:
                 self.enabled = False
         else:
             logger.info("Email notifications desabilitadas ou API key não configurada")
+
+    def _load_template(self, template_name: str) -> str:
+        """
+        Carrega template HTML do arquivo
+        """
+        template_path = self.templates_dir / template_name
+        try:
+            with open(template_path, 'r', encoding='utf-8') as f:
+                return f.read()
+        except FileNotFoundError:
+            logger.error(f"Template não encontrado: {template_path}")
+            return ""
+        except Exception as e:
+            logger.error(f"Erro ao carregar template {template_name}: {e}")
+            return ""
+
+    def _render_template(self, template_html: str, context: Dict[str, str]) -> str:
+        """
+        Substitui variáveis {{VAR_NAME}} no template pelos valores do context
+        """
+        rendered = template_html
+        for key, value in context.items():
+            placeholder = f"{{{{{key}}}}}"  # {{KEY}}
+            rendered = rendered.replace(placeholder, str(value))
+        return rendered
+
+    def _format_shipping_address(self, order) -> str:
+        """
+        Formata endereço de entrega do pedido
+        """
+        if isinstance(order.shipping_address, dict):
+            address = order.shipping_address.get('address', '')
+            city = order.shipping_address.get('city', '')
+            province = order.shipping_address.get('province', '')
+            return f"{address}, {city}, {province}".strip(', ')
+        else:
+            return str(order.shipping_address) if order.shipping_address else "N/A"
 
     def _send_email(
         self,
@@ -96,6 +138,11 @@ class EmailService:
 
         subject = f"✅ Pedido #{order.order_number} Confirmado - Chiva Computer"
         
+        # Carregar template
+        template = self._load_template('order_confirmation.html')
+        if not template:
+            return False
+        
         # Buscar items do pedido
         order_items = order.items.all()
         items_html = ""
@@ -117,217 +164,100 @@ class EmailService:
             </tr>
             """
 
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        </head>
-        <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-            
-            <!-- Header -->
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-                <h1 style="margin: 0; font-size: 28px;">🎉 Pedido Confirmado!</h1>
-                <p style="margin: 10px 0 0 0; font-size: 16px;">Obrigado pela sua compra</p>
-            </div>
+        # Context com todas as variáveis do template
+        context = {
+            'CUSTOMER_NAME': customer_name,
+            'ORDER_NUMBER': order.order_number,
+            'ORDER_DATE': order.created_at.strftime('%d/%m/%Y às %H:%M'),
+            'ORDER_STATUS': order.get_status_display(),
+            'ORDER_ITEMS': items_html,
+            'SUBTOTAL': f"{order.total_amount:.2f}",
+            'SHIPPING_COST': f"{order.shipping_cost:.2f}",
+            'TOTAL_AMOUNT': f"{order.total_amount + order.shipping_cost:.2f}",
+            'SHIPPING_ADDRESS': self._format_shipping_address(order),
+            'PAYMENT_METHOD': 'M-PESA/e-Mola',
+        }
 
-            <!-- Content -->
-            <div style="background: #ffffff; padding: 30px; border: 1px solid #e0e0e0; border-top: none;">
-                
-                <p style="font-size: 16px;">Olá <strong>{customer_name}</strong>,</p>
-                
-                <p>Recebemos o seu pedido e ele está sendo processado. Você receberá atualizações sobre o status do pagamento e envio.</p>
+        html_content = self._render_template(template, context)
+        return self._send_email(customer_email, customer_name, subject, html_content)
 
-                <!-- Order Info Box -->
-                <div style="background: #f8f9fa; border-left: 4px solid #667eea; padding: 15px; margin: 20px 0; border-radius: 5px;">
-                    <h3 style="margin: 0 0 10px 0; color: #667eea;">📦 Detalhes do Pedido</h3>
-                    <p style="margin: 5px 0;"><strong>Número do Pedido:</strong> #{order.order_number}</p>
-                    <p style="margin: 5px 0;"><strong>Data:</strong> {order.created_at.strftime('%d/%m/%Y às %H:%M')}</p>
-                    <p style="margin: 5px 0;"><strong>Status:</strong> {order.get_status_display()}</p>
-                </div>
-
-                <!-- Order Items Table -->
-                <h3 style="color: #333; border-bottom: 2px solid #667eea; padding-bottom: 10px;">Itens do Pedido</h3>
-                <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-                    <thead>
-                        <tr style="background: #f8f9fa;">
-                            <th style="padding: 12px; text-align: left; border-bottom: 2px solid #667eea;">Produto</th>
-                            <th style="padding: 12px; text-align: center; border-bottom: 2px solid #667eea;">Qtd</th>
-                            <th style="padding: 12px; text-align: right; border-bottom: 2px solid #667eea;">Preço Unit.</th>
-                            <th style="padding: 12px; text-align: right; border-bottom: 2px solid #667eea;">Subtotal</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {items_html}
-                    </tbody>
-                </table>
-
-                <!-- Total -->
-                <div style="text-align: right; margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 5px;">
-                    <p style="margin: 5px 0; font-size: 14px;">Subtotal: {order.total_amount - order.shipping_cost:.2f} MZN</p>
-                    <p style="margin: 5px 0; font-size: 14px;">Envio: {order.shipping_cost:.2f} MZN</p>
-                    <p style="margin: 10px 0 0 0; font-size: 20px; font-weight: bold; color: #667eea;">
-                        Total: {order.total_amount:.2f} MZN
-                    </p>
-                </div>
-
-                <!-- Shipping Address -->
-                <div style="background: #f8f9fa; padding: 15px; margin: 20px 0; border-radius: 5px;">
-                    <h3 style="margin: 0 0 10px 0; color: #667eea;">🚚 Endereço de Entrega</h3>
-                    <p style="margin: 5px 0;">{order.shipping_address.get('name', 'N/A')}</p>
-                    <p style="margin: 5px 0;">{order.shipping_address.get('address', 'N/A')}</p>
-                    <p style="margin: 5px 0;">{order.shipping_address.get('city', 'N/A')}, {order.shipping_address.get('province', 'N/A')}</p>
-                    <p style="margin: 5px 0;">📱 {order.shipping_address.get('phone', 'N/A')}</p>
-                </div>
-
-                <!-- Next Steps -->
-                <div style="background: #e8f4f8; border-left: 4px solid #17a2b8; padding: 15px; margin: 20px 0; border-radius: 5px;">
-                    <h3 style="margin: 0 0 10px 0; color: #17a2b8;">📋 Próximos Passos</h3>
-                    <ul style="margin: 0; padding-left: 20px;">
-                        <li>Confirmaremos o pagamento em breve</li>
-                        <li>Você receberá um email quando o pedido for enviado</li>
-                        <li>Acompanhe o status na sua área de pedidos</li>
-                    </ul>
-                </div>
-
-                <!-- CTA Button -->
-                <div style="text-align: center; margin: 30px 0;">
-                    <a href="https://chivacomputer.co.mz/meus-pedidos" 
-                       style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 40px; text-decoration: none; border-radius: 50px; font-weight: bold; font-size: 16px;">
-                        Acompanhar Pedido
-                    </a>
-                </div>
-
-                <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
-
-                <p style="font-size: 14px; color: #666; text-align: center;">
-                    Dúvidas? Entre em contato: <a href="mailto:suporte@chivacomputer.co.mz" style="color: #667eea;">suporte@chivacomputer.co.mz</a>
-                </p>
-            </div>
-
-            <!-- Footer -->
-            <div style="background: #f8f9fa; padding: 20px; text-align: center; border-radius: 0 0 10px 10px;">
-                <p style="margin: 0; font-size: 14px; color: #666;">
-                    <strong>Chiva Computer</strong><br>
-                    A sua loja de confiança em Moçambique<br>
-                    📍 Maputo | 📧 contato@chivacomputer.co.mz
-                </p>
-            </div>
-
-        </body>
-        </html>
-        """
-
-        return self._send_email(
-            to_email=customer_email,
-            to_name=customer_name,
-            subject=subject,
-            html_content=html_content
-        )
 
     def send_payment_status_update(
-        self, 
-        order, 
-        payment_status: str,
+        self,
+        order,
         customer_email: str,
-        customer_name: str
+        customer_name: str,
+        payment_status: str
     ) -> bool:
         """
-        Email de atualização do status de pagamento
+        Email de atualização de status de pagamento
         """
         if not settings.SEND_PAYMENT_STATUS:
             return False
 
-        status_info = {
-            'paid': {
+        # Carregar template
+        template = self._load_template('payment_status.html')
+        if not template:
+            return False
+
+        # Configurações por status
+        status_config = {
+            'approved': {
                 'emoji': '✅',
                 'title': 'Pagamento Aprovado!',
-                'message': 'Seu pagamento foi confirmado com sucesso. Estamos preparando seu pedido para envio.',
-                'color': '#28a745',
-                'bg_color': '#d4edda'
+                'message': 'Ótimas notícias! Seu pagamento foi confirmado e seu pedido está sendo processado.',
+                'header_color': 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                'bg_color': '#d1fae5',
+                'cta_text': 'Acompanhar Pedido',
+                'cta_url': 'https://chivacomputer.co.mz/meus-pedidos'
             },
             'pending': {
                 'emoji': '⏳',
                 'title': 'Pagamento Pendente',
-                'message': 'Estamos aguardando a confirmação do pagamento. Isso pode levar alguns minutos.',
-                'color': '#ffc107',
-                'bg_color': '#fff3cd'
+                'message': 'Estamos aguardando a confirmação do seu pagamento. Isso pode levar alguns minutos.',
+                'header_color': 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                'bg_color': '#fef3c7',
+                'cta_text': 'Verificar Status',
+                'cta_url': 'https://chivacomputer.co.mz/meus-pedidos'
             },
             'failed': {
                 'emoji': '❌',
                 'title': 'Pagamento Não Aprovado',
-                'message': 'Infelizmente o pagamento não foi aprovado. Por favor, tente novamente ou escolha outro método.',
-                'color': '#dc3545',
-                'bg_color': '#f8d7da'
+                'message': 'Infelizmente seu pagamento não foi aprovado. Por favor, tente novamente ou use outro método de pagamento.',
+                'header_color': 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                'bg_color': '#fee2e2',
+                'cta_text': 'Tentar Novamente',
+                'cta_url': 'https://chivacomputer.co.mz/checkout'
             }
         }
 
-        info = status_info.get(payment_status, status_info['pending'])
-        
-        subject = f"{info['emoji']} {info['title']} - Pedido #{order.order_number}"
+        config = status_config.get(payment_status, status_config['pending'])
+        subject = f"{config['emoji']} {config['title']} - Pedido #{order.order_number}"
 
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        </head>
-        <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-            
-            <div style="background: {info['color']}; color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-                <h1 style="margin: 0; font-size: 32px;">{info['emoji']}</h1>
-                <h2 style="margin: 10px 0 0 0; font-size: 24px;">{info['title']}</h2>
-            </div>
+        context = {
+            'CUSTOMER_NAME': customer_name,
+            'STATUS_EMOJI': config['emoji'],
+            'STATUS_TITLE': config['title'],
+            'STATUS_MESSAGE': config['message'],
+            'HEADER_COLOR': config['header_color'],
+            'BG_COLOR': config['bg_color'],
+            'ORDER_NUMBER': order.order_number,
+            'PAYMENT_STATUS': payment_status.upper(),
+            'TOTAL_AMOUNT': f"{order.total_amount:.2f}",
+            'CTA_TEXT': config['cta_text'],
+            'CTA_URL': config['cta_url']
+        }
 
-            <div style="background: #ffffff; padding: 30px; border: 1px solid #e0e0e0; border-top: none;">
-                
-                <p style="font-size: 16px;">Olá <strong>{customer_name}</strong>,</p>
-                
-                <div style="background: {info['bg_color']}; border-left: 4px solid {info['color']}; padding: 15px; margin: 20px 0; border-radius: 5px;">
-                    <p style="margin: 0; font-size: 16px;">{info['message']}</p>
-                </div>
+        html_content = self._render_template(template, context)
+        return self._send_email(customer_email, customer_name, subject, html_content)
 
-                <div style="background: #f8f9fa; padding: 15px; margin: 20px 0; border-radius: 5px;">
-                    <p style="margin: 5px 0;"><strong>Número do Pedido:</strong> #{order.order_number}</p>
-                    <p style="margin: 5px 0;"><strong>Status do Pagamento:</strong> {payment_status.upper()}</p>
-                    <p style="margin: 5px 0;"><strong>Valor Total:</strong> {order.total_amount:.2f} MZN</p>
-                </div>
-
-                {'<div style="text-align: center; margin: 30px 0;"><a href="https://chivacomputer.co.mz/meus-pedidos" style="display: inline-block; background: ' + info["color"] + '; color: white; padding: 15px 40px; text-decoration: none; border-radius: 50px; font-weight: bold;">Acompanhar Pedido</a></div>' if payment_status != 'failed' else '<div style="text-align: center; margin: 30px 0;"><a href="https://chivacomputer.co.mz/carrinho" style="display: inline-block; background: ' + info["color"] + '; color: white; padding: 15px 40px; text-decoration: none; border-radius: 50px; font-weight: bold;">Tentar Novamente</a></div>'}
-
-                <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
-
-                <p style="font-size: 14px; color: #666; text-align: center;">
-                    Dúvidas? Entre em contato: <a href="mailto:suporte@chivacomputer.co.mz" style="color: #667eea;">suporte@chivacomputer.co.mz</a>
-                </p>
-            </div>
-
-            <div style="background: #f8f9fa; padding: 20px; text-align: center; border-radius: 0 0 10px 10px;">
-                <p style="margin: 0; font-size: 14px; color: #666;">
-                    <strong>Chiva Computer</strong><br>
-                    📧 contato@chivacomputer.co.mz
-                </p>
-            </div>
-
-        </body>
-        </html>
-        """
-
-        return self._send_email(
-            to_email=customer_email,
-            to_name=customer_name,
-            subject=subject,
-            html_content=html_content
-        )
 
     def send_shipping_update(
         self,
         order,
-        tracking_number: Optional[str],
         customer_email: str,
-        customer_name: str
+        customer_name: str,
+        tracking_number: Optional[str] = None
     ) -> bool:
         """
         Email de atualização de envio
@@ -335,74 +265,41 @@ class EmailService:
         if not settings.SEND_SHIPPING_UPDATES:
             return False
 
-        subject = f"📦 Seu pedido foi enviado - #{order.order_number}"
+        subject = f"📦 Pedido #{order.order_number} Enviado - Chiva Computer"
+        
+        # Carregar template
+        template = self._load_template('shipping_update.html')
+        if not template:
+            return False
 
-        tracking_html = ""
+        # Seção de rastreamento (se disponível)
+        tracking_section = ""
         if tracking_number:
-            tracking_html = f"""
-            <div style="background: #e8f4f8; border-left: 4px solid #17a2b8; padding: 15px; margin: 20px 0; border-radius: 5px;">
-                <h3 style="margin: 0 0 10px 0; color: #17a2b8;">🚚 Código de Rastreamento</h3>
-                <p style="margin: 0; font-size: 18px; font-weight: bold; color: #17a2b8;">{tracking_number}</p>
-            </div>
+            tracking_section = f"""
+            <table width="100%" cellpadding="15" cellspacing="0" style="background: #d1fae5; border-left: 4px solid #10b981; border-radius: 5px; margin: 25px 0;">
+                <tr>
+                    <td style="text-align: center;">
+                        <p style="margin: 0 0 10px 0; font-size: 14px; color: #065f46;">
+                            <strong>Código de Rastreamento:</strong>
+                        </p>
+                        <p style="margin: 0; font-size: 24px; font-weight: bold; color: #10b981; letter-spacing: 2px;">
+                            {tracking_number}
+                        </p>
+                    </td>
+                </tr>
+            </table>
             """
 
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        </head>
-        <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-            
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-                <h1 style="margin: 0; font-size: 28px;">📦 Pedido Enviado!</h1>
-                <p style="margin: 10px 0 0 0; font-size: 16px;">Seu pedido está a caminho</p>
-            </div>
+        context = {
+            'CUSTOMER_NAME': customer_name,
+            'ORDER_NUMBER': order.order_number,
+            'SHIPPING_METHOD': order.shipping_method or 'Entrega Padrão',
+            'TRACKING_SECTION': tracking_section
+        }
 
-            <div style="background: #ffffff; padding: 30px; border: 1px solid #e0e0e0; border-top: none;">
-                
-                <p style="font-size: 16px;">Olá <strong>{customer_name}</strong>,</p>
-                
-                <p>Ótimas notícias! Seu pedido foi enviado e está a caminho do endereço de entrega.</p>
+        html_content = self._render_template(template, context)
+        return self._send_email(customer_email, customer_name, subject, html_content)
 
-                {tracking_html}
-
-                <div style="background: #f8f9fa; padding: 15px; margin: 20px 0; border-radius: 5px;">
-                    <p style="margin: 5px 0;"><strong>Número do Pedido:</strong> #{order.order_number}</p>
-                    <p style="margin: 5px 0;"><strong>Método de Envio:</strong> {order.get_shipping_method_display()}</p>
-                </div>
-
-                <div style="text-align: center; margin: 30px 0;">
-                    <a href="https://chivacomputer.co.mz/meus-pedidos" 
-                       style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 40px; text-decoration: none; border-radius: 50px; font-weight: bold;">
-                        Acompanhar Entrega
-                    </a>
-                </div>
-
-                <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
-
-                <p style="font-size: 14px; color: #666; text-align: center;">
-                    Dúvidas? Entre em contato: <a href="mailto:suporte@chivacomputer.co.mz" style="color: #667eea;">suporte@chivacomputer.co.mz</a>
-                </p>
-            </div>
-
-            <div style="background: #f8f9fa; padding: 20px; text-align: center; border-radius: 0 0 10px 10px;">
-                <p style="margin: 0; font-size: 14px; color: #666;">
-                    <strong>Chiva Computer</strong>
-                </p>
-            </div>
-
-        </body>
-        </html>
-        """
-
-        return self._send_email(
-            to_email=customer_email,
-            to_name=customer_name,
-            subject=subject,
-            html_content=html_content
-        )
 
     def send_cart_recovery_email(
         self,
@@ -417,92 +314,49 @@ class EmailService:
         if not settings.SEND_CART_RECOVERY:
             return False
 
-        items_count = cart.items.count()
-        total = cart.total
+        subject = f"🛒 {customer_name}, seu carrinho te espera na Chiva Computer!"
+        
+        # Carregar template
+        template = self._load_template('cart_recovery.html')
+        if not template:
+            return False
 
-        subject = f"🛒 Você esqueceu algo no carrinho - Chiva Computer"
-
-        # Listar alguns produtos
+        # Buscar items do carrinho
+        cart_items = cart.items.all()
+        items_count = cart_items.count()
+        items_text = "item" if items_count == 1 else "itens"
+        
         items_html = ""
-        for item in cart.items.all()[:3]:  # Máximo 3 produtos
+        for item in cart_items:
             items_html += f"""
-            <div style="display: flex; align-items: center; margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 5px;">
-                <div style="flex: 1;">
-                    <p style="margin: 0; font-weight: bold;">{item.product.name}</p>
-                    <p style="margin: 5px 0 0 0; font-size: 14px; color: #666;">
-                        Quantidade: {item.quantity} | Preço: {item.price:.2f} MZN
-                    </p>
-                </div>
-            </div>
+            <table width="100%" cellpadding="10" cellspacing="0" style="background: #f8f9fa; border-radius: 5px; margin: 10px 0;">
+                <tr>
+                    <td style="width: 70%;">
+                        <strong>{item.product.name}</strong>
+                        {f'<br><span style="color: #666; font-size: 14px;">Cor: {item.color.name}</span>' if item.color else ''}
+                    </td>
+                    <td style="text-align: center; color: #666;">
+                        x{item.quantity}
+                    </td>
+                    <td style="text-align: right; font-weight: bold;">
+                        {item.product.price * item.quantity:.2f} MZN
+                    </td>
+                </tr>
+            </table>
             """
 
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        </head>
-        <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-            
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-                <h1 style="margin: 0; font-size: 28px;">🛒 Seu carrinho te espera!</h1>
-                <p style="margin: 10px 0 0 0; font-size: 16px;">Não perca seus produtos favoritos</p>
-            </div>
+        context = {
+            'CUSTOMER_NAME': customer_name,
+            'ITEMS_COUNT': str(items_count),
+            'ITEMS_TEXT': items_text,
+            'CART_ITEMS': items_html,
+            'CART_TOTAL': f"{cart.total:.2f}" if cart.total else "0.00",
+            'RECOVERY_URL': recovery_url
+        }
 
-            <div style="background: #ffffff; padding: 30px; border: 1px solid #e0e0e0; border-top: none;">
-                
-                <p style="font-size: 16px;">Olá <strong>{customer_name}</strong>,</p>
-                
-                <p>Notamos que você deixou {items_count} {'item' if items_count == 1 else 'itens'} no seu carrinho. Ainda está interessado?</p>
+        html_content = self._render_template(template, context)
+        return self._send_email(customer_email, customer_name, subject, html_content)
 
-                <div style="margin: 20px 0;">
-                    {items_html}
-                </div>
-
-                <div style="background: #f8f9fa; padding: 15px; text-align: center; border-radius: 5px; margin: 20px 0;">
-                    <p style="margin: 0; font-size: 14px; color: #666;">Total do Carrinho</p>
-                    <p style="margin: 5px 0 0 0; font-size: 24px; font-weight: bold; color: #667eea;">
-                        {total:.2f} MZN
-                    </p>
-                </div>
-
-                <div style="text-align: center; margin: 30px 0;">
-                    <a href="{recovery_url}" 
-                       style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 40px; text-decoration: none; border-radius: 50px; font-weight: bold; font-size: 16px;">
-                        🛍️ Finalizar Compra Agora
-                    </a>
-                </div>
-
-                <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; border-radius: 5px;">
-                    <p style="margin: 0; font-size: 14px;">
-                        ⚠️ <strong>Atenção:</strong> Os itens no seu carrinho têm estoque limitado. Complete sua compra antes que acabem!
-                    </p>
-                </div>
-
-                <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
-
-                <p style="font-size: 14px; color: #666; text-align: center;">
-                    Dúvidas? Entre em contato: <a href="mailto:suporte@chivacomputer.co.mz" style="color: #667eea;">suporte@chivacomputer.co.mz</a>
-                </p>
-            </div>
-
-            <div style="background: #f8f9fa; padding: 20px; text-align: center; border-radius: 0 0 10px 10px;">
-                <p style="margin: 0; font-size: 14px; color: #666;">
-                    <strong>Chiva Computer</strong>
-                </p>
-            </div>
-
-        </body>
-        </html>
-        """
-
-        return self._send_email(
-            to_email=customer_email,
-            to_name=customer_name,
-            subject=subject,
-            html_content=html_content
-        )
 
     # ========================================
     # EMAILS PARA ADMIN
@@ -510,87 +364,76 @@ class EmailService:
 
     def send_new_order_notification_to_admin(self, order) -> bool:
         """
-        Notificar admin sobre nova venda
+        Email de notificação de nova venda para o admin
         """
-        if not settings.SEND_ADMIN_NOTIFICATIONS:
+        if not settings.SEND_ADMIN_NOTIFICATIONS or not self.admin_email:
             return False
 
-        subject = f"🔔 Nova Venda #{order.order_number} - {order.total_amount:.2f} MZN"
+        subject = f"🎉 Nova Venda #{order.order_number} - Chiva Computer"
+        
+        # Carregar template
+        template = self._load_template('admin_new_order.html')
+        if not template:
+            return False
 
-        # Listar items
+        # Items do pedido
+        order_items = order.items.all()
         items_html = ""
-        for item in order.items.all():
+        for item in order_items:
             items_html += f"""
-            <tr>
-                <td style="padding: 8px; border-bottom: 1px solid #ddd;">{item.product_name}</td>
-                <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center;">{item.quantity}</td>
-                <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">{item.subtotal:.2f} MZN</td>
+            <tr style="background: #ffffff;">
+                <td style="padding: 10px; border-bottom: 1px solid #dee2e6;">
+                    {item.product_name}
+                    {f'<br><small style="color: #666;">Cor: {item.color_name}</small>' if item.color_name else ''}
+                </td>
+                <td style="text-align: center; padding: 10px; border-bottom: 1px solid #dee2e6;">
+                    {item.quantity}
+                </td>
+                <td style="text-align: right; padding: 10px; border-bottom: 1px solid #dee2e6; font-weight: bold;">
+                    {item.subtotal:.2f} MZN
+                </td>
             </tr>
             """
 
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-        </head>
-        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-            
-            <h2 style="color: #28a745;">🎉 Nova Venda Recebida!</h2>
-            
-            <p><strong>Pedido:</strong> #{order.order_number}</p>
-            <p><strong>Data:</strong> {order.created_at.strftime('%d/%m/%Y às %H:%M')}</p>
-            <p><strong>Cliente:</strong> {order.shipping_address.get('name', 'N/A')}</p>
-            <p><strong>Email:</strong> {order.shipping_address.get('email', 'N/A')}</p>
-            <p><strong>Telefone:</strong> {order.shipping_address.get('phone', 'N/A')}</p>
-            
-            <h3>Endereço de Entrega:</h3>
-            <p>
-                {order.shipping_address.get('address', 'N/A')}<br>
-                {order.shipping_address.get('city', 'N/A')}, {order.shipping_address.get('province', 'N/A')}
-            </p>
-
-            <h3>Itens do Pedido:</h3>
-            <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-                <thead>
-                    <tr style="background: #f8f9fa;">
-                        <th style="padding: 8px; text-align: left; border-bottom: 2px solid #28a745;">Produto</th>
-                        <th style="padding: 8px; text-align: center; border-bottom: 2px solid #28a745;">Qtd</th>
-                        <th style="padding: 8px; text-align: right; border-bottom: 2px solid #28a745;">Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {items_html}
-                </tbody>
+        # Seção de ação necessária (se houver)
+        action_section = ""
+        if order.status == 'pending_payment':
+            action_section = """
+            <table width="100%" cellpadding="15" cellspacing="0" style="background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 5px; margin: 25px 0;">
+                <tr>
+                    <td>
+                        <p style="margin: 0; font-size: 14px; color: #856404;">
+                            ⚠️ <strong>Ação Necessária:</strong> Aguardando confirmação de pagamento
+                        </p>
+                    </td>
+                </tr>
             </table>
+            """
 
-            <p style="font-size: 18px; font-weight: bold; color: #28a745;">
-                Total: {order.total_amount:.2f} MZN
-            </p>
+        context = {
+            'ORDER_NUMBER': order.order_number,
+            'ORDER_DATE': order.created_at.strftime('%d/%m/%Y às %H:%M'),
+            'CUSTOMER_NAME': order.user.get_full_name() if order.user else 'Não informado',
+            'CUSTOMER_EMAIL': order.user.email if order.user else 'Não informado',
+            'CUSTOMER_PHONE': order.shipping_address.get('phone', 'Não informado') if isinstance(order.shipping_address, dict) else 'Não informado',
+            'SHIPPING_ADDRESS': order.shipping_address.get('address', 'Não informado') if isinstance(order.shipping_address, dict) else str(order.shipping_address),
+            'SHIPPING_CITY': order.shipping_address.get('city', '') if isinstance(order.shipping_address, dict) else '',
+            'SHIPPING_PROVINCE': order.shipping_address.get('province', '') if isinstance(order.shipping_address, dict) else '',
+            'ORDER_ITEMS': items_html,
+            'TOTAL_AMOUNT': f"{order.total_amount:.2f}",
+            'ACTION_SECTION': action_section
+        }
 
-            <hr>
-            <p style="font-size: 12px; color: #666;">
-                Este é um email automático do sistema Chiva Computer.
-            </p>
-
-        </body>
-        </html>
-        """
-
-        return self._send_email(
-            to_email=self.admin_email,
-            to_name="Admin Chiva",
-            subject=subject,
-            html_content=html_content
-        )
+        html_content = self._render_template(template, context)
+        return self._send_email(self.admin_email, "Admin Chiva", subject, html_content)
 
 
-# Singleton instance
+# Instância global do serviço
 _email_service = None
 
 def get_email_service() -> EmailService:
     """
-    Retorna a instância singleton do EmailService
+    Retorna instância singleton do EmailService
     """
     global _email_service
     if _email_service is None:
