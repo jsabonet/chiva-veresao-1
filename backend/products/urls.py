@@ -35,6 +35,7 @@ urlpatterns = [
     # Reviews URLs (place before the generic slug route to avoid conflicts with product slugs)
     path('products/<int:product_id>/reviews/', views.ReviewListCreateView.as_view(), name='review-list-create'),
     path('reviews/<int:pk>/', views.ReviewDetailView.as_view(), name='review-detail'),
+    path('reviews/<int:pk>/helpful/', views.review_toggle_helpful, name='review-helpful'),
     # Admin review listing and moderation
     path('products/reviews/', views.review_admin_list, name='review-admin-list'),
     path('products/reviews/<int:pk>/moderate/', views.review_moderate, name='review-moderate'),

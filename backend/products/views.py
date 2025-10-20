@@ -10,7 +10,7 @@ from django.core.files.base import File
 import os
 from django.utils import timezone
 from django.conf import settings
-from .models import Product, Category, Color, ProductImage, Subcategory, Favorite, Review
+from .models import Product, Category, Color, ProductImage, Subcategory, Favorite, Review, ReviewHelpfulVote
 from .serializers import (
     ProductListSerializer, 
     ProductDetailSerializer, 
@@ -776,15 +776,64 @@ class ReviewListCreateView(generics.ListCreateAPIView):
             
         # Regular users only see approved reviews
         queryset = queryset.filter(status='approved')
+        # Optional filter: with photos
+        if self.request.query_params.get('with_photos') in ['1', 'true', 'True']:
+            queryset = queryset.filter(images__isnull=False).distinct()
         # Sorting
         sort_by = self.request.query_params.get('sort_by', 'recent')
         if sort_by == 'highest':
             queryset = queryset.order_by('-rating', '-created_at')
         elif sort_by == 'lowest':
             queryset = queryset.order_by('rating', '-created_at')
+        elif sort_by == 'helpful':
+            queryset = queryset.order_by('-helpful_count', '-created_at')
         else:
             queryset = queryset.order_by('-created_at')
         return queryset
+
+    def list(self, request, *args, **kwargs):
+        """Return paginated reviews plus meta stats (distribution, total, average)."""
+        product_id = self.kwargs.get('product_id')
+        # Compute meta from approved reviews for the product (ignore rating filter)
+        base_qs = Review.objects.filter(product_id=product_id, status='approved')
+        counts = {i: 0 for i in range(1, 6)}
+        # Aggregate counts per rating
+        from django.db.models import Count as DJCount
+        agg = base_qs.values('rating').annotate(c=DJCount('id'))
+        total = 0
+        for row in agg:
+            r = int(row['rating'])
+            c = int(row['c'])
+            counts[r] = c
+            total += c
+        # Average
+        avg = base_qs.aggregate(a=Avg('rating')).get('a') or 0
+
+        queryset = self.get_queryset()
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            response = self.get_paginated_response(serializer.data)
+            # attach meta
+            response.data['meta'] = {
+                'counts': counts,
+                'total': total,
+                'average': round(float(avg), 1) if avg else 0,
+            }
+            return response
+        serializer = self.get_serializer(queryset, many=True)
+        data = {
+            'results': serializer.data,
+            'count': len(serializer.data),
+            'next': None,
+            'previous': None,
+            'meta': {
+                'counts': counts,
+                'total': total,
+                'average': round(float(avg), 1) if avg else 0,
+            }
+        }
+        return Response(data)
     
     def perform_create(self, serializer):
         product_id = self.kwargs.get('product_id')
@@ -795,6 +844,32 @@ class ReviewListCreateView(generics.ListCreateAPIView):
             product=product,
             status='pending'
         )
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def review_toggle_helpful(request, pk: int):
+    """Toggle helpful vote for a review by the authenticated user."""
+    try:
+        review = Review.objects.get(pk=pk, status='approved')
+    except Review.DoesNotExist:
+        return Response({'error': 'Review not found or not approved'}, status=status.HTTP_404_NOT_FOUND)
+
+    existing = ReviewHelpfulVote.objects.filter(review=review, user=request.user).first()
+    if existing:
+        # remove vote
+        existing.delete()
+        Review.objects.filter(pk=review.pk).update(helpful_count=F('helpful_count') - 1)
+        review.refresh_from_db(fields=['helpful_count'])
+        voted = False
+    else:
+        # add vote
+        ReviewHelpfulVote.objects.create(review=review, user=request.user)
+        Review.objects.filter(pk=review.pk).update(helpful_count=F('helpful_count') + 1)
+        review.refresh_from_db(fields=['helpful_count'])
+        voted = True
+
+    return Response({'helpful_count': review.helpful_count, 'user_has_voted_helpful': voted})
 
 
 class ReviewDetailView(generics.RetrieveUpdateDestroyAPIView):

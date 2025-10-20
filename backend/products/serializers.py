@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Product, Category, Color, ProductImage, Subcategory, Favorite, Review, ReviewImage
+from .models import Product, Category, Color, ProductImage, Subcategory, Favorite, Review, ReviewImage, ReviewHelpfulVote
 
 class ColorSerializer(serializers.ModelSerializer):
     """Serializer for Color model"""
@@ -99,6 +99,8 @@ class ReviewSerializer(serializers.ModelSerializer):
     moderation_notes = serializers.CharField(read_only=True)
     status = serializers.CharField(read_only=True)
     images = serializers.SerializerMethodField()
+    helpful_count = serializers.IntegerField(read_only=True)
+    user_has_voted_helpful = serializers.SerializerMethodField()
 
 
     class Meta:
@@ -107,50 +109,53 @@ class ReviewSerializer(serializers.ModelSerializer):
             'id', 'product', 'user', 'user_name', 'user_email',
             'user_first_name', 'user_last_name',
             'rating', 'comment', 'created_at', 'updated_at',
-            'product_name', 'moderated_by', 'moderation_notes', 'status', 'images'
+            'product_name', 'moderated_by', 'moderation_notes', 'status', 'images', 'helpful_count', 'user_has_voted_helpful'
         ]
         # user should be read-only for create requests; view will attach the user
         read_only_fields = ['id', 'user', 'user_name', 'user_email', 'user_first_name', 'user_last_name', 'created_at', 'updated_at',
                             'product_name', 'moderated_by', 'moderation_notes', 'status']
 
     def create(self, validated_data):
-        # Attach the request user instead of expecting it in the payload
+        # Always create a new review; do not upsert existing
         request = self.context.get('request')
         if request and getattr(request, 'user', None) and request.user.is_authenticated:
             user = request.user
         else:
             raise serializers.ValidationError({'user': 'Authentication required to create a review.'})
 
-        product = validated_data.get('product')
-        # If the user already has a review for this product, update it instead
-        # of rejecting — this acts as an 'upsert' so clients can POST to create
-        # or update their own review. When updating, reset status to 'pending'
-        # so the new content can be re-moderated.
-        existing = Review.objects.filter(user=user, product=product).first()
-        if existing:
-            existing.rating = validated_data.get('rating', existing.rating)
-            existing.comment = validated_data.get('comment', existing.comment)
-            # Reset moderation so re-submissions are reviewed again
-            existing.status = 'pending'
-            existing.moderation_notes = ''
-            existing.moderated_by = None
-            existing.moderated_at = None
-            existing.admin_seen = False
-            existing.save()
-            # If files present in request.FILES, attach images (append up to 4)
-            if request and hasattr(request, 'FILES'):
-                files = request.FILES.getlist('images') or request.FILES.getlist('images[]')
-                for i, f in enumerate(files[:4]):
-                    ReviewImage.objects.create(review=existing, image=f)
-            return existing
-        # Create a new pending review with admin_seen default False
-        review = Review.objects.create(user=user, admin_seen=False, **validated_data)
+        # Merge kwargs from serializer.save have been injected into validated_data by DRF
+        # Extract product and status safely to avoid duplicate kwargs
+        product = validated_data.pop('product', None)
+        if product is None:
+            raise serializers.ValidationError({'product': 'Product is required.'})
+
+        status_value = validated_data.pop('status', 'pending')
+
+        review = Review.objects.create(user=user, product=product, admin_seen=False, status=status_value, **validated_data)
+
         # Save images if provided
         if request and hasattr(request, 'FILES'):
             files = request.FILES.getlist('images') or request.FILES.getlist('images[]')
             for i, f in enumerate(files[:4]):
                 ReviewImage.objects.create(review=review, image=f)
         return review
+
+    def update(self, instance, validated_data):
+        # Update existing review: change rating/comment, reset moderation, append images
+        request = self.context.get('request')
+        instance.rating = validated_data.get('rating', instance.rating)
+        instance.comment = validated_data.get('comment', instance.comment)
+        instance.status = 'pending'
+        instance.moderation_notes = ''
+        instance.moderated_by = None
+        instance.moderated_at = None
+        instance.admin_seen = False
+        instance.save()
+        if request and hasattr(request, 'FILES'):
+            files = request.FILES.getlist('images') or request.FILES.getlist('images[]')
+            for i, f in enumerate(files[:4]):
+                ReviewImage.objects.create(review=instance, image=f)
+        return instance
 
     def get_images(self, obj):
         request = self.context.get('request')
@@ -165,6 +170,16 @@ class ReviewSerializer(serializers.ModelSerializer):
             except Exception:
                 continue
         return urls
+
+    def get_user_has_voted_helpful(self, obj):
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if user and user.is_authenticated:
+            try:
+                return ReviewHelpfulVote.objects.filter(review=obj, user=user).exists()
+            except Exception:
+                return False
+        return False
 
 
 class ProductDetailSerializer(serializers.ModelSerializer):

@@ -19,6 +19,7 @@ const ReviewFormModal: React.FC<ReviewFormModalProps> = ({ productId, onSubmitte
   const [comment, setComment] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [lastSubmitAt, setLastSubmitAt] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const onSelectFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -36,6 +37,12 @@ const ReviewFormModal: React.FC<ReviewFormModalProps> = ({ productId, onSubmitte
   };
 
   const submit = async () => {
+    const now = Date.now();
+    if (now - lastSubmitAt < 4000) {
+      // 4s throttle window to avoid double-submits
+      return;
+    }
+    setLastSubmitAt(now);
     if (!rating) {
       toast({ title: 'Erro', description: 'Selecione uma classificação.', variant: 'destructive' });
       return;

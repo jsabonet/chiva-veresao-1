@@ -96,6 +96,8 @@ export interface Review {
   };
   product_name?: string;  // Added for admin list view
   images?: string[]; // optional list of image URLs associated with this review
+  helpful_count?: number;
+  user_has_voted_helpful?: boolean;
 }
 
 interface ReviewModerationRequest {

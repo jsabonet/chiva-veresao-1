@@ -9,17 +9,20 @@ import { Button } from './button';
 import { apiClient } from '@/lib/api';
 import { formatReviewerName } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import ImageLightbox from '@/components/ui/ImageLightbox';
 
 
 
 
-export type ReviewSortOption = 'recent' | 'highest' | 'lowest';
+export type ReviewSortOption = 'recent' | 'highest' | 'lowest' | 'helpful';
 
 interface ReviewListProps {
   productId: number;
   initialReviews?: Review[];
   sort?: string;
   filter?: string;
+  pageSize?: number;
+  withPhotos?: boolean;
 }
 
 const ReviewList: React.FC<ReviewListProps> = ({ 
@@ -27,13 +30,16 @@ const ReviewList: React.FC<ReviewListProps> = ({
   initialReviews = [],
   sort = 'recent',
   filter = 'all',
+  pageSize = 5,
+  withPhotos = false,
 }) => {
   const { currentUser } = useAuth();
   const [reviews, setReviews] = React.useState<Review[]>(initialReviews);
   const [page, setPage] = React.useState(1);
   const [loading, setLoading] = React.useState(false);
   const [hasMore, setHasMore] = React.useState(true);
-  const PAGE_SIZE = 5;
+  const [lightbox, setLightbox] = React.useState<{ urls: string[]; index: number } | null>(null);
+  const PAGE_SIZE = pageSize;
   const api = apiClient;
 
   const loadReviews = async (pageNum: number = 1) => {
@@ -46,6 +52,9 @@ const ReviewList: React.FC<ReviewListProps> = ({
       };
       if (filter && filter !== 'all') {
         params.rating = filter;
+      }
+      if (withPhotos) {
+        params.with_photos = '1';
       }
       const data = await api.get<any>(`/products/${productId}/reviews/`, params);
       // Expecting paginated results
@@ -76,6 +85,35 @@ const ReviewList: React.FC<ReviewListProps> = ({
     }
   };
 
+  const toggleHelpful = async (reviewId: number) => {
+    try {
+      const res = await api.post<any>(`/reviews/${reviewId}/helpful/`, {});
+      setReviews(prev => prev.map(r => r.id === reviewId ? { ...r, helpful_count: res.helpful_count, user_has_voted_helpful: res.user_has_voted_helpful } as any : r));
+    } catch (e) {
+      console.error('Error toggling helpful:', e);
+    }
+  };
+
+  if (loading && reviews.length === 0) {
+    return (
+      <div className="space-y-4">
+        {Array.from({ length: PAGE_SIZE }).map((_, i) => (
+          <div key={i} className="p-4 border rounded animate-pulse space-y-2">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-muted" />
+              <div className="flex-1">
+                <div className="h-4 w-32 bg-muted rounded" />
+                <div className="h-3 w-24 bg-muted rounded mt-1" />
+              </div>
+            </div>
+            <div className="h-3 w-full bg-muted rounded" />
+            <div className="h-3 w-2/3 bg-muted rounded" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   if (reviews.length === 0) {
     return (
       <Card className="p-6 text-center">
@@ -95,6 +133,7 @@ const ReviewList: React.FC<ReviewListProps> = ({
   }
 
   return (
+    <>
     <div className="space-y-4">
       {reviews.map((review) => {
         const isPending = review.status === 'pending';
@@ -157,12 +196,27 @@ const ReviewList: React.FC<ReviewListProps> = ({
                 {Array.isArray(review.images) && review.images.length > 0 && (
                   <div className="mt-3 grid grid-cols-3 gap-2">
                     {review.images.map((url, idx) => (
-                      <a key={idx} href={url} target="_blank" rel="noreferrer" className="block">
+                      <button key={idx} onClick={() => setLightbox({ urls: review.images!, index: idx })} className="block">
                         <img src={url} alt={`Imagem da avaliação ${idx + 1}`} className="h-24 w-full object-cover rounded border" />
-                      </a>
+                      </button>
                     ))}
                   </div>
                 )}
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <button
+                    onClick={() => toggleHelpful(review.id)}
+                    className={`text-xs inline-flex items-center gap-1 px-2 py-1 rounded border ${review.user_has_voted_helpful ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-accent'}`}
+                  >
+                    <span>Útil</span>
+                    <span className="text-muted-foreground">{(review as any).helpful_count ?? 0}</span>
+                  </button>
+                  {isOwnReview && (
+                    <>
+                      <button className="text-xs px-2 py-1 rounded border hover:bg-accent">Editar</button>
+                      <button className="text-xs px-2 py-1 rounded border hover:bg-accent text-red-600">Excluir</button>
+                    </>
+                  )}
+                </div>
                 {isOwnReview && isRejected && review.moderation_notes && (
                   <div className="mt-2 p-2 bg-red-100 rounded text-xs">
                     <strong>Motivo da rejeição:</strong> {review.moderation_notes}
@@ -185,6 +239,10 @@ const ReviewList: React.FC<ReviewListProps> = ({
         </div>
       )}
     </div>
+    {lightbox && (
+      <ImageLightbox urls={lightbox.urls} index={lightbox.index} open={!!lightbox} onOpenChange={(o) => !o && setLightbox(null)} />
+    )}
+    </>
   );
 };
 

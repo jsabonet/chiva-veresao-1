@@ -46,7 +46,7 @@ const StarRating: React.FC<StarRatingProps> = ({
             className={cn(
               'rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 transition-colors',
               readOnly ? 'cursor-default' : 'cursor-pointer hover:scale-110',
-              isHighlighted ? 'text-yellow-400' : 'text-gray-300'
+              isHighlighted ? 'text-yellow-500' : 'text-yellow-200'
             )}
             disabled={readOnly}
           >

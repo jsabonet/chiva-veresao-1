@@ -377,6 +377,7 @@ class Review(models.Model):
     moderated_at = models.DateTimeField(null=True, blank=True, verbose_name="Data da Moderação")
     moderation_notes = models.TextField(blank=True, verbose_name="Notas da Moderação")
     admin_seen = models.BooleanField(default=False, db_index=True, verbose_name="Visto pelo Admin")
+    helpful_count = models.PositiveIntegerField(default=0, db_index=True, verbose_name="Votos úteis")
     created_at = models.DateTimeField(default=timezone.now, verbose_name="Criado em")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Atualizado em")
     
@@ -384,7 +385,7 @@ class Review(models.Model):
         verbose_name = "Avaliação"
         verbose_name_plural = "Avaliações"
         ordering = ['-created_at']
-        unique_together = ['product', 'user']  # Garante uma avaliação por usuário por produto
+        # unique_together removido para permitir múltiplas avaliações por usuário/produto
         
     def __str__(self):
         return f"Avaliação de {self.user.username} para {self.product.name}"
@@ -403,3 +404,21 @@ class ReviewImage(models.Model):
 
     def __str__(self):
         return f"Imagem da avaliação #{self.review_id}"
+
+
+class ReviewHelpfulVote(models.Model):
+    """Track users who voted a review as helpful to prevent multiple votes."""
+    review = models.ForeignKey(Review, on_delete=models.CASCADE, related_name='helpful_votes', verbose_name="Avaliação")
+    user = models.ForeignKey('auth.User', on_delete=models.CASCADE, related_name='review_helpful_votes', verbose_name="Usuário")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Votado em")
+
+    class Meta:
+        verbose_name = "Voto Útil da Avaliação"
+        verbose_name_plural = "Votos Úteis das Avaliações"
+        unique_together = ('review', 'user')
+        indexes = [
+            models.Index(fields=['review', 'user'])
+        ]
+
+    def __str__(self):
+        return f"{self.user_id} votou útil na review {self.review_id}"

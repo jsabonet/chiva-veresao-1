@@ -25,7 +25,7 @@ import {
 import Rating from '@/components/ui/Rating';
 import ReviewForm from '@/components/ui/ReviewForm';
 import ReviewList from '@/components/ui/ReviewList';
-import MinimalReviews from '@/components/ui/MinimalReviews';
+import ProfessionalReviews from '@/components/ui/ProfessionalReviews';
 import { Helmet } from 'react-helmet-async';
 import { useProductBySlug, useProduct, useProductsByCategory } from '@/hooks/useApi';
 import { formatPrice, getImageUrl, type Product } from '@/lib/api';
@@ -822,7 +822,7 @@ const ProductDetails = () => {
                     Avaliações
                   </h2>
                 </div>
-                <MinimalReviews productId={product.id} />
+                <ProfessionalReviews productId={product.id} />
               </CardContent>
             </Card>
           </div>
@@ -885,7 +885,7 @@ const ProductDetails = () => {
               <TabsContent value="reviews" className="mt-6">
                 <Card className="overflow-hidden">
                   <CardContent className="p-8">
-                    <MinimalReviews productId={product.id} />
+                    <ProfessionalReviews productId={product.id} />
                   </CardContent>
                 </Card>
               </TabsContent>
