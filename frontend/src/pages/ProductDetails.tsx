@@ -516,11 +516,10 @@ const ProductDetails = () => {
                 >
                   <Rating
                     value={product.average_rating ?? 0}
-                    count={product.total_reviews}
                     size="sm"
                     showValue={true}
-                    className="text-foreground"
-                    colorClass="text-yellow-500"
+                    colorClass="fill-yellow-500 text-yellow-500"
+                    grayClass="text-yellow-200"
                   />
                   <ChevronRight className="w-4 h-4 text-muted-foreground" />
                 </button>
