@@ -519,7 +519,7 @@ const ProductDetails = () => {
                     size="sm"
                     showValue={true}
                     colorClass="fill-yellow-500 text-yellow-500"
-                    grayClass="text-yellow-200"
+                    grayClass="fill-yellow-200 text-yellow-200"
                   />
                   <ChevronRight className="w-4 h-4 text-muted-foreground" />
                 </button>
