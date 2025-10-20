@@ -12,6 +12,14 @@ def product_image_upload_path(instance, filename):
     filename = f'{uuid.uuid4().hex}.{ext}'
     return f'products/{instance.id}/{filename}'
 
+def review_image_upload_path(instance, filename):
+    """Generate upload path for review images"""
+    ext = filename.split('.')[-1]
+    filename = f'{uuid.uuid4().hex}.{ext}'
+    # Use review_id to avoid accessing related object properties
+    review_id = instance.review_id or 'tmp'
+    return f'reviews/{review_id}/{filename}'
+
 def generate_sku(name, brand=""):
     """Generate SKU from product name and brand"""
     # Clean and prepare name
@@ -368,6 +376,7 @@ class Review(models.Model):
     )
     moderated_at = models.DateTimeField(null=True, blank=True, verbose_name="Data da Moderação")
     moderation_notes = models.TextField(blank=True, verbose_name="Notas da Moderação")
+    admin_seen = models.BooleanField(default=False, db_index=True, verbose_name="Visto pelo Admin")
     created_at = models.DateTimeField(default=timezone.now, verbose_name="Criado em")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Atualizado em")
     
@@ -379,3 +388,18 @@ class Review(models.Model):
         
     def __str__(self):
         return f"Avaliação de {self.user.username} para {self.product.name}"
+
+
+class ReviewImage(models.Model):
+    """Images attached to a product review for social proof"""
+    review = models.ForeignKey(Review, on_delete=models.CASCADE, related_name='images', verbose_name="Avaliação")
+    image = models.ImageField(upload_to=review_image_upload_path, verbose_name="Imagem")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Enviado em")
+
+    class Meta:
+        verbose_name = "Imagem da Avaliação"
+        verbose_name_plural = "Imagens das Avaliações"
+        ordering = ['id']
+
+    def __str__(self):
+        return f"Imagem da avaliação #{self.review_id}"

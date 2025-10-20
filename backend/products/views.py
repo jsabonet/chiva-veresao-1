@@ -1,4 +1,5 @@
 from rest_framework import generics, status, filters, serializers, permissions
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.decorators import api_view, action, permission_classes
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
@@ -754,17 +755,36 @@ class ReviewListCreateView(generics.ListCreateAPIView):
     """
     serializer_class = ReviewSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
     
     def get_queryset(self):
         product_id = self.kwargs.get('product_id')
-        queryset = Review.objects.filter(product_id=product_id).select_related('user')
+        queryset = Review.objects.filter(product_id=product_id).select_related('user').prefetch_related('images')
+        # Optional rating filter
+        rating = self.request.query_params.get('rating')
+        if rating:
+            try:
+                rating_int = int(rating)
+                if 1 <= rating_int <= 5:
+                    queryset = queryset.filter(rating=rating_int)
+            except ValueError:
+                pass
         
         # Staff users can see all reviews in the admin
         if self.request.user.is_staff and self.request.query_params.get('admin'):
             return queryset
             
         # Regular users only see approved reviews
-        return queryset.filter(status='approved')
+        queryset = queryset.filter(status='approved')
+        # Sorting
+        sort_by = self.request.query_params.get('sort_by', 'recent')
+        if sort_by == 'highest':
+            queryset = queryset.order_by('-rating', '-created_at')
+        elif sort_by == 'lowest':
+            queryset = queryset.order_by('rating', '-created_at')
+        else:
+            queryset = queryset.order_by('-created_at')
+        return queryset
     
     def perform_create(self, serializer):
         product_id = self.kwargs.get('product_id')
@@ -797,7 +817,7 @@ def review_admin_list(request):
     in the admin SPA.
     """
     status_filter = request.query_params.get('status')
-    qs = Review.objects.select_related('user', 'product', 'moderated_by').all()
+    qs = Review.objects.select_related('user', 'product', 'moderated_by').prefetch_related('images').all()
     if status_filter:
         qs = qs.filter(status=status_filter)
 
@@ -847,6 +867,7 @@ def review_moderate(request, pk: int):
 
     review.moderated_by = request.user
     review.moderated_at = timezone.now()
+    review.admin_seen = True
     review.save()
 
     return Response(ReviewSerializer(review, context={'request': request}).data)

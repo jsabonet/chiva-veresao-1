@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Product, Category, Color, ProductImage, Subcategory, Favorite, Review
+from .models import Product, Category, Color, ProductImage, Subcategory, Favorite, Review, ReviewImage
 
 class ColorSerializer(serializers.ModelSerializer):
     """Serializer for Color model"""
@@ -98,6 +98,7 @@ class ReviewSerializer(serializers.ModelSerializer):
     moderated_by = serializers.CharField(source='moderated_by.username', read_only=True)
     moderation_notes = serializers.CharField(read_only=True)
     status = serializers.CharField(read_only=True)
+    images = serializers.SerializerMethodField()
 
 
     class Meta:
@@ -106,7 +107,7 @@ class ReviewSerializer(serializers.ModelSerializer):
             'id', 'product', 'user', 'user_name', 'user_email',
             'user_first_name', 'user_last_name',
             'rating', 'comment', 'created_at', 'updated_at',
-            'product_name', 'moderated_by', 'moderation_notes', 'status'
+            'product_name', 'moderated_by', 'moderation_notes', 'status', 'images'
         ]
         # user should be read-only for create requests; view will attach the user
         read_only_fields = ['id', 'user', 'user_name', 'user_email', 'user_first_name', 'user_last_name', 'created_at', 'updated_at',
@@ -134,10 +135,36 @@ class ReviewSerializer(serializers.ModelSerializer):
             existing.moderation_notes = ''
             existing.moderated_by = None
             existing.moderated_at = None
+            existing.admin_seen = False
             existing.save()
+            # If files present in request.FILES, attach images (append up to 4)
+            if request and hasattr(request, 'FILES'):
+                files = request.FILES.getlist('images') or request.FILES.getlist('images[]')
+                for i, f in enumerate(files[:4]):
+                    ReviewImage.objects.create(review=existing, image=f)
             return existing
+        # Create a new pending review with admin_seen default False
+        review = Review.objects.create(user=user, admin_seen=False, **validated_data)
+        # Save images if provided
+        if request and hasattr(request, 'FILES'):
+            files = request.FILES.getlist('images') or request.FILES.getlist('images[]')
+            for i, f in enumerate(files[:4]):
+                ReviewImage.objects.create(review=review, image=f)
+        return review
 
-        return super().create({**validated_data, 'user': user})
+    def get_images(self, obj):
+        request = self.context.get('request')
+        urls = []
+        for img in getattr(obj, 'images', []).all() if hasattr(obj, 'images') else []:
+            try:
+                url = img.image.url
+                if request:
+                    urls.append(request.build_absolute_uri(url))
+                else:
+                    urls.append(url)
+            except Exception:
+                continue
+        return urls
 
 
 class ProductDetailSerializer(serializers.ModelSerializer):
