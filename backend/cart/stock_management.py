@@ -204,6 +204,30 @@ class OrderManager:
             except Exception as e:
                 logger.error(f"Failed to restore stock for order {order.order_number}: {e}")
         
+        # ========================================
+        # ENVIAR EMAILS DE NOTIFICAÇÃO
+        # ========================================
+        # Enviar email quando pedido é marcado como enviado
+        if new_status == 'shipped':
+            try:
+                from .email_service import get_email_service
+                email_service = get_email_service()
+                
+                customer_email = order.shipping_address.get('email', '')
+                customer_name = order.shipping_address.get('name', 'Cliente')
+                
+                if customer_email:
+                    email_service.send_shipping_update(
+                        order=order,
+                        tracking_number=order.tracking_number,
+                        customer_email=customer_email,
+                        customer_name=customer_name
+                    )
+                    logger.info(f"📧 Email de envio enviado para {customer_email}")
+            except Exception as e:
+                logger.error(f"❌ Erro ao enviar email de envio: {e}")
+        # ========================================
+        
         logger.info(f"Order {order.order_number} status changed: {old_status} → {new_status}")
         
         return order

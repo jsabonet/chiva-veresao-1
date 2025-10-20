@@ -256,3 +256,27 @@ CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', default='https://chivacomp
 
 # Optional: session/cookie domain for production
 SESSION_COOKIE_DOMAIN = config('SESSION_COOKIE_DOMAIN', default=None)
+
+# ==========================================
+# EMAIL CONFIGURATION (BREVO/SENDINBLUE)
+# ==========================================
+
+# Brevo API Configuration (Free: 300 emails/day)
+BREVO_API_KEY = config('BREVO_API_KEY', default='')
+BREVO_SENDER_EMAIL = config('BREVO_SENDER_EMAIL', default='noreply@chivacomputer.co.mz')
+BREVO_SENDER_NAME = config('BREVO_SENDER_NAME', default='Chiva Computer')
+
+# Admin notification email
+ADMIN_EMAIL = config('ADMIN_EMAIL', default='admin@chivacomputer.co.mz')
+
+# Email feature toggles
+EMAIL_NOTIFICATIONS_ENABLED = config('EMAIL_NOTIFICATIONS_ENABLED', default=True, cast=bool)
+SEND_ORDER_CONFIRMATION = config('SEND_ORDER_CONFIRMATION', default=True, cast=bool)
+SEND_PAYMENT_STATUS = config('SEND_PAYMENT_STATUS', default=True, cast=bool)
+SEND_SHIPPING_UPDATES = config('SEND_SHIPPING_UPDATES', default=True, cast=bool)
+SEND_CART_RECOVERY = config('SEND_CART_RECOVERY', default=True, cast=bool)
+SEND_ADMIN_NOTIFICATIONS = config('SEND_ADMIN_NOTIFICATIONS', default=True, cast=bool)
+
+# Cart abandonment settings
+CART_ABANDONMENT_HOURS = config('CART_ABANDONMENT_HOURS', default=2, cast=int)
+MAX_RECOVERY_EMAILS = config('MAX_RECOVERY_EMAILS', default=3, cast=int)

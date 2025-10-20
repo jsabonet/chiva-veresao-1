@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pedido Confirmado - Chiva Computer</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4;">
+    
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px 0;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                    
+                    <!-- Header -->
+                    <tr>
+                        <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px 30px; text-align: center;">
+                            <h1 style="margin: 0; font-size: 32px; font-weight: bold;">🎉 Pedido Confirmado!</h1>
+                            <p style="margin: 15px 0 0 0; font-size: 18px; opacity: 0.95;">Obrigado pela sua compra</p>
+                        </td>
+                    </tr>
+
+                    <!-- Content -->
+                    <tr>
+                        <td style="padding: 40px 30px;">
+                            
+                            <p style="font-size: 16px; margin: 0 0 20px 0;">Olá <strong>{{CUSTOMER_NAME}}</strong>,</p>
+                            
+                            <p style="margin: 0 0 25px 0;">Recebemos o seu pedido e ele está sendo processado. Você receberá atualizações sobre o status do pagamento e envio.</p>
+
+                            <!-- Order Info Box -->
+                            <table width="100%" cellpadding="15" cellspacing="0" style="background: #f8f9fa; border-left: 4px solid #667eea; border-radius: 5px; margin: 25px 0;">
+                                <tr>
+                                    <td>
+                                        <h3 style="margin: 0 0 15px 0; color: #667eea; font-size: 18px;">📦 Detalhes do Pedido</h3>
+                                        <p style="margin: 5px 0; font-size: 14px;"><strong>Número do Pedido:</strong> #{{ORDER_NUMBER}}</p>
+                                        <p style="margin: 5px 0; font-size: 14px;"><strong>Data:</strong> {{ORDER_DATE}}</p>
+                                        <p style="margin: 5px 0; font-size: 14px;"><strong>Status:</strong> {{ORDER_STATUS}}</p>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- Order Items -->
+                            <h3 style="color: #333; margin: 30px 0 15px 0; padding-bottom: 10px; border-bottom: 2px solid #667eea;">Itens do Pedido</h3>
+                            
+                            {{ORDER_ITEMS}}
+
+                            <!-- Total -->
+                            <table width="100%" cellpadding="15" cellspacing="0" style="background: #f8f9fa; border-radius: 5px; margin: 25px 0;">
+                                <tr>
+                                    <td style="text-align: right;">
+                                        <p style="margin: 5px 0; font-size: 14px; color: #666;">Subtotal: {{SUBTOTAL}} MZN</p>
+                                        <p style="margin: 5px 0; font-size: 14px; color: #666;">Envio: {{SHIPPING_COST}} MZN</p>
+                                        <p style="margin: 15px 0 0 0; font-size: 22px; font-weight: bold; color: #667eea;">
+                                            Total: {{TOTAL_AMOUNT}} MZN
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- Shipping Address -->
+                            <table width="100%" cellpadding="15" cellspacing="0" style="background: #f8f9fa; border-radius: 5px; margin: 25px 0;">
+                                <tr>
+                                    <td>
+                                        <h3 style="margin: 0 0 15px 0; color: #667eea; font-size: 18px;">🚚 Endereço de Entrega</h3>
+                                        <p style="margin: 5px 0; font-size: 14px;">{{SHIPPING_ADDRESS}}</p>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- Next Steps -->
+                            <table width="100%" cellpadding="15" cellspacing="0" style="background: #e8f4f8; border-left: 4px solid #17a2b8; border-radius: 5px; margin: 25px 0;">
+                                <tr>
+                                    <td>
+                                        <h3 style="margin: 0 0 15px 0; color: #17a2b8; font-size: 18px;">📋 Próximos Passos</h3>
+                                        <ul style="margin: 0; padding-left: 20px; font-size: 14px;">
+                                            <li style="margin: 8px 0;">Confirmaremos o pagamento em breve</li>
+                                            <li style="margin: 8px 0;">Você receberá um email quando o pedido for enviado</li>
+                                            <li style="margin: 8px 0;">Acompanhe o status na sua área de pedidos</li>
+                                        </ul>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- CTA Button -->
+                            <table width="100%" cellpadding="0" cellspacing="0" style="margin: 30px 0;">
+                                <tr>
+                                    <td align="center">
+                                        <a href="https://chivacomputer.co.mz/meus-pedidos" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 50px; text-decoration: none; border-radius: 50px; font-weight: bold; font-size: 16px;">
+                                            Acompanhar Pedido
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
+
+                            <p style="font-size: 14px; color: #666; text-align: center; margin: 0;">
+                                Dúvidas? Entre em contato: <a href="mailto:suporte@chivacomputer.co.mz" style="color: #667eea; text-decoration: none;">suporte@chivacomputer.co.mz</a>
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="background: #f8f9fa; padding: 25px 30px; text-align: center; border-top: 1px solid #e0e0e0;">
+                            <p style="margin: 0; font-size: 14px; color: #666; line-height: 1.8;">
+                                <strong>Chiva Computer</strong><br>
+                                A sua loja de confiança em Moçambique<br>
+                                📍 Maputo | 📧 contato@chivacomputer.co.mz
+                            </p>
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+    </table>
+
+</body>
+</html>

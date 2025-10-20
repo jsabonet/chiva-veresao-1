@@ -4,6 +4,44 @@ Sistema completo de e-commerce com integração de pagamentos via Paysuite (M-Pe
 
 ## 🚀 Novidades Recentes
 
+### 📧 Sistema de Notificações por Email (Outubro 2025) ⭐ NOVO!
+
+Sistema completo de emails **100% GRATUITO** implementado!
+
+**Funcionalidades:**
+- ✅ Confirmação de pedido automática
+- ✅ Status de pagamento (aprovado/pendente/falhou)
+- ✅ Notificação de envio com tracking
+- ✅ Recuperação de carrinho abandonado
+- ✅ Notificação de nova venda para admin
+- ✅ Templates HTML profissionais e responsivos
+- ✅ 300 emails/dia GRÁTIS via Brevo
+
+**📚 Documentação de Emails:**
+
+| Documento | Propósito | Tempo |
+|-----------|-----------|-------|
+| [📧 EMAIL_QUICKSTART.md](EMAIL_QUICKSTART.md) | Setup rápido (5min) | 5 min |
+| [📖 SISTEMA_NOTIFICACOES_EMAIL.md](SISTEMA_NOTIFICACOES_EMAIL.md) | Guia completo | 30 min |
+| [🎨 GUIA_VISUAL_BREVO.md](GUIA_VISUAL_BREVO.md) | Passo a passo Brevo | 15 min |
+| [💻 EXEMPLOS_USO_EMAILS.md](EXEMPLOS_USO_EMAILS.md) | Código de exemplo | Consulta |
+| [📊 RESUMO_EXECUTIVO_EMAILS.md](RESUMO_EXECUTIVO_EMAILS.md) | Visão executiva | 10 min |
+
+**🚀 Setup Rápido:**
+```bash
+# 1. Criar conta grátis: https://www.brevo.com
+# 2. Obter API Key no dashboard
+# 3. Configurar .env:
+BREVO_API_KEY=sua_api_key_aqui
+BREVO_SENDER_EMAIL=seu_email@example.com
+
+# 4. Testar:
+cd backend
+python test_email_system.py
+```
+
+---
+
 ### ✅ Sistema de Pagamentos Completo (Outubro 2025)
 
 O sistema de pagamentos está **100% funcional e pronto para produção**!

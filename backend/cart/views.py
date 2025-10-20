@@ -1583,6 +1583,43 @@ def paysuite_webhook(request):
                 except Exception as e:
                     logger.error(f'Error clearing cart after payment: {str(e)}')
 
+                # ========================================
+                # ENVIAR EMAILS DE NOTIFICAÇÃO
+                # ========================================
+                try:
+                    from .email_service import get_email_service
+                    email_service = get_email_service()
+                    
+                    # Email para o cliente: confirmação de pedido
+                    customer_email = order.shipping_address.get('email', '')
+                    customer_name = order.shipping_address.get('name', 'Cliente')
+                    
+                    if customer_email:
+                        # Confirmação de pedido criado
+                        email_service.send_order_confirmation(
+                            order=order,
+                            customer_email=customer_email,
+                            customer_name=customer_name
+                        )
+                        
+                        # Status de pagamento aprovado
+                        email_service.send_payment_status_update(
+                            order=order,
+                            payment_status='paid',
+                            customer_email=customer_email,
+                            customer_name=customer_name
+                        )
+                        
+                        logger.info(f"📧 Emails de confirmação enviados para {customer_email}")
+                    
+                    # Email para o admin: nova venda
+                    email_service.send_new_order_notification_to_admin(order=order)
+                    logger.info(f"📧 Email de nova venda enviado para admin")
+                    
+                except Exception as e:
+                    logger.error(f"❌ Erro ao enviar emails de notificação: {e}")
+                # ========================================
+
         return Response({'ok': True})
 
     except Exception as e:
