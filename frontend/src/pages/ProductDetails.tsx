@@ -25,6 +25,7 @@ import {
 import Rating from '@/components/ui/Rating';
 import ReviewForm from '@/components/ui/ReviewForm';
 import ReviewList from '@/components/ui/ReviewList';
+import MinimalReviews from '@/components/ui/MinimalReviews';
 import { Helmet } from 'react-helmet-async';
 import { useProductBySlug, useProduct, useProductsByCategory } from '@/hooks/useApi';
 import { formatPrice, getImageUrl, type Product } from '@/lib/api';
@@ -766,7 +767,7 @@ const ProductDetails = () => {
                 ) : (
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 lg:gap-4">
                     {relatedProducts.slice(0, MAX_RELATED).map((rp) => (
-                      <ProductCard key={rp.id} product={rp} />
+                      <ProductCard key={rp.id} product={rp} compactPrice />
                     ))}
                   </div>
                 )}
@@ -812,178 +813,16 @@ const ProductDetails = () => {
               </CardContent>
             </Card>
 
-            {/* Reviews Section - Modern Professional Design */}
+            {/* Reviews Section - Minimalist */}
             <Card id="reviews-section" className="overflow-hidden">
-              <CardContent className="p-0">
-                {/* Header with Gradient */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 px-6 py-5 border-b">
-                  <h2 className="text-2xl font-bold flex items-center gap-2">
-                    <MessageSquare className="w-6 h-6 text-blue-600" />
-                    Avaliações de Clientes
+              <CardContent className="p-6">
+                <div className="mb-4">
+                  <h2 className="text-xl font-bold flex items-center gap-2">
+                    <MessageSquare className="w-5 h-5 text-blue-600" />
+                    Avaliações
                   </h2>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Opiniões reais de quem já comprou este produto
-                  </p>
                 </div>
-
-                <div className="p-6 space-y-6">
-                  {/* Review Summary - Modern Card Layout */}
-                  <div className="bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-950/20 dark:to-orange-950/20 rounded-xl p-6 border border-yellow-200/50">
-                    <div className="flex flex-col items-center text-center gap-4">
-                      {/* Large Rating Display */}
-                      <div>
-                        <Rating value={product?.average_rating ?? 0} size="lg" showValue className="text-6xl" />
-                        <div className="text-sm text-muted-foreground font-medium mt-1">
-                          de 5 estrelas
-                        </div>
-                      </div>
-
-                      {/* Stars + count */}
-                      <div className="flex flex-col items-center gap-2">
-                        <Rating value={product?.average_rating ?? 0} size="lg" showValue={false} />
-                        <span className="text-sm font-semibold text-muted-foreground">
-                          {product?.total_reviews ?? 0} {(product?.total_reviews ?? 0) === 1 ? 'avaliação' : 'avaliações'}
-                        </span>
-                      </div>
-
-                      {/* Verified Badge */}
-                      <div className="flex items-center gap-2 bg-white dark:bg-gray-950 px-4 py-2 rounded-full border border-green-200 dark:border-green-800">
-                        <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                        </svg>
-                        <span className="text-sm font-semibold text-green-700 dark:text-green-400">
-                          90% Compras Verificadas
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Rating Distribution - Modern Bars */}
-                  <div className="space-y-3">
-                    <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
-                      Distribuição de Avaliações
-                    </h3>
-                    {[5, 4, 3, 2, 1].map((stars) => {
-                      const count = product?.rating_distribution?.[stars] || 0;
-                      const total = product?.total_reviews || 1;
-                      const percent = Math.round((count / total) * 100);
-                      return (
-                        <button
-                          key={stars}
-                          onClick={() => setFilter(stars.toString())}
-                          className="flex items-center gap-3 w-full hover:bg-gray-50 dark:hover:bg-gray-900 p-2 rounded-lg transition-colors group"
-                        >
-                          <div className="flex items-center gap-1 w-16">
-                            <span className="text-sm font-medium">{stars}</span>
-                            <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                          </div>
-                          <div className="flex-1 h-3 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
-                            <div 
-                              className="h-full bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-full transition-all duration-300 group-hover:from-yellow-500 group-hover:to-yellow-600"
-                              style={{ width: `${percent}%` }}
-                            />
-                          </div>
-                          <div className="w-16 text-sm font-medium text-right">
-                            {count} <span className="text-muted-foreground">({percent}%)</span>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* CTA Button - Prominent */}
-                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/50 dark:to-indigo-950/50 rounded-xl p-6 border border-blue-200/50">
-                    <div className="text-center space-y-3">
-                      <h3 className="font-bold text-lg">Já comprou este produto?</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Sua opinião é muito importante para outros clientes
-                      </p>
-                      <Button 
-                        size="lg"
-                        className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg"
-                        onClick={() => document.getElementById('review-form')?.scrollIntoView({ behavior: 'smooth' })}
-                      >
-                        <MessageSquare className="w-5 h-5 mr-2" />
-                        Escrever Avaliação
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Filters & Sort - Modern Design */}
-                  <div className="space-y-3 pt-6 border-t">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-bold text-lg">
-                        Todas as Avaliações
-                      </h3>
-                      {filter !== 'all' && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setFilter('all')}
-                          className="text-xs"
-                        >
-                          Limpar filtro
-                        </Button>
-                      )}
-                    </div>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <div className="relative">
-                        <select
-                          className="w-full text-sm border-2 border-gray-200 dark:border-gray-700 rounded-lg px-4 py-2.5 pr-10 bg-white dark:bg-gray-950 appearance-none cursor-pointer focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-colors"
-                          value={sort}
-                          onChange={e => setSort(e.target.value)}
-                          aria-label="Ordenar avaliações"
-                        >
-                          <option value="recent">🕒 Mais recentes</option>
-                          <option value="helpful">👍 Mais úteis</option>
-                          <option value="highest">⭐ Maior avaliação</option>
-                          <option value="lowest">📊 Menor avaliação</option>
-                        </select>
-                        <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground rotate-90 pointer-events-none" />
-                      </div>
-                      
-                      <div className="relative">
-                        <select
-                          className="w-full text-sm border-2 border-gray-200 dark:border-gray-700 rounded-lg px-4 py-2.5 pr-10 bg-white dark:bg-gray-950 appearance-none cursor-pointer focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-colors"
-                          value={filter}
-                          onChange={e => setFilter(e.target.value)}
-                          aria-label="Filtrar por estrelas"
-                        >
-                          <option value="all">⭐ Todas as estrelas</option>
-                          <option value="5">⭐⭐⭐⭐⭐ 5 estrelas</option>
-                          <option value="4">⭐⭐⭐⭐ 4 estrelas</option>
-                          <option value="3">⭐⭐⭐ 3 estrelas</option>
-                          <option value="2">⭐⭐ 2 estrelas</option>
-                          <option value="1">⭐ 1 estrela</option>
-                        </select>
-                        <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground rotate-90 pointer-events-none" />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Reviews List */}
-                  <ReviewList 
-                    productId={product!.id}
-                    initialReviews={product?.reviews || []}
-                    sort={sort}
-                    filter={filter}
-                  />
-
-                  {/* Review Form */}
-                  <div id="review-form" className="pt-6 border-t">
-                    <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 rounded-xl p-6 border">
-                      <h3 className="text-xl font-bold mb-2 flex items-center gap-2">
-                        <Star className="w-6 h-6 text-yellow-500" />
-                        Deixe sua Avaliação
-                      </h3>
-                      <p className="text-sm text-muted-foreground mb-6">
-                        Conte-nos o que você achou do produto
-                      </p>
-                      <ReviewForm productId={product.id} onReviewSubmitted={() => window.location.reload()} />
-                    </div>
-                  </div>
-                </div>
+                <MinimalReviews productId={product.id} />
               </CardContent>
             </Card>
           </div>
@@ -1046,161 +885,7 @@ const ProductDetails = () => {
               <TabsContent value="reviews" className="mt-6">
                 <Card className="overflow-hidden">
                   <CardContent className="p-8">
-                    <div className="space-y-8">
-                      {/* Review Summary - Desktop 3-Column Layout */}
-                      <div className="bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-950/20 dark:to-orange-950/20 rounded-2xl p-8 border border-yellow-200/50">
-                        <div className="grid grid-cols-3 gap-8 items-center">
-                          {/* Overall Rating */}
-                          <div className="flex flex-col items-center text-center">
-                            <div className="text-6xl font-extrabold bg-gradient-to-br from-yellow-600 to-orange-600 bg-clip-text text-transparent mb-2">
-                              {(product?.average_rating ?? 0).toFixed(1)}
-                            </div>
-                            <div className="text-sm text-muted-foreground font-medium mb-3">
-                              de 5 estrelas
-                            </div>
-                            <div className="flex gap-1 mb-3">
-                              {[1, 2, 3, 4, 5].map((star) => (
-                                <Star 
-                                  key={star}
-                                  className={`w-6 h-6 ${
-                                    star <= Math.round(product?.average_rating ?? 0)
-                                      ? 'fill-yellow-400 text-yellow-400'
-                                      : 'text-gray-300'
-                                  }`}
-                                />
-                              ))}
-                            </div>
-                            <span className="text-sm font-semibold text-muted-foreground">
-                              {product?.total_reviews ?? 0} {(product?.total_reviews ?? 0) === 1 ? 'avaliação' : 'avaliações'}
-                            </span>
-                            <div className="flex items-center gap-2 bg-white dark:bg-gray-950 px-3 py-1.5 rounded-full border border-green-200 dark:border-green-800 mt-3">
-                              <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                              </svg>
-                              <span className="text-xs font-semibold text-green-700 dark:text-green-400">
-                                90% Verificadas
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Rating Distribution */}
-                          <div className="flex flex-col gap-3">
-                            {[5, 4, 3, 2, 1].map((stars) => {
-                              const count = product?.rating_distribution?.[stars] || 0;
-                              const total = product?.total_reviews || 1;
-                              const percent = Math.round((count / total) * 100);
-                              return (
-                                <button
-                                  key={stars}
-                                  onClick={() => setFilter(stars.toString())}
-                                  className="flex items-center gap-3 hover:bg-white/50 dark:hover:bg-gray-900/50 p-2 rounded-lg transition-colors group"
-                                >
-                                  <div className="flex items-center gap-1 w-14">
-                                    <span className="text-sm font-medium">{stars}</span>
-                                    <svg className="w-3.5 h-3.5 text-yellow-400" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27z"/></svg>
-                                  </div>
-                                  <div className="flex-1 h-2.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                                    <div 
-                                      className="h-full bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-full transition-all"
-                                      style={{ width: `${percent}%` }}
-                                    />
-                                  </div>
-                                  <div className="w-16 text-sm font-medium text-right">
-                                    <span className="text-muted-foreground">{count}</span> ({percent}%)
-                                  </div>
-                                </button>
-                              );
-                            })}
-                          </div>
-
-                          {/* Review CTA */}
-                          <div className="flex flex-col gap-4 items-center text-center">
-                            <div>
-                              <h4 className="font-bold text-lg mb-2">Já comprou?</h4>
-                              <p className="text-sm text-muted-foreground">
-                                Compartilhe sua experiência e ajude outros clientes
-                              </p>
-                            </div>
-                            <Button 
-                              size="lg"
-                              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg"
-                              onClick={() => document.getElementById('review-form')?.scrollIntoView({ behavior: 'smooth' })}
-                            >
-                              <MessageSquare className="w-5 h-5 mr-2" />
-                              Escrever Avaliação
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Filters & Sort */}
-                      <div className="flex justify-between items-center pt-4 border-t">
-                        <h3 className="text-xl font-bold">
-                          Todas as Avaliações
-                        </h3>
-                        <div className="flex items-center gap-3">
-                          {filter !== 'all' && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setFilter('all')}
-                            >
-                              Limpar filtro
-                            </Button>
-                          )}
-                          <div className="relative">
-                            <select
-                              className="text-sm border-2 border-gray-200 dark:border-gray-700 rounded-lg px-4 py-2 pr-10 bg-white dark:bg-gray-950 appearance-none cursor-pointer focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                              value={sort}
-                              onChange={e => setSort(e.target.value)}
-                            >
-                              <option value="recent">🕒 Mais recentes</option>
-                              <option value="helpful">👍 Mais úteis</option>
-                              <option value="highest">⭐ Maior avaliação</option>
-                              <option value="lowest">📊 Menor avaliação</option>
-                            </select>
-                            <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground rotate-90 pointer-events-none" />
-                          </div>
-                          <div className="relative">
-                            <select
-                              className="text-sm border-2 border-gray-200 dark:border-gray-700 rounded-lg px-4 py-2 pr-10 bg-white dark:bg-gray-950 appearance-none cursor-pointer focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                              value={filter}
-                              onChange={e => setFilter(e.target.value)}
-                            >
-                              <option value="all">⭐ Todas</option>
-                              <option value="5">⭐⭐⭐⭐⭐ 5</option>
-                              <option value="4">⭐⭐⭐⭐ 4</option>
-                              <option value="3">⭐⭐⭐ 3</option>
-                              <option value="2">⭐⭐ 2</option>
-                              <option value="1">⭐ 1</option>
-                            </select>
-                            <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground rotate-90 pointer-events-none" />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Reviews List */}
-                      <ReviewList 
-                        productId={product!.id}
-                        initialReviews={product?.reviews || []}
-                        sort={sort}
-                        filter={filter}
-                      />
-
-                      {/* Review Form */}
-                      <div id="review-form" className="pt-8 border-t">
-                        <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 rounded-2xl p-8 border">
-                          <h3 className="text-2xl font-bold mb-2 flex items-center gap-2">
-                            <Star className="w-7 h-7 text-yellow-500" />
-                            Deixe sua Avaliação
-                          </h3>
-                          <p className="text-sm text-muted-foreground mb-6">
-                            Conte-nos o que você achou do produto
-                          </p>
-                          <ReviewForm productId={product.id} onReviewSubmitted={() => window.location.reload()} />
-                        </div>
-                      </div>
-                    </div>
+                    <MinimalReviews productId={product.id} />
                   </CardContent>
                 </Card>
               </TabsContent>

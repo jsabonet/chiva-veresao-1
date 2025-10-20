@@ -154,6 +154,15 @@ const ReviewList: React.FC<ReviewListProps> = ({
                     {review.comment}
                   </p>
                 )}
+                {Array.isArray(review.images) && review.images.length > 0 && (
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    {review.images.map((url, idx) => (
+                      <a key={idx} href={url} target="_blank" rel="noreferrer" className="block">
+                        <img src={url} alt={`Imagem da avaliação ${idx + 1}`} className="h-24 w-full object-cover rounded border" />
+                      </a>
+                    ))}
+                  </div>
+                )}
                 {isOwnReview && isRejected && review.moderation_notes && (
                   <div className="mt-2 p-2 bg-red-100 rounded text-xs">
                     <strong>Motivo da rejeição:</strong> {review.moderation_notes}

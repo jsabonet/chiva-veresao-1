@@ -119,6 +119,7 @@ const ReviewManagement = () => {
                         <TableHead>Usuário</TableHead>
                         <TableHead>Avaliação</TableHead>
                         <TableHead>Comentário</TableHead>
+                        <TableHead>Imagens</TableHead>
                         <TableHead>Ações</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -154,6 +155,19 @@ const ReviewManagement = () => {
                             </TableCell>
                             <TableCell className="max-w-md truncate">
                               {review.comment || "Sem comentário"}
+                            </TableCell>
+                            <TableCell>
+                              {Array.isArray((review as any).images) && (review as any).images.length > 0 ? (
+                                <div className="grid grid-cols-3 gap-1 max-w-[160px]">
+                                  {(review as any).images.slice(0,3).map((url: string, idx: number) => (
+                                    <a key={idx} href={url} target="_blank" rel="noreferrer">
+                                      <img src={url} alt="" className="h-12 w-full object-cover rounded border" />
+                                    </a>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              )}
                             </TableCell>
                             <TableCell>
                               {status === 'pending' && (
@@ -203,6 +217,15 @@ const ReviewManagement = () => {
                                 <p className="text-sm text-muted-foreground mt-1">{formatReviewerName(review.user_first_name ? `${review.user_first_name} ${review.user_last_name || ''}` : review.user_name, review.user_email)}</p>
                                 <div className="mt-2"><StarRating rating={review.rating} readOnly size="sm" /></div>
                                 <p className="text-sm mt-2">{review.comment || 'Sem comentário'}</p>
+                                {Array.isArray((review as any).images) && (review as any).images.length > 0 && (
+                                  <div className="mt-2 grid grid-cols-3 gap-1">
+                                    {(review as any).images.slice(0,3).map((url: string, idx: number) => (
+                                      <a key={idx} href={url} target="_blank" rel="noreferrer">
+                                        <img src={url} alt="" className="h-16 w-full object-cover rounded border" />
+                                      </a>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                               <div className="ml-4">
                                 {status === 'pending' && (

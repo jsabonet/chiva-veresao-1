@@ -9,9 +9,10 @@ import { toast } from '@/hooks/use-toast';
 
 interface ProductCardProps {
   product: Product | ProductListItem;
+  compactPrice?: boolean;
 }
 
-const ProductCard = ({ product }: ProductCardProps) => {
+const ProductCard = ({ product, compactPrice = false }: ProductCardProps) => {
   const { addItem } = useCart();
   // Type guard to check if product is ProductListItem
   const isProductListItem = (prod: Product | ProductListItem): prod is ProductListItem => {
@@ -138,16 +139,29 @@ const ProductCard = ({ product }: ProductCardProps) => {
             </h3>
 
             {/* Price */}
-            <div className="flex items-center gap-2">
-              <span className="text-lg font-bold text-primary">
-                {formatPrice(product.price)}
-              </span>
-              {product.original_price && product.original_price !== product.price && (
-                <span className="text-sm text-gray-500 line-through">
-                  {formatPrice(product.original_price)}
+            {compactPrice ? (
+              <div className="inline-flex flex-col gap-0.5">
+                <span className="text-base font-bold text-primary leading-none">
+                  {formatPrice(product.price)}
                 </span>
-              )}
-            </div>
+                {product.original_price && product.original_price !== product.price && (
+                  <span className="text-xs text-gray-500 line-through leading-none">
+                    {formatPrice(product.original_price)}
+                  </span>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="text-lg font-bold text-primary">
+                  {formatPrice(product.price)}
+                </span>
+                {product.original_price && product.original_price !== product.price && (
+                  <span className="text-sm text-gray-500 line-through">
+                    {formatPrice(product.original_price)}
+                  </span>
+                )}
+              </div>
+            )}
 
             {/* Stock status */}
             <div className="flex items-center justify-between">

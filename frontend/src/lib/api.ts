@@ -95,6 +95,7 @@ export interface Review {
     username: string;
   };
   product_name?: string;  // Added for admin list view
+  images?: string[]; // optional list of image URLs associated with this review
 }
 
 interface ReviewModerationRequest {
