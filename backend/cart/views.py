@@ -1028,7 +1028,12 @@ def initiate_payment(request):
         else:
             # Default: use the real Paysuite client (sandbox vs production handled by its config)
             from .payments.paysuite import PaysuiteClient
-            client = PaysuiteClient()
+            # Pass credentials explicitly from settings to ensure they're loaded
+            client = PaysuiteClient(
+                base_url=settings.PAYSUITE_BASE_URL,
+                api_key=settings.PAYSUITE_API_KEY,
+                webhook_secret=settings.PAYSUITE_WEBHOOK_SECRET
+            )
         # Correct API path for webhook lives under /api/cart/
         # Use WEBHOOK_BASE_URL from settings if configured, otherwise use request host
         from django.conf import settings
@@ -1620,6 +1625,60 @@ def paysuite_webhook(request):
                     logger.error(f"❌ Erro ao enviar emails de notificação: {e}")
                 # ========================================
 
+        # ========================================
+        # TRATAR PAGAMENTO FALHADO
+        # ========================================
+        elif payment.status == 'failed':
+            logger.info(f"💔 Payment {payment.id} failed - sending failure notification")
+            
+            # Atualizar order para failed se existir
+            if payment.order:
+                try:
+                    from .stock_management import OrderManager
+                    OrderManager.update_order_status(
+                        order=payment.order,
+                        new_status='failed',
+                        user=None,
+                        notes=f"Pagamento falhou via webhook: {event_name}"
+                    )
+                except Exception as e:
+                    logger.error(f"❌ Erro ao atualizar order para failed: {e}")
+                    # Fallback: update directly
+                    payment.order.status = 'failed'
+                    payment.order.save(update_fields=['status'])
+            
+            # Enviar email de falha ao cliente
+            try:
+                from .email_service import get_email_service
+                email_service = get_email_service()
+                
+                customer_email = None
+                customer_name = 'Cliente'
+                
+                # Try to get customer email from order or payment
+                if payment.order:
+                    customer_email = payment.order.shipping_address.get('email', '')
+                    customer_name = payment.order.shipping_address.get('name', 'Cliente')
+                elif payment.request_data and isinstance(payment.request_data, dict):
+                    # Try from saved cart data
+                    customer_email = payment.request_data.get('customer_email', '')
+                    customer_name = payment.request_data.get('customer_name', 'Cliente')
+                
+                if customer_email:
+                    email_service.send_payment_status_update(
+                        order=payment.order,
+                        payment_status='failed',
+                        customer_email=customer_email,
+                        customer_name=customer_name
+                    )
+                    logger.info(f"📧 Email de falha enviado para {customer_email}")
+                else:
+                    logger.warning(f"⚠️ Não foi possível enviar email - customer_email não encontrado")
+                    
+            except Exception as e:
+                logger.error(f"❌ Erro ao enviar email de falha: {e}")
+        # ========================================
+
         return Response({'ok': True})
 
     except Exception as e:
@@ -1656,7 +1715,15 @@ def payment_status(request, order_id: int):
             if latest_payment.status == 'pending' and latest_payment.paysuite_reference:
                 try:
                     from .payments.paysuite import PaysuiteClient
-                    client = PaysuiteClient()
+                    from django.conf import settings
+                    from django.utils import timezone as tz  # Import with alias to avoid conflicts
+                    
+                    # CRITICAL: Pass credentials explicitly to ensure Authorization header is sent
+                    client = PaysuiteClient(
+                        base_url=settings.PAYSUITE_BASE_URL,
+                        api_key=settings.PAYSUITE_API_KEY,
+                        webhook_secret=settings.PAYSUITE_WEBHOOK_SECRET
+                    )
                     
                     print(f"🔄 [POLLING] Active polling PaySuite for payment {latest_payment.paysuite_reference}")
                     logger.info(f"🔄 Active polling PaySuite for payment {latest_payment.paysuite_reference}")
@@ -1691,12 +1758,11 @@ def payment_status(request, order_id: int):
                             print(f"❌ [POLLING] Payment failed: {error}")
                         else:
                             # Transaction is null - use hybrid timeout logic
-                            from django.utils import timezone
-                            payment_age_minutes = (timezone.now() - latest_payment.created_at).total_seconds() / 60
+                            payment_age_minutes = (tz.now() - latest_payment.created_at).total_seconds() / 60
                             
                             # Increment poll count
                             latest_payment.poll_count += 1
-                            latest_payment.last_polled_at = timezone.now()
+                            latest_payment.last_polled_at = tz.now()
                             latest_payment.save(update_fields=['poll_count', 'last_polled_at'])
                             
                             # Hybrid timeout logic:
@@ -1730,7 +1796,7 @@ def payment_status(request, order_id: int):
                                     'status': 'error',
                                     'message': error_msg,
                                     'code': 'PAYMENT_TIMEOUT',
-                                    'polled_at': timezone.now().isoformat(),
+                                    'polled_at': tz.now().isoformat(),
                                     'timeout_type': 'hard' if payment_age_minutes > HARD_TIMEOUT_MINUTES else 'soft',
                                     'age_minutes': payment_age_minutes,
                                     'poll_count': latest_payment.poll_count
@@ -1753,7 +1819,7 @@ def payment_status(request, order_id: int):
                             # Store the polled response
                             latest_payment.raw_response = {
                                 **latest_payment.raw_response,
-                                'polled_at': timezone.now().isoformat(),
+                                'polled_at': tz.now().isoformat(),
                                 'polled_response': paysuite_response
                             }
                             latest_payment.save(update_fields=['status', 'raw_response'])
@@ -1764,6 +1830,31 @@ def payment_status(request, order_id: int):
                                 latest_payment.order.status = new_status
                                 latest_payment.order.save(update_fields=['status'])
                                 logger.info(f"✅ Synced order {latest_payment.order.id} status: {old_order_status} → {new_status} (via active polling)")
+                            
+                            # ========================================
+                            # ENVIAR EMAILS APÓS ATUALIZAÇÃO VIA POLLING
+                            # ========================================
+                            if new_status == 'failed' and latest_payment.order:
+                                # Send failure notification email
+                                try:
+                                    from .email_service import get_email_service
+                                    email_service = get_email_service()
+                                    
+                                    customer_email = latest_payment.order.shipping_address.get('email', '')
+                                    customer_name = latest_payment.order.shipping_address.get('name', 'Cliente')
+                                    
+                                    if customer_email:
+                                        email_service.send_payment_status_update(
+                                            order=latest_payment.order,
+                                            payment_status='failed',
+                                            customer_email=customer_email,
+                                            customer_name=customer_name
+                                        )
+                                        logger.info(f"📧 [POLLING] Email de falha enviado para {customer_email}")
+                                        print(f"📧 [POLLING] Email de falha enviado para {customer_email}")
+                                except Exception as e:
+                                    logger.error(f"❌ [POLLING] Erro ao enviar email de falha: {e}")
+                            # ========================================
                             
                             # If payment succeeded, trigger the full order completion flow
                             if new_status == 'paid':
@@ -1862,6 +1953,44 @@ def payment_status(request, order_id: int):
                                     )
                                     logger.info(f"📦 Order {latest_payment.order.order_number} processed via active polling")
                                     
+                                    # ========================================
+                                    # ENVIAR EMAILS DE CONFIRMAÇÃO (PAID VIA POLLING)
+                                    # ========================================
+                                    try:
+                                        from .email_service import get_email_service
+                                        email_service = get_email_service()
+                                        
+                                        customer_email = latest_payment.order.shipping_address.get('email', '')
+                                        customer_name = latest_payment.order.shipping_address.get('name', 'Cliente')
+                                        
+                                        if customer_email:
+                                            # Email de confirmação de pedido
+                                            email_service.send_order_confirmation(
+                                                order=latest_payment.order,
+                                                customer_email=customer_email,
+                                                customer_name=customer_name
+                                            )
+                                            
+                                            # Email de status de pagamento
+                                            email_service.send_payment_status_update(
+                                                order=latest_payment.order,
+                                                payment_status='paid',
+                                                customer_email=customer_email,
+                                                customer_name=customer_name
+                                            )
+                                            
+                                            logger.info(f"📧 [POLLING] Emails de confirmação enviados para {customer_email}")
+                                            print(f"📧 [POLLING] Emails de confirmação enviados para {customer_email}")
+                                        
+                                        # Email para admin
+                                        email_service.send_new_order_notification_to_admin(order=latest_payment.order)
+                                        logger.info(f"📧 [POLLING] Email de nova venda enviado para admin")
+                                        print(f"📧 [POLLING] Email de nova venda enviado para admin")
+                                        
+                                    except Exception as e:
+                                        logger.error(f"❌ [POLLING] Erro ao enviar emails de confirmação: {e}")
+                                    # ========================================
+                                    
                                     # Clear cart
                                     cart = latest_payment.order.cart or latest_payment.cart
                                     if cart and cart.status == 'active':
@@ -1900,7 +2029,7 @@ def payment_status(request, order_id: int):
                             latest_payment.status = 'failed'
                             latest_payment.raw_response = {
                                 **latest_payment.raw_response,
-                                'polled_at': timezone.now().isoformat(),
+                                'polled_at': tz.now().isoformat(),
                                 'polled_response': paysuite_response,
                                 'error_message': error_msg
                             }
@@ -1912,6 +2041,30 @@ def payment_status(request, order_id: int):
                                 latest_payment.order.status = 'failed'
                                 latest_payment.order.save(update_fields=['status'])
                                 logger.info(f"✅ Synced order {latest_payment.order.id} status: {old_order_status} → failed (via active polling)")
+                            
+                            # ========================================
+                            # ENVIAR EMAIL DE FALHA (PaySuite Error)
+                            # ========================================
+                            if latest_payment.order:
+                                try:
+                                    from .email_service import get_email_service
+                                    email_service = get_email_service()
+                                    
+                                    customer_email = latest_payment.order.shipping_address.get('email', '')
+                                    customer_name = latest_payment.order.shipping_address.get('name', 'Cliente')
+                                    
+                                    if customer_email:
+                                        email_service.send_payment_status_update(
+                                            order=latest_payment.order,
+                                            payment_status='failed',
+                                            customer_email=customer_email,
+                                            customer_name=customer_name
+                                        )
+                                        logger.info(f"📧 [POLLING] Email de falha (PaySuite error) enviado para {customer_email}")
+                                        print(f"📧 [POLLING] Email de falha enviado para {customer_email}")
+                                except Exception as e:
+                                    logger.error(f"❌ [POLLING] Erro ao enviar email de falha: {e}")
+                            # ========================================
                             
                             # Refresh from DB
                             latest_payment.refresh_from_db()

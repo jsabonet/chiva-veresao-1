@@ -111,10 +111,19 @@ class PaysuiteClient:
         timeout = float(os.getenv('PAYSUITE_TIMEOUT', '15'))
         try:
             resp = self.session.post(url, data=json.dumps(payload), timeout=timeout)
+            print(f"🌐 PAYSUITE RESPONSE - STATUS: {resp.status_code}")
+            print(f"🌐 PAYSUITE RESPONSE - HEADERS: {dict(resp.headers)}")
+            print(f"🌐 PAYSUITE RESPONSE - BODY: {resp.text[:500]}")
             logging.debug("🌐 PAYSUITE CLIENT - STATUS: %s", resp.status_code)
             logging.debug("🌐 PAYSUITE CLIENT - RESPONSE: %s", resp.text)
             resp.raise_for_status()
-            return resp.json()
+            
+            # Tentar parsear JSON
+            if resp.text.strip():
+                return resp.json()
+            else:
+                logging.error("PaySuite returned empty response")
+                return {'status': 'error', 'message': 'Empty response from PaySuite', 'http_status': resp.status_code}
         except requests.exceptions.ConnectTimeout as e:
             logging.error("Failed to initiate payment (connect timeout): %s", e)
             raise

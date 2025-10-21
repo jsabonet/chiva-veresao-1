@@ -124,6 +124,13 @@ export default function OrderConfirmation() {
     pollingRef.current = window.setInterval(async () => {
       const elapsed = Date.now() - startTimeRef.current;
       if (elapsed > 2 * 60 * 1000) {
+        // Timeout: marca como failed após 2 minutos sem confirmação
+        if (status === 'pending' || status === 'processing') {
+          console.warn('⏰ TIMEOUT: 2 minutos sem confirmação - marcando como failed');
+          setStatus('failed');
+          setError('Tempo de confirmação excedido. Por favor, verifique o status do seu pagamento ou tente novamente.');
+        }
+        
         // para após 2 minutos
         if (pollingRef.current) window.clearInterval(pollingRef.current);
         pollingRef.current = null;
