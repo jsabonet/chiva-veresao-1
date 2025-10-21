@@ -1592,6 +1592,9 @@ def paysuite_webhook(request):
                 # ENVIAR EMAILS DE NOTIFICAÇÃO
                 # ========================================
                 try:
+                    logger.info(f"🚀 [WEBHOOK] Iniciando envio de emails para order {order.id}")
+                    print(f"🚀 [WEBHOOK] Iniciando envio de emails para order {order.id}")
+                    
                     from .email_service import get_email_service
                     email_service = get_email_service()
                     
@@ -1599,30 +1602,48 @@ def paysuite_webhook(request):
                     customer_email = order.shipping_address.get('email', '')
                     customer_name = order.shipping_address.get('name', 'Cliente')
                     
+                    logger.info(f"📬 [WEBHOOK] Customer email: {customer_email}, name: {customer_name}")
+                    print(f"📬 [WEBHOOK] Customer email: {customer_email}, name: {customer_name}")
+                    
                     if customer_email:
                         # Confirmação de pedido criado
-                        email_service.send_order_confirmation(
+                        logger.info(f"📧 [WEBHOOK] Enviando email de confirmação...")
+                        result1 = email_service.send_order_confirmation(
                             order=order,
                             customer_email=customer_email,
                             customer_name=customer_name
                         )
+                        logger.info(f"{'✅' if result1 else '❌'} [WEBHOOK] Email de confirmação: {result1}")
                         
                         # Status de pagamento aprovado
-                        email_service.send_payment_status_update(
+                        logger.info(f"📧 [WEBHOOK] Enviando email de status de pagamento...")
+                        result2 = email_service.send_payment_status_update(
                             order=order,
                             payment_status='paid',
                             customer_email=customer_email,
                             customer_name=customer_name
                         )
+                        logger.info(f"{'✅' if result2 else '❌'} [WEBHOOK] Email de status: {result2}")
                         
-                        logger.info(f"📧 Emails de confirmação enviados para {customer_email}")
+                        logger.info(f"📧 [WEBHOOK] Emails de confirmação enviados para {customer_email}")
+                        print(f"📧 [WEBHOOK] Emails de confirmação enviados para {customer_email}")
+                    else:
+                        logger.warning(f"⚠️ [WEBHOOK] customer_email está vazio! Não é possível enviar emails.")
+                        print(f"⚠️ [WEBHOOK] customer_email está vazio! Não é possível enviar emails.")
                     
                     # Email para o admin: nova venda
-                    email_service.send_new_order_notification_to_admin(order=order)
-                    logger.info(f"📧 Email de nova venda enviado para admin")
+                    logger.info(f"📧 [WEBHOOK] Enviando email para admin...")
+                    result3 = email_service.send_new_order_notification_to_admin(order=order)
+                    logger.info(f"{'✅' if result3 else '❌'} [WEBHOOK] Email admin: {result3}")
+                    logger.info(f"📧 [WEBHOOK] Email de nova venda enviado para admin")
+                    print(f"📧 [WEBHOOK] Email de nova venda enviado para admin")
                     
                 except Exception as e:
-                    logger.error(f"❌ Erro ao enviar emails de notificação: {e}")
+                    logger.error(f"❌ [WEBHOOK] Erro ao enviar emails de notificação: {e}")
+                    print(f"❌ [WEBHOOK] Erro ao enviar emails de notificação: {e}")
+                    import traceback
+                    logger.error(traceback.format_exc())
+                    print(traceback.format_exc())
                 # ========================================
 
         # ========================================
@@ -1837,23 +1858,39 @@ def payment_status(request, order_id: int):
                             if new_status == 'failed' and latest_payment.order:
                                 # Send failure notification email
                                 try:
+                                    logger.info(f"🚀 [POLLING-FAILED] Iniciando envio de email de falha para order {latest_payment.order.id}")
+                                    print(f"🚀 [POLLING-FAILED] Iniciando envio de email de falha para order {latest_payment.order.id}")
+                                    
                                     from .email_service import get_email_service
                                     email_service = get_email_service()
                                     
                                     customer_email = latest_payment.order.shipping_address.get('email', '')
                                     customer_name = latest_payment.order.shipping_address.get('name', 'Cliente')
                                     
+                                    logger.info(f"📬 [POLLING-FAILED] Customer email: {customer_email}, name: {customer_name}")
+                                    print(f"📬 [POLLING-FAILED] Customer email: {customer_email}, name: {customer_name}")
+                                    
                                     if customer_email:
-                                        email_service.send_payment_status_update(
+                                        logger.info(f"📧 [POLLING-FAILED] Enviando email de falha...")
+                                        result = email_service.send_payment_status_update(
                                             order=latest_payment.order,
                                             payment_status='failed',
                                             customer_email=customer_email,
                                             customer_name=customer_name
                                         )
+                                        logger.info(f"{'✅' if result else '❌'} [POLLING-FAILED] Email de falha: {result}")
+                                        print(f"{'✅' if result else '❌'} [POLLING-FAILED] Email de falha: {result}")
                                         logger.info(f"📧 [POLLING] Email de falha enviado para {customer_email}")
                                         print(f"📧 [POLLING] Email de falha enviado para {customer_email}")
+                                    else:
+                                        logger.warning(f"⚠️ [POLLING-FAILED] customer_email está vazio!")
+                                        print(f"⚠️ [POLLING-FAILED] customer_email está vazio!")
                                 except Exception as e:
                                     logger.error(f"❌ [POLLING] Erro ao enviar email de falha: {e}")
+                                    print(f"❌ [POLLING] Erro ao enviar email de falha: {e}")
+                                    import traceback
+                                    logger.error(traceback.format_exc())
+                                    print(traceback.format_exc())
                             # ========================================
                             
                             # If payment succeeded, trigger the full order completion flow
@@ -1957,38 +1994,60 @@ def payment_status(request, order_id: int):
                                     # ENVIAR EMAILS DE CONFIRMAÇÃO (PAID VIA POLLING)
                                     # ========================================
                                     try:
+                                        logger.info(f"🚀 [POLLING] Iniciando envio de emails para order {latest_payment.order.id}")
+                                        print(f"🚀 [POLLING] Iniciando envio de emails para order {latest_payment.order.id}")
+                                        
                                         from .email_service import get_email_service
                                         email_service = get_email_service()
                                         
                                         customer_email = latest_payment.order.shipping_address.get('email', '')
                                         customer_name = latest_payment.order.shipping_address.get('name', 'Cliente')
                                         
+                                        logger.info(f"📬 [POLLING] Customer email: {customer_email}, name: {customer_name}")
+                                        print(f"📬 [POLLING] Customer email: {customer_email}, name: {customer_name}")
+                                        
                                         if customer_email:
                                             # Email de confirmação de pedido
-                                            email_service.send_order_confirmation(
+                                            logger.info(f"📧 [POLLING] Enviando email de confirmação...")
+                                            result1 = email_service.send_order_confirmation(
                                                 order=latest_payment.order,
                                                 customer_email=customer_email,
                                                 customer_name=customer_name
                                             )
+                                            logger.info(f"{'✅' if result1 else '❌'} [POLLING] Email de confirmação: {result1}")
+                                            print(f"{'✅' if result1 else '❌'} [POLLING] Email de confirmação: {result1}")
                                             
                                             # Email de status de pagamento
-                                            email_service.send_payment_status_update(
+                                            logger.info(f"📧 [POLLING] Enviando email de status de pagamento...")
+                                            result2 = email_service.send_payment_status_update(
                                                 order=latest_payment.order,
                                                 payment_status='paid',
                                                 customer_email=customer_email,
                                                 customer_name=customer_name
                                             )
+                                            logger.info(f"{'✅' if result2 else '❌'} [POLLING] Email de status: {result2}")
+                                            print(f"{'✅' if result2 else '❌'} [POLLING] Email de status: {result2}")
                                             
                                             logger.info(f"📧 [POLLING] Emails de confirmação enviados para {customer_email}")
                                             print(f"📧 [POLLING] Emails de confirmação enviados para {customer_email}")
+                                        else:
+                                            logger.warning(f"⚠️ [POLLING] customer_email está vazio! Não é possível enviar emails.")
+                                            print(f"⚠️ [POLLING] customer_email está vazio! Não é possível enviar emails.")
                                         
                                         # Email para admin
-                                        email_service.send_new_order_notification_to_admin(order=latest_payment.order)
+                                        logger.info(f"📧 [POLLING] Enviando email para admin...")
+                                        result3 = email_service.send_new_order_notification_to_admin(order=latest_payment.order)
+                                        logger.info(f"{'✅' if result3 else '❌'} [POLLING] Email admin: {result3}")
+                                        print(f"{'✅' if result3 else '❌'} [POLLING] Email admin: {result3}")
                                         logger.info(f"📧 [POLLING] Email de nova venda enviado para admin")
                                         print(f"📧 [POLLING] Email de nova venda enviado para admin")
                                         
                                     except Exception as e:
                                         logger.error(f"❌ [POLLING] Erro ao enviar emails de confirmação: {e}")
+                                        print(f"❌ [POLLING] Erro ao enviar emails de confirmação: {e}")
+                                        import traceback
+                                        logger.error(traceback.format_exc())
+                                        print(traceback.format_exc())
                                     # ========================================
                                     
                                     # Clear cart
