@@ -1845,7 +1845,7 @@ def payment_status(request, order_id: int):
                                     
                                     # Extract order data from request_data
                                     shipping_address = rd.get('shipping_address', {})
-                                    shipping_method_id = rd.get('shipping_method')
+                                    shipping_method = rd.get('shipping_method', 'standard')  # 'standard' is default
                                     shipping_cost = Decimal(str(rd.get('shipping_cost', 0)))
                                     customer_notes = rd.get('customer_notes', '')
                                     
@@ -1858,9 +1858,8 @@ def payment_status(request, order_id: int):
                                         shipping_cost=shipping_cost,
                                         status='paid',  # Already paid!
                                         shipping_address=shipping_address,
-                                        shipping_method_id=shipping_method_id,
-                                        customer_notes=customer_notes,
-                                        payment_method=latest_payment.method
+                                        shipping_method=shipping_method,
+                                        customer_notes=customer_notes
                                     )
                                     
                                     # Link payment to order
