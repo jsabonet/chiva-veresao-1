@@ -1222,100 +1222,18 @@ def initiate_payment(request):
         except Exception:
             logger.warning('Failed to clear cart on initiate (non-fatal)')
 
-        # Create a lightweight Order now so frontend can reference it immediately.
-        # The webhook will detect payment.order and won't recreate the Order.
-        try:
-            from .models import Order
-
-            order = Order.objects.create(
-                cart=cart,
-                user=cart.user if cart and hasattr(cart, 'user') else None,
-                total_amount=payment.amount,
-                shipping_cost=shipping_cost,
-                status='pending',
-                shipping_method=shipping_method or 'standard',
-                shipping_address=shipping_address,
-                billing_address=billing_address,
-                customer_notes=customer_notes,
-            )
-            # Link payment to created order
-            payment.order = order
-            payment.save(update_fields=['order'])
-            
-            # Immediately snapshot cart items into OrderItems so admin can see what to ship,
-            # even before payment confirmation. The paid path (webhook/polling) is idempotent
-            # and will skip if items already exist.
-            try:
-                from .models import OrderItem
-                from decimal import Decimal
-                # Prefer the prepared cart_items_data saved above for consistency
-                items_payload = cart_items_data or []
-                created_count = 0
-                if items_payload:
-                    logger.info(f"📝 Creating {len(items_payload)} provisional OrderItems for order {order.id} at initiation")
-                    for it in items_payload:
-                        try:
-                            # Use _id fields to avoid extra queries; fall back to None
-                            product_id = it.get('product_id') or it.get('product')
-                            color_id = it.get('color_id') or it.get('color')
-                            qty = int(it.get('quantity', 1))
-                            unit_price = Decimal(str(it.get('unit_price') or it.get('price') or '0'))
-
-                            OrderItem.objects.create(
-                                order=order,
-                                product_id=product_id,
-                                product_name=it.get('name', ''),
-                                sku=it.get('sku', ''),
-                                product_image=it.get('product_image', ''),
-                                color_id=color_id,
-                                color_name=it.get('color_name', ''),
-                                color_hex='',  # color hex may be added later when available
-                                quantity=qty,
-                                unit_price=unit_price,
-                                subtotal=unit_price * qty,
-                            )
-                            created_count += 1
-                        except Exception as e:
-                            logger.exception(f"❌ Failed to create provisional OrderItem: {e}")
-                else:
-                    # Fallback: snapshot directly from cart if items_payload empty (shouldn't happen)
-                    if cart and cart.items.exists():
-                        logger.info(f"🛒 Snapshotting {cart.items.count()} cart items into OrderItems for order {order.id}")
-                        for ci in cart.items.select_related('product', 'color').all():
-                            try:
-                                product_image = ''
-                                if ci.product and hasattr(ci.product, 'images') and ci.product.images.exists():
-                                    first_image = ci.product.images.first()
-                                    if first_image and hasattr(first_image, 'image') and first_image.image:
-                                        product_image = request.build_absolute_uri(first_image.image.url)
-
-                                OrderItem.objects.create(
-                                    order=order,
-                                    product_id=ci.product.id if ci.product else None,
-                                    product_name=ci.product.name if ci.product else '',
-                                    sku=getattr(ci.product, 'sku', ''),
-                                    product_image=product_image,
-                                    color_id=ci.color.id if ci.color else None,
-                                    color_name=ci.color.name if ci.color else '',
-                                    color_hex=getattr(ci.color, 'hex_code', '') if ci.color else '',
-                                    quantity=ci.quantity,
-                                    unit_price=ci.price,
-                                    subtotal=ci.price * ci.quantity,
-                                )
-                                created_count += 1
-                            except Exception as e:
-                                logger.exception(f"❌ Failed to snapshot cart item into OrderItem: {e}")
-
-                if created_count > 0:
-                    logger.info(f"✅ Created {created_count} provisional OrderItems for order {order.order_number}")
-            except Exception as e:
-                logger.warning(f"⚠️ Failed to create provisional OrderItems at initiation (non-fatal): {e}")
-            # Expose order id to frontend
-            response_data['order_id'] = order.id
-        except Exception as e:
-            logger.exception('Failed to create provisional Order after payment initiation')
-            # If order creation fails, surface an error so frontend does not navigate with NaN
-            return Response({'error': 'failed_to_create_order', 'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        # ========================================
+        # 🚨 CRÍTICO: NÃO criar Order aqui!
+        # Order só deve ser criado APÓS confirmação de pagamento (paid)
+        # via webhook ou polling para evitar pedidos falsos.
+        # ========================================
+        # O payment já foi criado com cart vinculado e request_data salvo.
+        # O webhook/polling criará o Order quando status = 'paid'.
+        
+        # Frontend precisa de um ID para acompanhar status
+        # Usamos payment.id como referência temporária
+        response_data['payment_id'] = payment.id
+        logger.info(f"💳 Payment {payment.id} criado sem Order. Order será criado apenas quando status='paid'")
 
         return Response(response_data)
 
@@ -1710,8 +1628,9 @@ def paysuite_webhook(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def payment_status(request, order_id: int):
-    """Simple endpoint to fetch an order and its payments for status polling.
+    """Simple endpoint to fetch payment status for polling.
     
+    Accepts order_id OR payment_id (backwards compatible).
     Also performs active polling to PaySuite API when payment is still pending,
     providing a fallback when webhooks don't arrive.
     """
@@ -1719,12 +1638,28 @@ def payment_status(request, order_id: int):
         from .models import Order, Payment
         from .serializers import OrderSerializer, PaymentSerializer
 
-        order = get_object_or_404(Order, id=order_id, user=request.user)
-        payments = Payment.objects.filter(order=order).order_by('-created_at')
-
-        # Detailed logging for debugging (using both print and logger to ensure visibility)
-        print(f"📊 [POLLING] Payment Status Poll: order_id={order_id}, order.status={order.status}, payment_count={payments.count()}")
-        logger.info(f"📊 Payment Status Poll: order_id={order_id}, order.status={order.status}, payment_count={payments.count()}")
+        # Try to get Order first (existing flow)
+        order = Order.objects.filter(id=order_id, user=request.user).first()
+        
+        if order:
+            # Existing flow: order exists, get payments
+            payments = Payment.objects.filter(order=order).order_by('-created_at')
+            print(f"📊 [POLLING] Payment Status Poll: order_id={order_id}, order.status={order.status}, payment_count={payments.count()}")
+            logger.info(f"📊 Payment Status Poll: order_id={order_id}, order.status={order.status}, payment_count={payments.count()}")
+        else:
+            # New flow: order doesn't exist yet, treat order_id as payment_id
+            payment = Payment.objects.filter(id=order_id).first()
+            if not payment:
+                return Response({'error': 'Payment or order not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+            # Verify user ownership via cart
+            if payment.cart and payment.cart.user and payment.cart.user != request.user:
+                return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+            
+            payments = [payment]
+            order = payment.order  # May be None if not yet created
+            print(f"📊 [POLLING] Payment Status Poll: payment_id={order_id}, payment.status={payment.status}, order={'exists' if order else 'not yet created'}")
+            logger.info(f"📊 Payment Status Poll: payment_id={order_id}, payment.status={payment.status}, order={'exists' if order else 'not yet created'}")
         
         # Active polling: if latest payment is pending, query PaySuite directly
         if payments.exists():
@@ -2140,12 +2075,17 @@ def payment_status(request, order_id: int):
                     logger.warning(f"⚠️ Active polling failed (non-fatal): {e}")
                     # Continue even if polling fails - return current DB state
 
+        # Build response - order may be None if not yet created
         response_data = {
-            'order': OrderSerializer(order).data,
-            'payments': PaymentSerializer(payments, many=True).data,
+            'order': OrderSerializer(order).data if order else None,
+            'payment_id': payments[0].id if payments else None,
+            'payments': PaymentSerializer(payments, many=True).data if isinstance(payments, list) else PaymentSerializer(payments, many=True).data,
         }
         
-        logger.info(f"✅ Returning status: order.status={response_data['order']['status']}, payments={[p['status'] for p in response_data['payments']]}")
+        if order:
+            logger.info(f"✅ Returning status: order.status={response_data['order']['status']}, payments={[p['status'] for p in response_data['payments']]}")
+        else:
+            logger.info(f"✅ Returning status: order=not_yet_created, payment_id={response_data['payment_id']}, payments={[p['status'] for p in response_data['payments']]}")
         
         return Response(response_data)
     except Exception:

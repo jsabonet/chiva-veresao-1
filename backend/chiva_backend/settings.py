@@ -263,11 +263,11 @@ SESSION_COOKIE_DOMAIN = config('SESSION_COOKIE_DOMAIN', default=None)
 
 # Brevo API Configuration (Free: 300 emails/day)
 BREVO_API_KEY = config('BREVO_API_KEY', default='')
-BREVO_SENDER_EMAIL = config('BREVO_SENDER_EMAIL', default='noreply@chivacomputer.co.mz')
+BREVO_SENDER_EMAIL = config('BREVO_SENDER_EMAIL', default='chivacomputer@gmail.com')
 BREVO_SENDER_NAME = config('BREVO_SENDER_NAME', default='Chiva Computer')
 
-# Admin notification email
-ADMIN_EMAIL = config('ADMIN_EMAIL', default='admin@chivacomputer.co.mz')
+# Admin notification email - emails de nova venda vão para este endereço
+ADMIN_EMAIL = config('ADMIN_EMAIL', default='chivacomputer@gmail.com')
 
 # Email feature toggles
 EMAIL_NOTIFICATIONS_ENABLED = config('EMAIL_NOTIFICATIONS_ENABLED', default=True, cast=bool)
