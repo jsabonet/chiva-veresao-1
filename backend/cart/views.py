@@ -2,6 +2,7 @@ from django.shortcuts import get_object_or_404
 from django.contrib.auth.models import User
 from django.db import transaction
 from django.utils import timezone
+from django.conf import settings
 from rest_framework import status
 import os
 from rest_framework.decorators import api_view, permission_classes
@@ -1036,7 +1037,6 @@ def initiate_payment(request):
             )
         # Correct API path for webhook lives under /api/cart/
         # Use WEBHOOK_BASE_URL from settings if configured, otherwise use request host
-        from django.conf import settings
         
         if hasattr(settings, 'WEBHOOK_BASE_URL') and settings.WEBHOOK_BASE_URL:
             # Use configured webhook base URL (for ngrok or production)
