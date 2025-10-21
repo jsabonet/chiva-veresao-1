@@ -1829,6 +1829,54 @@ def payment_status(request, order_id: int):
                                     print(traceback.format_exc())
                             # ========================================
                             
+                            # If payment succeeded, CREATE ORDER if it doesn't exist yet
+                            if new_status == 'paid' and not latest_payment.order:
+                                try:
+                                    logger.info(f"🔧 [POLLING] Order doesn't exist - creating order for payment {latest_payment.id}")
+                                    print(f"🔧 [POLLING] Creating Order for payment {latest_payment.id}")
+                                    
+                                    # Get cart and request data
+                                    cart = latest_payment.cart
+                                    rd = latest_payment.request_data or {}
+                                    
+                                    if not cart:
+                                        logger.error(f"❌ [POLLING] No cart found for payment {latest_payment.id}")
+                                        raise Exception("No cart found for payment")
+                                    
+                                    # Extract order data from request_data
+                                    shipping_address = rd.get('shipping_address', {})
+                                    shipping_method_id = rd.get('shipping_method')
+                                    shipping_cost = Decimal(str(rd.get('shipping_cost', 0)))
+                                    customer_notes = rd.get('customer_notes', '')
+                                    
+                                    # Create Order
+                                    from .models import Order
+                                    order = Order.objects.create(
+                                        cart=cart,
+                                        user=cart.user,
+                                        total_amount=latest_payment.amount,
+                                        shipping_cost=shipping_cost,
+                                        status='paid',  # Already paid!
+                                        shipping_address=shipping_address,
+                                        shipping_method_id=shipping_method_id,
+                                        customer_notes=customer_notes,
+                                        payment_method=latest_payment.method
+                                    )
+                                    
+                                    # Link payment to order
+                                    latest_payment.order = order
+                                    latest_payment.save(update_fields=['order'])
+                                    
+                                    logger.info(f"✅ [POLLING] Order {order.order_number} created for payment {latest_payment.id}")
+                                    print(f"✅ [POLLING] Order {order.order_number} created!")
+                                    
+                                except Exception as e:
+                                    logger.error(f"❌ [POLLING] Error creating order: {e}")
+                                    print(f"❌ [POLLING] Error creating order: {e}")
+                                    import traceback
+                                    logger.error(traceback.format_exc())
+                                    print(traceback.format_exc())
+                            
                             # If payment succeeded, trigger the full order completion flow
                             if new_status == 'paid':
                                 from .stock_management import OrderManager
