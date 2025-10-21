@@ -151,7 +151,7 @@ export default function CheckoutDetails() {
         items: state.items || cartItems.map(it => ({ id: it.id, quantity: it.quantity, color_id: it.color_id || null }))
       };
 
-      const { order_id, payment } = await initiatePayment(method as 'mpesa' | 'emola' | 'card' | 'transfer', payload);
+      const { order_id, payment_id, payment } = await initiatePayment(method as 'mpesa' | 'emola' | 'card' | 'transfer', payload);
 
       // If gateway provided a checkout URL, redirect the user
       const redirectUrl = payment?.checkout_url || payment?.redirect_url || payment?.payment_url;
@@ -162,12 +162,13 @@ export default function CheckoutDetails() {
         return;
       }
 
-      // Otherwise navigate to order confirmation (guard against invalid order_id)
+      // Navigate to order confirmation using payment_id (order_id only if already created)
       clearCart();
-      if (order_id == null || Number.isNaN(Number(order_id))) {
-        toast({ title: 'Erro', description: 'ID do pedido inválido recebido do servidor. Contate o suporte.', variant: 'destructive' });
+      const confirmationId = payment_id || order_id;
+      if (confirmationId == null || Number.isNaN(Number(confirmationId))) {
+        toast({ title: 'Erro', description: 'ID do pagamento inválido recebido do servidor. Contate o suporte.', variant: 'destructive' });
       } else {
-        navigate(`/pedido/confirmacao/${order_id}`);
+        navigate(`/pedido/confirmacao/${confirmationId}`);
       }
     } catch (e: any) {
       // Handle structured backend errors thrown by usePayments

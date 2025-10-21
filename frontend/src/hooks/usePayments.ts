@@ -5,7 +5,8 @@ const API_BASE_URL = typeof import.meta !== 'undefined' && import.meta.env && im
   : (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}${window.location.port ? ':'+window.location.port : ''}/api` : 'http://localhost:8000/api');
 
 export interface InitiatePaymentResponse {
-  order_id: number;
+  order_id?: number; // Optional: only present if order already created (legacy flow)
+  payment_id: number; // Required: payment ID for polling until order is created
   payment: any; // raw gateway payload (may contain reference, redirect_url, etc.)
 }
 
@@ -114,10 +115,10 @@ export function usePayments() {
 
       // If gateway returned a checkout URL (external redirect), allow callers to handle it
       const checkoutUrl = payload?.payment?.checkout_url || payload?.payment?.redirect_url || payload?.payment?.payment_url;
-      // Require order_id unless a checkout URL is present (gateway flow may redirect instead)
-      if ((payload == null || payload.order_id == null) && !checkoutUrl) {
-        const err: any = new Error('Resposta inválida do servidor: order_id ausente');
-        err.code = 'missing_order_id';
+      // Require payment_id (order_id is optional now - only created after payment confirmed)
+      if ((payload == null || payload.payment_id == null) && !checkoutUrl) {
+        const err: any = new Error('Resposta inválida do servidor: payment_id ausente');
+        err.code = 'missing_payment_id';
         err.payload = payload;
         throw err;
       }

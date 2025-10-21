@@ -332,18 +332,19 @@ export default function Checkout() {
         }))
       };
 
-      const { order_id, payment } = await initiatePayment(paymentMethod as "mpesa" | "emola" | "card" | "transfer", orderData);
+      const { order_id, payment_id, payment } = await initiatePayment(paymentMethod as "mpesa" | "emola" | "card" | "transfer", orderData);
 
   // NOTE: do NOT clear the cart here — cart should only be cleared after the payment
   // is actually approved by the payment gateway (webhook). The backend will clear
   // server-side cart snapshot when payment is confirmed; frontend will clear local
   // cart once confirmation is observed.
 
-      // Navigate to confirmation page (guard against invalid order_id)
-      if (order_id == null || Number.isNaN(Number(order_id))) {
-        toast({ title: 'Erro', description: 'ID do pedido inválido recebido do servidor. Contate o suporte.', variant: 'destructive' });
+      // Navigate to confirmation page using payment_id (order_id only if already created)
+      const confirmationId = payment_id || order_id;
+      if (confirmationId == null || Number.isNaN(Number(confirmationId))) {
+        toast({ title: 'Erro', description: 'ID do pagamento inválido recebido do servidor. Contate o suporte.', variant: 'destructive' });
       } else {
-        navigate(`/pedido/confirmacao/${order_id}`);
+        navigate(`/pedido/confirmacao/${confirmationId}`);
       }
 
     } catch (error: any) {
