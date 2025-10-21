@@ -74,14 +74,23 @@ export default function OrderConfirmation() {
         const res = await fetchPaymentStatus(orderId);
         if (cancelled) return;
         
+        // Always update payments array (needed for checkout URL button)
+        setPayments(res.payments || []);
+        setLastUpdate(new Date().toLocaleTimeString());
+        
         // Check if order exists (may be null if not yet created after payment)
         if (!res.order) {
           console.log('⏳ Order not yet created, payment still processing...');
           const latestPayment = res.payments?.[0];
           if (latestPayment) {
             console.log('💳 Payment status:', latestPayment.status);
-            // If payment exists but order doesn't, keep status as pending
-            setStatus('pending');
+            // Use payment status when order doesn't exist yet
+            const paymentStatus = latestPayment.status;
+            if (paymentStatus === 'paid' || paymentStatus === 'failed' || paymentStatus === 'cancelled') {
+              setStatus(paymentStatus as OrderStatus);
+            } else {
+              setStatus('pending');
+            }
           }
           return;
         }
@@ -120,8 +129,6 @@ export default function OrderConfirmation() {
         });
         
         setStatus(effectiveStatus);
-        setPayments(res.payments || []);
-        setLastUpdate(new Date().toLocaleTimeString());
       } catch (e: any) {
         if (cancelled) return;
         console.error('❌ Poll Error:', e);
