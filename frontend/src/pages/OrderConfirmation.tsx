@@ -74,6 +74,18 @@ export default function OrderConfirmation() {
         const res = await fetchPaymentStatus(orderId);
         if (cancelled) return;
         
+        // Check if order exists (may be null if not yet created after payment)
+        if (!res.order) {
+          console.log('⏳ Order not yet created, payment still processing...');
+          const latestPayment = res.payments?.[0];
+          if (latestPayment) {
+            console.log('💳 Payment status:', latestPayment.status);
+            // If payment exists but order doesn't, keep status as pending
+            setStatus('pending');
+          }
+          return;
+        }
+        
         // Priorizar payment.status sobre order.status
         // O webhook atualiza payment.status primeiro, depois order.status
         const latestPayment = res.payments?.[0];
