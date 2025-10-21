@@ -359,8 +359,230 @@ class EmailService:
 
 
     # ========================================
+    # NOVOS EMAILS DE ATUALIZAÇÃO DE STATUS
+    # ========================================
+
+    def send_order_confirmed(self, order, customer_email: str, customer_name: str) -> bool:
+        """
+        Email quando pedido é confirmado pelo admin
+        """
+        subject = f"✅ Pedido #{order.order_number} Confirmado - Chiva Computer"
+        
+        template = self._load_template('order_confirmed.html')
+        if not template:
+            return False
+
+        context = {
+            'CUSTOMER_NAME': customer_name,
+            'ORDER_NUMBER': order.order_number,
+            'ORDER_DATE': timezone.now().strftime('%d/%m/%Y às %H:%M'),
+        }
+
+        html_content = self._render_template(template, context)
+        return self._send_email(customer_email, customer_name, subject, html_content)
+
+
+    def send_order_processing(self, order, customer_email: str, customer_name: str) -> bool:
+        """
+        Email quando pedido entra em processamento
+        """
+        subject = f"⚙️ Pedido #{order.order_number} em Processamento - Chiva Computer"
+        
+        template = self._load_template('order_processing.html')
+        if not template:
+            return False
+
+        context = {
+            'CUSTOMER_NAME': customer_name,
+            'ORDER_NUMBER': order.order_number,
+            'ORDER_DATE': timezone.now().strftime('%d/%m/%Y às %H:%M'),
+        }
+
+        html_content = self._render_template(template, context)
+        return self._send_email(customer_email, customer_name, subject, html_content)
+
+
+    def send_order_delivered(self, order, customer_email: str, customer_name: str) -> bool:
+        """
+        Email quando pedido é entregue
+        """
+        subject = f"🎉 Pedido #{order.order_number} Entregue - Chiva Computer"
+        
+        template = self._load_template('order_delivered.html')
+        if not template:
+            return False
+
+        context = {
+            'CUSTOMER_NAME': customer_name,
+            'ORDER_NUMBER': order.order_number,
+            'ORDER_DATE': timezone.now().strftime('%d/%m/%Y às %H:%M'),
+        }
+
+        html_content = self._render_template(template, context)
+        return self._send_email(customer_email, customer_name, subject, html_content)
+
+
+    def send_order_cancelled(
+        self, 
+        order, 
+        customer_email: str, 
+        customer_name: str,
+        cancellation_reason: str = ""
+    ) -> bool:
+        """
+        Email quando pedido é cancelado
+        """
+        subject = f"❌ Pedido #{order.order_number} Cancelado - Chiva Computer"
+        
+        template = self._load_template('order_cancelled.html')
+        if not template:
+            return False
+
+        # Adicionar motivo do cancelamento se fornecido
+        reason_html = ""
+        if cancellation_reason:
+            reason_html = f"""
+            <p style="margin: 10px 0 0 0; padding-top: 10px; border-top: 1px solid #fecaca; font-size: 14px; color: #991b1b;">
+                <strong>Motivo:</strong> {cancellation_reason}
+            </p>
+            """
+
+        context = {
+            'CUSTOMER_NAME': customer_name,
+            'ORDER_NUMBER': order.order_number,
+            'ORDER_DATE': timezone.now().strftime('%d/%m/%Y às %H:%M'),
+            'CANCELLATION_REASON': reason_html
+        }
+
+        html_content = self._render_template(template, context)
+        return self._send_email(customer_email, customer_name, subject, html_content)
+
+
+    # ========================================
     # EMAILS PARA ADMIN
     # ========================================
+
+    def send_admin_status_change(
+        self,
+        order,
+        old_status: str,
+        new_status: str,
+        updated_by: str = "Sistema",
+        notes: str = ""
+    ) -> bool:
+        """
+        Email para admin quando status do pedido muda
+        """
+        if not self.admin_email:
+            return False
+
+        # Mapear status para labels em português
+        status_labels = {
+            'pending': 'Pendente',
+            'confirmed': 'Confirmado',
+            'processing': 'Processando',
+            'shipped': 'Enviado',
+            'delivered': 'Entregue',
+            'cancelled': 'Cancelado',
+            'paid': 'Pago',
+            'failed': 'Falhou'
+        }
+
+        old_label = status_labels.get(old_status, old_status)
+        new_label = status_labels.get(new_status, new_status)
+
+        subject = f"🔔 Status Atualizado: Pedido #{order.order_number} - {old_label} → {new_label}"
+        
+        template = self._load_template('admin_status_change.html')
+        if not template:
+            return False
+
+        # Seção de notas (se houver)
+        notes_section = ""
+        if notes:
+            notes_section = f"""
+            <table width="100%" cellpadding="15" cellspacing="0" style="background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 5px; margin: 25px 0;">
+                <tr>
+                    <td>
+                        <h4 style="margin: 0 0 10px 0; color: #92400e; font-size: 14px;">📝 Observações:</h4>
+                        <p style="margin: 0; font-size: 14px; color: #78350f;">{notes}</p>
+                    </td>
+                </tr>
+            </table>
+            """
+
+        # Seção de ação necessária (baseada no novo status)
+        action_section = ""
+        if new_status == 'confirmed':
+            action_section = """
+            <table width="100%" cellpadding="15" cellspacing="0" style="background: #dbeafe; border-left: 4px solid #3b82f6; border-radius: 5px; margin: 25px 0;">
+                <tr>
+                    <td>
+                        <p style="margin: 0; font-size: 14px; color: #1e3a8a;">
+                            ⚡ <strong>Próximo Passo:</strong> Iniciar processamento e separação dos produtos
+                        </p>
+                    </td>
+                </tr>
+            </table>
+            """
+        elif new_status == 'processing':
+            action_section = """
+            <table width="100%" cellpadding="15" cellspacing="0" style="background: #ede9fe; border-left: 4px solid #8b5cf6; border-radius: 5px; margin: 25px 0;">
+                <tr>
+                    <td>
+                        <p style="margin: 0; font-size: 14px; color: #5b21b6;">
+                            ⚡ <strong>Próximo Passo:</strong> Embalar e preparar para envio
+                        </p>
+                    </td>
+                </tr>
+            </table>
+            """
+        elif new_status == 'shipped':
+            action_section = """
+            <table width="100%" cellpadding="15" cellspacing="0" style="background: #dbeafe; border-left: 4px solid #0ea5e9; border-radius: 5px; margin: 25px 0;">
+                <tr>
+                    <td>
+                        <p style="margin: 0; font-size: 14px; color: #075985;">
+                            ⚡ <strong>Próximo Passo:</strong> Acompanhar rastreamento até entrega
+                        </p>
+                    </td>
+                </tr>
+            </table>
+            """
+
+        # Obter informações do cliente
+        customer_name = 'Não informado'
+        customer_email = 'Não informado'
+        customer_phone = 'Não informado'
+        
+        if order.user:
+            customer_name = order.user.get_full_name() or order.user.username
+            customer_email = order.user.email
+        
+        if isinstance(order.shipping_address, dict):
+            if not customer_name or customer_name == 'Não informado':
+                customer_name = order.shipping_address.get('name', 'Não informado')
+            if not customer_email or customer_email == 'Não informado':
+                customer_email = order.shipping_address.get('email', 'Não informado')
+            customer_phone = order.shipping_address.get('phone', 'Não informado')
+
+        context = {
+            'ORDER_NUMBER': order.order_number,
+            'OLD_STATUS': old_label,
+            'NEW_STATUS': new_label,
+            'UPDATE_DATE': timezone.now().strftime('%d/%m/%Y às %H:%M'),
+            'UPDATED_BY': updated_by,
+            'CUSTOMER_NAME': customer_name,
+            'CUSTOMER_EMAIL': customer_email,
+            'CUSTOMER_PHONE': customer_phone,
+            'TOTAL_AMOUNT': f"{order.total_amount:.2f}",
+            'NOTES_SECTION': notes_section,
+            'ACTION_SECTION': action_section
+        }
+
+        html_content = self._render_template(template, context)
+        return self._send_email(self.admin_email, "Admin Chiva", subject, html_content)
+
 
     def send_new_order_notification_to_admin(self, order) -> bool:
         """

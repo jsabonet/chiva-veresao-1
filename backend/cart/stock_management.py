@@ -207,25 +207,95 @@ class OrderManager:
         # ========================================
         # ENVIAR EMAILS DE NOTIFICAÇÃO
         # ========================================
-        # Enviar email quando pedido é marcado como enviado
-        if new_status == 'shipped':
-            try:
-                from .email_service import get_email_service
-                email_service = get_email_service()
+        try:
+            from .email_service import get_email_service
+            email_service = get_email_service()
+            
+            # Obter dados do cliente
+            customer_email = ''
+            customer_name = 'Cliente'
+            
+            # Priorizar dados do user, depois shipping_address
+            if order.user and order.user.email:
+                customer_email = order.user.email
+                customer_name = order.user.get_full_name() or order.user.username
+            
+            if isinstance(order.shipping_address, dict):
+                if not customer_email:
+                    customer_email = order.shipping_address.get('email', '')
+                if not customer_name or customer_name == 'Cliente':
+                    customer_name = order.shipping_address.get('name', 'Cliente')
+            
+            if not customer_email:
+                logger.warning(f"⚠️ Nenhum email encontrado para pedido {order.order_number}")
+            else:
+                # Mapear status para métodos de email
+                email_sent_customer = False
+                email_sent_admin = False
                 
-                customer_email = order.shipping_address.get('email', '')
-                customer_name = order.shipping_address.get('name', 'Cliente')
+                # 1. EMAIL PARA O CLIENTE
+                if new_status == 'confirmed':
+                    email_sent_customer = email_service.send_order_confirmed(
+                        order=order,
+                        customer_email=customer_email,
+                        customer_name=customer_name
+                    )
+                    logger.info(f"📧 Email 'Confirmado' enviado para {customer_email}: {email_sent_customer}")
                 
-                if customer_email:
-                    email_service.send_shipping_update(
+                elif new_status == 'processing':
+                    email_sent_customer = email_service.send_order_processing(
+                        order=order,
+                        customer_email=customer_email,
+                        customer_name=customer_name
+                    )
+                    logger.info(f"📧 Email 'Processando' enviado para {customer_email}: {email_sent_customer}")
+                
+                elif new_status == 'shipped':
+                    email_sent_customer = email_service.send_shipping_update(
                         order=order,
                         tracking_number=order.tracking_number,
                         customer_email=customer_email,
                         customer_name=customer_name
                     )
-                    logger.info(f"📧 Email de envio enviado para {customer_email}")
-            except Exception as e:
-                logger.error(f"❌ Erro ao enviar email de envio: {e}")
+                    logger.info(f"📧 Email 'Enviado' enviado para {customer_email}: {email_sent_customer}")
+                
+                elif new_status == 'delivered':
+                    email_sent_customer = email_service.send_order_delivered(
+                        order=order,
+                        customer_email=customer_email,
+                        customer_name=customer_name
+                    )
+                    logger.info(f"📧 Email 'Entregue' enviado para {customer_email}: {email_sent_customer}")
+                
+                elif new_status == 'cancelled':
+                    email_sent_customer = email_service.send_order_cancelled(
+                        order=order,
+                        customer_email=customer_email,
+                        customer_name=customer_name,
+                        cancellation_reason=notes  # Usar notes como motivo do cancelamento
+                    )
+                    logger.info(f"📧 Email 'Cancelado' enviado para {customer_email}: {email_sent_customer}")
+                
+                # 2. EMAIL PARA O ADMIN (sempre enviar para mudanças importantes)
+                if new_status in ['confirmed', 'processing', 'shipped', 'delivered', 'cancelled']:
+                    updated_by_name = user.get_full_name() if user else "Sistema"
+                    email_sent_admin = email_service.send_admin_status_change(
+                        order=order,
+                        old_status=old_status,
+                        new_status=new_status,
+                        updated_by=updated_by_name,
+                        notes=notes
+                    )
+                    logger.info(f"📧 Email admin (status change) enviado: {email_sent_admin}")
+                
+                # Log consolidado
+                if email_sent_customer or email_sent_admin:
+                    logger.info(f"✅ Emails enviados para pedido {order.order_number}: Cliente={email_sent_customer}, Admin={email_sent_admin}")
+                    
+        except Exception as e:
+            logger.error(f"❌ Erro ao enviar emails de notificação: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
         # ========================================
         
         logger.info(f"Order {order.order_number} status changed: {old_status} → {new_status}")

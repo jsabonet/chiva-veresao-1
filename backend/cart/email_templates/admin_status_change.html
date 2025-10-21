@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Atualização de Pedido - Chiva Computer Admin</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4;">
+    
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px 0;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                    
+                    <!-- Header -->
+                    <tr>
+                        <td style="background: linear-gradient(135deg, #1f2937 0%, #111827 100%); color: white; padding: 40px 30px; text-align: center;">
+                            <h1 style="margin: 0; font-size: 28px; font-weight: bold;">🔔 Atualização de Status</h1>
+                            <p style="margin: 15px 0 0 0; font-size: 16px; opacity: 0.9;">Pedido #{{ORDER_NUMBER}}</p>
+                        </td>
+                    </tr>
+
+                    <!-- Content -->
+                    <tr>
+                        <td style="padding: 40px 30px;">
+                            
+                            <p style="font-size: 16px; margin: 0 0 20px 0;">Olá <strong>Admin</strong>,</p>
+                            
+                            <p style="margin: 0 0 25px 0;">O status do pedido <strong>#{{ORDER_NUMBER}}</strong> foi atualizado.</p>
+
+                            <!-- Status Change Box -->
+                            <table width="100%" cellpadding="15" cellspacing="0" style="background: #f8f9fa; border: 2px solid #e5e7eb; border-radius: 8px; margin: 25px 0;">
+                                <tr>
+                                    <td>
+                                        <table width="100%" cellpadding="0" cellspacing="0">
+                                            <tr>
+                                                <td style="width: 50%; padding: 10px; text-align: center; border-right: 1px solid #e5e7eb;">
+                                                    <p style="margin: 0 0 5px 0; font-size: 12px; color: #999; text-transform: uppercase;">De</p>
+                                                    <p style="margin: 0; font-size: 16px; font-weight: bold; color: #ef4444;">{{OLD_STATUS}}</p>
+                                                </td>
+                                                <td style="width: 50%; padding: 10px; text-align: center;">
+                                                    <p style="margin: 0 0 5px 0; font-size: 12px; color: #999; text-transform: uppercase;">Para</p>
+                                                    <p style="margin: 0; font-size: 16px; font-weight: bold; color: #10b981;">{{NEW_STATUS}}</p>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                        <p style="margin: 15px 0 0 0; padding-top: 15px; border-top: 1px solid #e5e7eb; font-size: 13px; color: #666;">
+                                            <strong>Atualizado em:</strong> {{UPDATE_DATE}}<br>
+                                            <strong>Por:</strong> {{UPDATED_BY}}
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- Order Details -->
+                            <h3 style="color: #333; margin: 30px 0 15px 0; padding-bottom: 10px; border-bottom: 2px solid #1f2937;">📦 Informações do Pedido</h3>
+                            
+                            <table width="100%" cellpadding="0" cellspacing="0">
+                                <tr>
+                                    <td style="padding: 8px 0; font-size: 14px;">
+                                        <strong style="color: #666;">Cliente:</strong>
+                                    </td>
+                                    <td style="padding: 8px 0; font-size: 14px; text-align: right;">
+                                        {{CUSTOMER_NAME}}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px 0; font-size: 14px;">
+                                        <strong style="color: #666;">Email:</strong>
+                                    </td>
+                                    <td style="padding: 8px 0; font-size: 14px; text-align: right;">
+                                        {{CUSTOMER_EMAIL}}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px 0; font-size: 14px;">
+                                        <strong style="color: #666;">Telefone:</strong>
+                                    </td>
+                                    <td style="padding: 8px 0; font-size: 14px; text-align: right;">
+                                        {{CUSTOMER_PHONE}}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px 0; font-size: 14px; border-top: 1px solid #e5e7eb; padding-top: 12px;">
+                                        <strong style="color: #666;">Valor Total:</strong>
+                                    </td>
+                                    <td style="padding: 8px 0; font-size: 16px; font-weight: bold; text-align: right; border-top: 1px solid #e5e7eb; padding-top: 12px;">
+                                        {{TOTAL_AMOUNT}} MZN
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- Notes (if any) -->
+                            {{NOTES_SECTION}}
+
+                            <!-- Action Required (if any) -->
+                            {{ACTION_SECTION}}
+
+                            <!-- CTA Button -->
+                            <table width="100%" cellpadding="20" cellspacing="0" style="margin: 35px 0;">
+                                <tr>
+                                    <td align="center">
+                                        <a href="https://chivacomputer.co.mz/admin/orders" style="background: linear-gradient(135deg, #1f2937 0%, #111827 100%); color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: bold; display: inline-block; box-shadow: 0 4px 6px rgba(31, 41, 55, 0.3);">
+                                            Ver no Painel Admin
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="background: #1f2937; padding: 25px; text-align: center; color: white;">
+                            <p style="margin: 0; font-size: 14px; opacity: 0.8;">
+                                Notificação automática do sistema Chiva Computer
+                            </p>
+                            <p style="margin: 15px 0 0 0; font-size: 12px; opacity: 0.6;">
+                                © 2025 Chiva Computer. Admin Dashboard.
+                            </p>
+                        </td>
+                    </tr>
+                    
+                </table>
+            </td>
+        </tr>
+    </table>
+    
+</body>
+</html>
