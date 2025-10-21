@@ -1656,7 +1656,8 @@ def payment_status(request, order_id: int):
             if payment.cart and payment.cart.user and payment.cart.user != request.user:
                 return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
             
-            payments = [payment]
+            # Use QuerySet instead of list for consistency
+            payments = Payment.objects.filter(id=payment.id)
             order = payment.order  # May be None if not yet created
             print(f"📊 [POLLING] Payment Status Poll: payment_id={order_id}, payment.status={payment.status}, order={'exists' if order else 'not yet created'}")
             logger.info(f"📊 Payment Status Poll: payment_id={order_id}, payment.status={payment.status}, order={'exists' if order else 'not yet created'}")
