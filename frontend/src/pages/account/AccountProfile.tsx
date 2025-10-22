@@ -47,12 +47,12 @@ const AccountProfile = () => {
   const loadProfile = async () => {
     try {
       setIsLoading(true);
-      const response = await apiClient.get('/customers/me/profile/');
+      const response = await apiClient.get('/customers/me/profile/') as any;
       setProfile({
-        name: response.data.name || '',
-        email: response.data.email || currentUser?.email || '',
-        phone: response.data.phone || '',
-        defaultAddress: response.data.defaultAddress || null
+        name: response.data?.name || '',
+        email: response.data?.email || currentUser?.email || '',
+        phone: response.data?.phone || '',
+        defaultAddress: response.data?.defaultAddress || null
       });
     } catch (error: any) {
       console.error('Erro ao carregar perfil:', error);

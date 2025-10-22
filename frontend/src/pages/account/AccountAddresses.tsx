@@ -90,8 +90,8 @@ const AccountAddresses = () => {
   const loadAddresses = async () => {
     try {
       setIsLoading(true);
-      const response = await apiClient.get('/customers/me/addresses/');
-      setAddresses(response.data);
+      const response = await apiClient.get('/customers/me/addresses/') as any;
+      setAddresses(response.data || []);
     } catch (error) {
       console.error('Erro ao carregar endereços:', error);
       toast({
@@ -170,7 +170,7 @@ const AccountAddresses = () => {
 
   const handleSetDefault = async (addressId: number) => {
     try {
-      await apiClient.post(`/customers/me/addresses/${addressId}/set-default/`);
+      await apiClient.post(`/customers/me/addresses/${addressId}/set-default/`, {});
       toast({
         title: 'Sucesso',
         description: 'Endereço padrão atualizado!'

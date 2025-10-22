@@ -184,7 +184,7 @@ export default function Checkout() {
 
   const loadSavedAddresses = async () => {
     try {
-      const response = await apiClient.get('/customers/me/addresses/');
+      const response = await apiClient.get('/customers/me/addresses/') as any;
       if (Array.isArray(response.data)) {
         setSavedAddresses(response.data);
         
