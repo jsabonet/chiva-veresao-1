@@ -440,7 +440,7 @@ const OrdersManagement = () => {
     }
     
     await exportData({
-      endpoint: '/api/cart/admin/export/orders',
+      endpoint: '/cart/admin/export/orders',
       format,
       filename: generateFilename('pedidos'),
       filters

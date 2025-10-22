@@ -298,7 +298,7 @@ const CustomersManagement = () => {
   // Handlers
   const handleExport = async (format: 'excel' | 'csv' | 'pdf') => {
     await exportData({
-      endpoint: '/api/cart/admin/export/customers',
+      endpoint: '/cart/admin/export/customers',
       format,
       filename: generateFilename('clientes'),
       filters: {}

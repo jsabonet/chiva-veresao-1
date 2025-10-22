@@ -108,7 +108,7 @@ const AdminDashboard = () => {
 
   const handleExport = async (format: 'excel' | 'csv' | 'pdf') => {
     await exportData({
-      endpoint: '/api/cart/admin/export/dashboard',
+      endpoint: '/cart/admin/export/dashboard',
       format,
       filename: generateFilename('dashboard_stats'),
       filters: { days: 30 }
