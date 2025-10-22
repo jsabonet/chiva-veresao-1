@@ -64,7 +64,7 @@ export function useExport(): UseExportReturn {
 
       // Construir URL com parâmetros
       const params = new URLSearchParams({
-        format,
+        export_format: format,
         ...filters,
       });
 
