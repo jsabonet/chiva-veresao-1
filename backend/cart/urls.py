@@ -58,4 +58,9 @@ urlpatterns = [
     path('admin/shipping-methods/<str:method_id>/', views.shipping_method_detail, name='shipping_method_detail'),
     # Public list for checkout
     path('shipping-methods/', views.shipping_methods_public_list, name='shipping_methods_public_list'),
+    
+    # Export endpoints (admin)
+    path('admin/export/orders/', order_views.export_orders, name='export_orders'),
+    path('admin/export/customers/', order_views.export_customers, name='export_customers'),
+    path('admin/export/dashboard/', order_views.export_dashboard_stats, name='export_dashboard_stats'),
 ]

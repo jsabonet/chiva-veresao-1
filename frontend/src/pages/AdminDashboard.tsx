@@ -29,8 +29,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useProductStats, useProducts, useCategories, useDeleteProduct } from '@/hooks/useApi';
 import { formatPrice, getImageUrl } from '@/lib/api';
+import { useExport, generateFilename } from '@/hooks/useExport';
 
 // Statistics Card Component
 const StatCard = ({ 
@@ -82,6 +89,7 @@ const AdminDashboard = () => {
   const { categories, loading: categoriesLoading } = useCategories();
   const { products, loading: productsLoading, refresh: refreshProducts } = useProducts({ ordering: '-created_at', search: searchQuery || undefined, category: categoryFilter === 'all' ? undefined : categoryFilter, status: statusFilter === 'all' ? undefined : statusFilter });
   const { deleteProduct, loading: deleting } = useDeleteProduct();
+  const { exportData, isExporting } = useExport();
 
   const handleDeleteProduct = async (productId: number, productName: string) => {
     if (confirm(`Tem certeza que deseja deletar o produto "${productName}"?`)) {
@@ -96,6 +104,15 @@ const AdminDashboard = () => {
         alert('Erro ao deletar produto. Tente novamente.');
       }
     }
+  };
+
+  const handleExport = async (format: 'excel' | 'csv' | 'pdf') => {
+    await exportData({
+      endpoint: '/api/cart/admin/export/dashboard',
+      format,
+      filename: generateFilename('dashboard_stats'),
+      filters: { days: 30 }
+    });
   };
 
   // Get recent products (last 5)
@@ -140,10 +157,25 @@ const AdminDashboard = () => {
           </div>
           <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 gap-2">
             <div className="flex gap-2">
-              <Button variant="outline" size="sm">
-                <Download className="h-4 w-4 mr-2" />
-                Exportar
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" disabled={isExporting}>
+                    <Download className="h-4 w-4 mr-2" />
+                    {isExporting ? 'Exportando...' : 'Exportar'}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem onClick={() => handleExport('excel')}>
+                    Exportar Excel (.xlsx)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleExport('pdf')}>
+                    Exportar PDF
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleExport('csv')}>
+                    Exportar CSV
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button onClick={() => navigate('/admin/configuracoes')} variant="outline" size="sm">
                 <Settings className="h-4 w-4 mr-2" />
                 Configurações

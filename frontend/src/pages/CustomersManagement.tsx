@@ -40,6 +40,7 @@ import { auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import type { CustomerProfile, PermissionChangeLog } from '@/lib/api/types';
 import { useAdminStatus } from '@/hooks/useAdminStatus';
+import { useExport, generateFilename } from '@/hooks/useExport';
 
 // Modal base ultra-estável
 const Modal = ({ isOpen, onClose, children, className = '' }) => {
@@ -154,6 +155,7 @@ const StableInput = ({ value, onChange, type = 'text', placeholder = '', classNa
 const CustomersManagement = () => {
   // Hook de status de admin
   const { isAdmin, isProtectedAdmin, canManageAdmins, loading: adminStatusLoading } = useAdminStatus();
+  const { exportData, isExporting } = useExport();
   
   // Estados principais
   const [customers, setCustomers] = useState<CustomerProfile[]>([]);
@@ -294,6 +296,15 @@ const CustomersManagement = () => {
   };
 
   // Handlers
+  const handleExport = async (format: 'excel' | 'csv' | 'pdf') => {
+    await exportData({
+      endpoint: '/api/cart/admin/export/customers',
+      format,
+      filename: generateFilename('clientes'),
+      filters: {}
+    });
+  };
+
   const handleCreateCustomer = useCallback(async (e) => {
     e.preventDefault();
     if (!newCustomer.email) return;
@@ -491,10 +502,25 @@ const CustomersManagement = () => {
           <p className="text-muted-foreground">Gerencie todos os clientes da loja</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-          <Button variant="outline" className="w-full sm:w-auto">
-            <Download className="h-4 w-4 mr-2" />
-            Exportar
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="w-full sm:w-auto" disabled={isExporting}>
+                <Download className="h-4 w-4 mr-2" />
+                {isExporting ? 'Exportando...' : 'Exportar'}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => handleExport('excel')}>
+                Exportar Excel (.xlsx)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport('pdf')}>
+                Exportar PDF
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport('csv')}>
+                Exportar CSV
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button onClick={openCreateModal} className="w-full sm:w-auto">
             <Plus className="h-4 w-4 mr-2" />
             Novo Cliente

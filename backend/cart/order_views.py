@@ -538,3 +538,260 @@ def admin_update_order_notes(request, order_id):
         return Response({
             'error': str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ========================================
+# EXPORT ENDPOINTS
+# ========================================
+
+from .export_service import ExportService
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsAdmin])
+def export_orders(request):
+    """
+    Exportar pedidos em múltiplos formatos (Excel, CSV, PDF)
+    Suporta filtros: status, date_from, date_to, search
+    """
+    try:
+        export_format = request.GET.get('format', 'excel').lower()
+        
+        # Base queryset
+        orders = Order.objects.all().select_related('user').order_by('-created_at')
+        
+        # Aplicar filtros (mesmos do admin_orders_list)
+        status_filter = request.GET.get('status')
+        if status_filter and status_filter != 'all':
+            orders = orders.filter(status=status_filter)
+        
+        search_query = request.GET.get('search', '').strip()
+        if search_query:
+            orders = orders.filter(
+                Q(order_number__icontains=search_query) |
+                Q(user__email__icontains=search_query) |
+                Q(shipping_address__icontains=search_query)
+            )
+        
+        date_from = request.GET.get('date_from')
+        if date_from:
+            orders = orders.filter(created_at__gte=date_from)
+        
+        date_to = request.GET.get('date_to')
+        if date_to:
+            orders = orders.filter(created_at__lte=date_to)
+        
+        # Preparar dados para exportação
+        data = []
+        for order in orders:
+            customer_email = order.user.email if order.user else 'N/A'
+            payment_method = 'N/A'
+            
+            # Obter método de pagamento do primeiro Payment relacionado
+            first_payment = order.payments.first()
+            if first_payment and first_payment.payment_method:
+                payment_method = first_payment.payment_method
+            
+            data.append({
+                'order_number': order.order_number,
+                'status': order.get_status_display(),
+                'customer_email': customer_email,
+                'total': float(order.total_amount),
+                'payment_method': payment_method,
+                'created_at': order.created_at,
+                'updated_at': order.updated_at,
+                'shipping_address': order.shipping_address[:100] if order.shipping_address else 'N/A',
+                'tracking_number': order.tracking_number or 'N/A',
+            })
+        
+        # Cabeçalhos
+        headers = {
+            'order_number': 'Nº Pedido',
+            'status': 'Status',
+            'customer_email': 'Cliente',
+            'total': 'Valor Total (MT)',
+            'payment_method': 'Método Pagamento',
+            'created_at': 'Data Criação',
+            'updated_at': 'Última Atualização',
+            'shipping_address': 'Endereço Entrega',
+            'tracking_number': 'Rastreamento',
+        }
+        
+        # Nome do arquivo
+        timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
+        filename = f'pedidos_{timestamp}'
+        title = f'Relatório de Pedidos - {timezone.now().strftime("%d/%m/%Y")}'
+        
+        # Exportar
+        return ExportService.export_data(data, headers, export_format, filename, title)
+        
+    except Exception as e:
+        logger.error(f"Error exporting orders: {e}")
+        return Response({
+            'error': f'Erro ao exportar pedidos: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsAdmin])
+def export_customers(request):
+    """
+    Exportar clientes em múltiplos formatos (Excel, CSV, PDF)
+    """
+    try:
+        export_format = request.GET.get('format', 'excel').lower()
+        
+        # Buscar todos os usuários (clientes)
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        
+        customers = User.objects.filter(is_staff=False).order_by('-date_joined')
+        
+        # Preparar dados
+        data = []
+        for user in customers:
+            # Contar pedidos
+            orders_count = Order.objects.filter(user=user).count()
+            total_spent = Order.objects.filter(
+                user=user,
+                status__in=['confirmed', 'processing', 'shipped', 'delivered']
+            ).aggregate(total=Sum('total_amount'))['total'] or 0
+            
+            data.append({
+                'email': user.email,
+                'uid': user.uid if hasattr(user, 'uid') else 'N/A',
+                'date_joined': user.date_joined,
+                'last_login': user.last_login or 'Nunca',
+                'orders_count': orders_count,
+                'total_spent': float(total_spent),
+                'is_active': user.is_active,
+            })
+        
+        # Cabeçalhos
+        headers = {
+            'email': 'Email',
+            'uid': 'UID',
+            'date_joined': 'Data Cadastro',
+            'last_login': 'Último Acesso',
+            'orders_count': 'Nº Pedidos',
+            'total_spent': 'Total Gasto (MT)',
+            'is_active': 'Ativo',
+        }
+        
+        # Nome do arquivo
+        timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
+        filename = f'clientes_{timestamp}'
+        title = f'Relatório de Clientes - {timezone.now().strftime("%d/%m/%Y")}'
+        
+        # Exportar
+        return ExportService.export_data(data, headers, export_format, filename, title)
+        
+    except Exception as e:
+        logger.error(f"Error exporting customers: {e}")
+        return Response({
+            'error': f'Erro ao exportar clientes: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsAdmin])
+def export_dashboard_stats(request):
+    """
+    Exportar estatísticas do dashboard (Excel ou PDF)
+    Inclui: vendas por período, produtos mais vendidos, status de pedidos
+    """
+    try:
+        export_format = request.GET.get('format', 'excel').lower()
+        
+        # Período (últimos 30 dias por padrão)
+        days = int(request.GET.get('days', 30))
+        start_date = timezone.now() - timedelta(days=days)
+        
+        # Estatísticas gerais
+        orders = Order.objects.filter(created_at__gte=start_date)
+        
+        # Vendas por status
+        status_counts = orders.values('status').annotate(
+            count=Count('id'),
+            total=Sum('total_amount')
+        ).order_by('-count')
+        
+        # Preparar dados
+        data = []
+        
+        # Resumo geral
+        total_orders = orders.count()
+        total_revenue = orders.aggregate(total=Sum('total_amount'))['total'] or 0
+        
+        data.append({
+            'metric': 'RESUMO GERAL',
+            'value': '',
+            'details': ''
+        })
+        data.append({
+            'metric': 'Total de Pedidos',
+            'value': str(total_orders),
+            'details': f'Últimos {days} dias'
+        })
+        data.append({
+            'metric': 'Receita Total',
+            'value': f'{float(total_revenue):.2f} MT',
+            'details': f'Últimos {days} dias'
+        })
+        data.append({
+            'metric': 'Ticket Médio',
+            'value': f'{float(total_revenue / total_orders if total_orders > 0 else 0):.2f} MT',
+            'details': ''
+        })
+        
+        # Espaço
+        data.append({
+            'metric': '',
+            'value': '',
+            'details': ''
+        })
+        
+        # Vendas por status
+        data.append({
+            'metric': 'PEDIDOS POR STATUS',
+            'value': '',
+            'details': ''
+        })
+        
+        status_labels = {
+            'pending': 'Pendente',
+            'confirmed': 'Confirmado',
+            'processing': 'Processando',
+            'shipped': 'Enviado',
+            'delivered': 'Entregue',
+            'cancelled': 'Cancelado',
+            'failed': 'Falhou',
+        }
+        
+        for stat in status_counts:
+            data.append({
+                'metric': status_labels.get(stat['status'], stat['status']),
+                'value': str(stat['count']),
+                'details': f'{float(stat["total"] or 0):.2f} MT'
+            })
+        
+        # Cabeçalhos
+        headers = {
+            'metric': 'Métrica',
+            'value': 'Valor',
+            'details': 'Detalhes',
+        }
+        
+        # Nome do arquivo
+        timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
+        filename = f'dashboard_stats_{timestamp}'
+        title = f'Estatísticas do Dashboard - Últimos {days} dias'
+        
+        # Exportar
+        return ExportService.export_data(data, headers, export_format, filename, title)
+        
+    except Exception as e:
+        logger.error(f"Error exporting dashboard stats: {e}")
+        return Response({
+            'error': f'Erro ao exportar estatísticas: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -37,8 +37,15 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { formatPrice } from '@/lib/formatPrice';
 import { toast } from '@/hooks/use-toast';
+import { useExport, generateFilename, formatDateFilter } from '@/hooks/useExport';
 
 interface Order {
   id: number;
@@ -115,6 +122,7 @@ const OrdersManagement = () => {
     has_previous: false
   });
   const { isAdmin } = useAdminStatus();
+  const { exportData, isExporting } = useExport();
 
   // Today quick metrics
   const [filterToday, setFilterToday] = useState(false);
@@ -417,6 +425,26 @@ const OrdersManagement = () => {
         variant: 'destructive',
       });
     }
+  };
+
+  const handleExport = async (format: 'excel' | 'csv' | 'pdf') => {
+    // Aplicar os mesmos filtros da lista atual
+    const filters: Record<string, any> = {};
+    
+    if (statusFilter && statusFilter !== 'all') {
+      filters.status = statusFilter;
+    }
+    
+    if (searchTerm) {
+      filters.search = searchTerm;
+    }
+    
+    await exportData({
+      endpoint: '/api/cart/admin/export/orders',
+      format,
+      filename: generateFilename('pedidos'),
+      filters
+    });
   };
 
   const formatDate = (dateString: string) => {
@@ -796,10 +824,25 @@ const OrdersManagement = () => {
             <Package className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             {loading ? 'Atualizando...' : 'Atualizar'}
           </Button>
-          <Button variant="outline" className="w-full sm:w-auto">
-            <Download className="h-4 w-4 mr-2" />
-            Exportar Relatório
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="w-full sm:w-auto" disabled={isExporting}>
+                <Download className="h-4 w-4 mr-2" />
+                {isExporting ? 'Exportando...' : 'Exportar Relatório'}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => handleExport('excel')}>
+                Exportar Excel (.xlsx)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport('pdf')}>
+                Exportar PDF
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport('csv')}>
+                Exportar CSV
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
