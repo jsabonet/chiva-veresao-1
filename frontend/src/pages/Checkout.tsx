@@ -33,7 +33,8 @@ import {
   Package,
   Check,
   ChevronRight,
-  ArrowLeft
+  ArrowLeft,
+  Plus
 } from 'lucide-react';
 import { formatPrice } from '@/lib/formatPrice';
 import { toast } from '@/hooks/use-toast';
@@ -141,6 +142,11 @@ export default function Checkout() {
   
   // Coupon state from Cart navigation
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount: number } | null>(null);
+  
+  // Saved addresses state
+  const [savedAddresses, setSavedAddresses] = useState<any[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
+  const [saveNewAddress, setSaveNewAddress] = useState(false);
 
   // Initialize user data
   useEffect(() => {
@@ -168,6 +174,62 @@ export default function Checkout() {
     }
     // If items/amount provided we could prefill other fields or adjust step
   }, [location]);
+
+  // Load saved addresses for authenticated users
+  useEffect(() => {
+    if (currentUser) {
+      loadSavedAddresses();
+    }
+  }, [currentUser]);
+
+  const loadSavedAddresses = async () => {
+    try {
+      const response = await apiClient.get('/customers/me/addresses/');
+      if (Array.isArray(response.data)) {
+        setSavedAddresses(response.data);
+        
+        // Auto-select default address
+        const defaultAddress = response.data.find((addr: any) => addr.is_default);
+        if (defaultAddress) {
+          handleSelectSavedAddress(defaultAddress.id);
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to load saved addresses', error);
+    }
+  };
+
+  const handleSelectSavedAddress = (addressId: number | null) => {
+    setSelectedAddressId(addressId);
+    
+    if (addressId === null) {
+      // Clear form (user wants to enter new address)
+      setShippingAddress(prev => ({
+        ...prev,
+        name: currentUser?.displayName || prev.name,
+        email: currentUser?.email || prev.email,
+        phone: '',
+        address: '',
+        city: '',
+        province: '',
+        postal_code: ''
+      }));
+      return;
+    }
+
+    const address = savedAddresses.find(addr => addr.id === addressId);
+    if (address) {
+      setShippingAddress({
+        name: address.name,
+        phone: address.phone,
+        email: currentUser?.email || shippingAddress.email,
+        address: address.address,
+        city: address.city,
+        province: address.province,
+        postal_code: address.postal_code || ''
+      });
+    }
+  };
 
   // Load shipping methods from backend and prefer enabled first
   useEffect(() => {
@@ -313,6 +375,24 @@ export default function Checkout() {
     setIsLoading(true);
 
     try {
+      // Save new address if checkbox is checked and user is authenticated
+      if (saveNewAddress && currentUser && selectedAddressId === null) {
+        try {
+          await apiClient.post('/customers/me/addresses/', {
+            label: 'Checkout',
+            name: shippingAddress.name,
+            phone: shippingAddress.phone,
+            address: shippingAddress.address,
+            city: shippingAddress.city,
+            province: shippingAddress.province,
+            postal_code: shippingAddress.postal_code || '',
+            is_default: savedAddresses.length === 0 // First address becomes default
+          });
+        } catch (error) {
+          console.warn('Failed to save address, but continuing with order:', error);
+        }
+      }
+
       const orderData = {
         method: paymentMethod,
         phone: paymentPhone || shippingAddress.phone,
@@ -433,6 +513,39 @@ export default function Checkout() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    {/* Saved Addresses Selector */}
+                    {currentUser && savedAddresses.length > 0 && (
+                      <div className="space-y-2">
+                        <Label>Usar Endereço Salvo</Label>
+                        <Select
+                          value={selectedAddressId?.toString() || 'new'}
+                          onValueChange={(value) => handleSelectSavedAddress(value === 'new' ? null : parseInt(value))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione um endereço" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="new">
+                              <span className="flex items-center gap-2">
+                                <Plus className="h-4 w-4" />
+                                Novo Endereço
+                              </span>
+                            </SelectItem>
+                            {savedAddresses.map((addr) => (
+                              <SelectItem key={addr.id} value={addr.id.toString()}>
+                                <div className="flex flex-col">
+                                  <span className="font-medium">{addr.label} - {addr.name}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {addr.city}, {addr.province}
+                                  </span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
                     <div className="grid md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="name">Nome Completo *</Label>
@@ -513,6 +626,22 @@ export default function Checkout() {
                         />
                       </div>
                     </div>
+
+                    {/* Save Address Checkbox - only show for new addresses */}
+                    {currentUser && selectedAddressId === null && (
+                      <div className="flex items-center space-x-2 pt-2">
+                        <input
+                          type="checkbox"
+                          id="saveAddress"
+                          checked={saveNewAddress}
+                          onChange={(e) => setSaveNewAddress(e.target.checked)}
+                          className="h-4 w-4 rounded border-gray-300"
+                        />
+                        <Label htmlFor="saveAddress" className="cursor-pointer text-sm">
+                          Salvar este endereço para compras futuras
+                        </Label>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               )}

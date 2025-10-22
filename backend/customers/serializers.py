@@ -158,3 +158,41 @@ class ExternalAuthUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = ExternalAuthUser
         fields = ['firebase_uid', 'email', 'display_name', 'providers', 'roles', 'is_admin', 'last_seen']
+
+
+# ---- CustomerAddress serializers ----
+from .models import CustomerAddress
+
+
+class CustomerAddressSerializer(serializers.ModelSerializer):
+    """
+    Serializer para endereços salvos dos clientes
+    """
+    class Meta:
+        model = CustomerAddress
+        fields = [
+            'id', 'label', 'name', 'phone', 'address', 
+            'city', 'province', 'postal_code', 'is_default',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def validate(self, data):
+        """
+        Validação customizada para is_default
+        """
+        # Se está criando um novo endereço como padrão, ok (será tratado no model)
+        # Se está atualizando um endereço existente
+        if self.instance and data.get('is_default', False):
+            # Verificar se já existe outro padrão para este usuário
+            user = self.instance.user
+            existing_default = CustomerAddress.objects.filter(
+                user=user, 
+                is_default=True
+            ).exclude(pk=self.instance.pk).first()
+            
+            if existing_default:
+                # Não precisa validar porque o model.save() vai atualizar automaticamente
+                pass
+        
+        return data
