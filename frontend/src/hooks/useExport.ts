@@ -5,8 +5,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+import { API_BASE_URL } from '@/lib/config';
 
 export type ExportFormat = 'excel' | 'csv' | 'pdf';
 
@@ -69,7 +68,7 @@ export function useExport(): UseExportReturn {
         ...filters,
       });
 
-      const url = `${API_URL}${cleanEndpoint}?${params.toString()}`;
+      const url = `${API_BASE_URL}${cleanEndpoint}?${params.toString()}`;
 
       // Fazer requisição
       const response = await fetch(url, {
