@@ -38,6 +38,54 @@ class ExportService:
             return 'Sim' if value else 'Não'
         return str(value)
     
+    @staticmethod
+    def _calculate_optimal_col_widths(
+        headers: Dict[str, str],
+        data: List[Dict[str, Any]],
+        available_width: float
+    ) -> List[float]:
+        """
+        Calcula larguras ótimas de colunas baseado no conteúdo
+        Retorna lista de larguras em pontos
+        """
+        col_keys = list(headers.keys())
+        col_widths = []
+        
+        for key in col_keys:
+            # Padrões específicos por tipo de campo
+            key_lower = key.lower()
+            
+            if 'address' in key_lower or 'endereco' in key_lower or 'endereço' in key_lower:
+                weight = 0.25  # 25% para endereços (campo mais largo)
+            elif 'email' in key_lower:
+                weight = 0.15  # 15% para emails
+            elif 'description' in key_lower or 'descricao' in key_lower or 'descrição' in key_lower:
+                weight = 0.20  # 20% para descrições
+            elif 'number' in key_lower or 'numero' in key_lower or 'número' in key_lower:
+                weight = 0.10  # 10% para números de pedido/referência
+            elif 'status' in key_lower:
+                weight = 0.08  # 8% para status
+            elif 'date' in key_lower or 'data' in key_lower:
+                weight = 0.12  # 12% para datas
+            elif 'total' in key_lower or 'valor' in key_lower or 'price' in key_lower or 'preco' in key_lower or 'preço' in key_lower:
+                weight = 0.10  # 10% para valores monetários
+            elif 'name' in key_lower or 'nome' in key_lower:
+                weight = 0.15  # 15% para nomes
+            elif 'tracking' in key_lower or 'rastreamento' in key_lower:
+                weight = 0.12  # 12% para códigos de rastreamento
+            elif 'method' in key_lower or 'metodo' in key_lower or 'método' in key_lower:
+                weight = 0.10  # 10% para métodos de pagamento/envio
+            else:
+                weight = 0.12  # 12% padrão
+            
+            col_widths.append(weight)
+        
+        # Normalizar para somar 100% do espaço disponível
+        total_weight = sum(col_widths)
+        col_widths = [(w / total_weight) * available_width for w in col_widths]
+        
+        return col_widths
+    
     # ========================================
     # EXPORTAÇÃO PARA EXCEL
     # ========================================
@@ -237,44 +285,79 @@ class ExportService:
         ))
         elements.append(Spacer(1, 20))
         
-        # Preparar dados da tabela
-        table_data = [list(headers.values())]  # Cabeçalhos
+        # Preparar dados da tabela com Paragraphs para quebra de linha automática
+        normal_style = ParagraphStyle(
+            'CellStyle',
+            parent=styles['Normal'],
+            fontSize=8,
+            leading=10,
+            wordWrap='LTR',
+            alignment=0  # Left
+        )
         
+        # Cabeçalhos como Paragraphs
+        header_style = ParagraphStyle(
+            'HeaderStyle',
+            parent=styles['Normal'],
+            fontSize=9,
+            leading=11,
+            textColor=colors.whitesmoke,
+            alignment=1,  # Center
+            fontName='Helvetica-Bold'
+        )
+        
+        table_data = [[Paragraph(str(header), header_style) for header in headers.values()]]
+        
+        # Dados com Paragraphs para quebra automática
         for row_data in data:
-            row = [ExportService._sanitize_value(row_data.get(key, '')) for key in headers.keys()]
-            # Limitar tamanho do texto para caber na página
-            row = [str(cell)[:50] + '...' if len(str(cell)) > 50 else str(cell) for cell in row]
+            row = []
+            for key in headers.keys():
+                cell_value = ExportService._sanitize_value(row_data.get(key, ''))
+                # Usar Paragraph para permitir quebra de linha
+                cell_paragraph = Paragraph(str(cell_value), normal_style)
+                row.append(cell_paragraph)
             table_data.append(row)
         
-        # Criar tabela
-        col_widths = [pagesize[0] / len(headers) * 0.9] * len(headers)
+        # Calcular larguras de coluna dinamicamente usando método otimizado
+        available_width = pagesize[0] - 60  # Margem total (30 left + 30 right)
+        col_widths = ExportService._calculate_optimal_col_widths(headers, data, available_width)
+        
+        # Criar tabela com larguras personalizadas
         table = Table(table_data, colWidths=col_widths, repeatRows=1)
         
-        # Estilo da tabela
+        # Estilo da tabela com VALIGN para alinhamento vertical
         table.setStyle(TableStyle([
             # Cabeçalho
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1F4788')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('FONTSIZE', (0, 0), (-1, 0), 9),
+            ('TOPPADDING', (0, 0), (-1, 0), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
             
             # Dados
             ('BACKGROUND', (0, 1), (-1, -1), colors.white),
             ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
             ('ALIGN', (0, 1), (-1, -1), 'LEFT'),
+            ('VALIGN', (0, 1), (-1, -1), 'TOP'),  # Alinhamento vertical no topo
             ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
             ('FONTSIZE', (0, 1), (-1, -1), 8),
-            ('TOPPADDING', (0, 1), (-1, -1), 6),
-            ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
+            ('TOPPADDING', (0, 1), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 4),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
             
             # Bordas
             ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
             ('LINEBELOW', (0, 0), (-1, 0), 2, colors.HexColor('#1F4788')),
             
             # Linhas alternadas
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F0F0F0')])
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F0F0F0')]),
+            
+            # Quebra de linha automática
+            ('WORDWRAP', (0, 0), (-1, -1), True),
         ]))
         
         elements.append(table)
