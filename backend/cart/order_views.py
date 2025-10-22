@@ -61,6 +61,11 @@ def user_orders(request):
         }
     })
 
+# Debug endpoint to confirm routing without hitting permissions
+@api_view(['GET'])
+def export_orders_debug(request):
+    return Response({'ok': True, 'path': request.path})
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -555,7 +560,8 @@ def export_orders(request):
     Suporta filtros: status, date_from, date_to, search
     """
     try:
-        export_format = request.GET.get('format', 'excel').lower()
+        # Avoid DRF format negotiation ('format' query param triggers 404); prefer 'export_format'
+        export_format = (request.GET.get('export_format') or request.GET.get('format', 'excel')).lower()
         
         # Base queryset
         orders = Order.objects.all().select_related('user').order_by('-created_at')
@@ -589,9 +595,16 @@ def export_orders(request):
             
             # Obter método de pagamento do primeiro Payment relacionado
             first_payment = order.payments.first()
-            if first_payment and first_payment.payment_method:
-                payment_method = first_payment.payment_method
+            if first_payment and getattr(first_payment, 'method', None):
+                payment_method = first_payment.method
             
+            # Endereço de entrega como string amigável
+            try:
+                shipping_addr_display = order.get_shipping_address_display()
+            except Exception:
+                shipping_addr_display = ''
+            shipping_addr_display = shipping_addr_display[:100] if shipping_addr_display else 'N/A'
+
             data.append({
                 'order_number': order.order_number,
                 'status': order.get_status_display(),
@@ -600,7 +613,7 @@ def export_orders(request):
                 'payment_method': payment_method,
                 'created_at': order.created_at,
                 'updated_at': order.updated_at,
-                'shipping_address': order.shipping_address[:100] if order.shipping_address else 'N/A',
+                'shipping_address': shipping_addr_display,
                 'tracking_number': order.tracking_number or 'N/A',
             })
         
@@ -639,7 +652,7 @@ def export_customers(request):
     Exportar clientes em múltiplos formatos (Excel, CSV, PDF)
     """
     try:
-        export_format = request.GET.get('format', 'excel').lower()
+        export_format = (request.GET.get('export_format') or request.GET.get('format', 'excel')).lower()
         
         # Buscar todos os usuários (clientes)
         from django.contrib.auth import get_user_model
@@ -701,7 +714,7 @@ def export_dashboard_stats(request):
     Inclui: vendas por período, produtos mais vendidos, status de pedidos
     """
     try:
-        export_format = request.GET.get('format', 'excel').lower()
+        export_format = (request.GET.get('export_format') or request.GET.get('format', 'excel')).lower()
         
         # Período (últimos 30 dias por padrão)
         days = int(request.GET.get('days', 30))

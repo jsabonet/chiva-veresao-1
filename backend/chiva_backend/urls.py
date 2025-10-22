@@ -21,9 +21,15 @@ from django.conf.urls.static import static
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 from django.contrib.sitemaps.views import sitemap
 from products.sitemaps import ProductSitemap, CategorySitemap, SubcategorySitemap, StaticViewSitemap
+from cart import order_views as cart_order_views
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    # Direct export endpoints (ensure no include-order confusion during dev/testing)
+    path('api/cart/admin/export/orders/', cart_order_views.export_orders, name='export_orders_root'),
+    path('api/cart/admin/export/orders/debug/', cart_order_views.export_orders_debug, name='export_orders_debug'),
+    path('api/cart/admin/export/customers/', cart_order_views.export_customers, name='export_customers_root'),
+    path('api/cart/admin/export/dashboard/', cart_order_views.export_dashboard_stats, name='export_dashboard_stats_root'),
     # Otherwise, 'api/' will match first and delegate, causing 404s for 'api/cart/...'
     path("api/cart/", include("cart.urls")),
     path("api/", include("products.urls")),
