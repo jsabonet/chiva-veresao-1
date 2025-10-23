@@ -48,10 +48,9 @@ const AccountProfile = () => {
     setSaving(true);
     setMessage('');
     try {
-      // Atualizar perfil no backend (nome/email/phone/address/city/province)
+      // Atualizar perfil no backend (nome/phone/address/city/province)
       const payload: Partial<CustomerProfile> = {
         name: displayName,
-        email: profile?.email || currentUser?.email || '',
         phone,
         address,
         city,
@@ -84,10 +83,7 @@ const AccountProfile = () => {
               <Label htmlFor="displayName">Nome</Label>
               <Input id="displayName" value={displayName} onChange={(e)=>setDisplayName(e.target.value)} placeholder="Seu nome" />
             </div>
-            <div className="space-y-2">
-              <Label>Email</Label>
-              <Input value={profile?.email || currentUser?.email || ''} disabled />
-            </div>
+            {/* Email é gerenciado na página Emails (AccountAddresses). */}
             <div className="space-y-2">
               <Label htmlFor="phone">Telefone</Label>
               <Input id="phone" value={phone} onChange={(e)=>setPhone(e.target.value)} placeholder="Seu telefone" />

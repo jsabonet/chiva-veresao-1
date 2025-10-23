@@ -63,6 +63,25 @@ export function usePayments() {
       if (Array.isArray(paymentData?.items)) {
         await syncCart(paymentData.items);
       }
+      // After sync, fetch server cart to ensure it has valid items and a non-zero total
+      try {
+        const authHeaders = await getAuthHeaders();
+        const cartRes = await fetch(`${API_BASE_URL}/cart/`, { credentials: 'include', headers: { ...authHeaders }});
+        if (cartRes.ok) {
+          const cartJson = await cartRes.json();
+          const items = Array.isArray(cartJson?.items) ? cartJson.items : [];
+          const total = Number(cartJson?.total || 0);
+          if (items.length === 0 || !isFinite(total) || total <= 0) {
+            const err: any = new Error('Seu carrinho está vazio ou contém itens indisponíveis. Atualize os itens antes de pagar.');
+            err.code = 'cart_empty_or_invalid';
+            err.cart = cartJson;
+            throw err;
+          }
+        }
+      } catch (e) {
+        // If we threw a structured error above, bubble it; otherwise continue
+        if ((e as any)?.code === 'cart_empty_or_invalid') throw e;
+      }
       
       const authHeaders = await getAuthHeaders();
       const url = `${API_BASE_URL}/cart/payments/initiate/`;
@@ -70,15 +89,12 @@ export function usePayments() {
       
       const requestBody: any = {
         method,
-        ...paymentData // Include all payment-specific data (phone, card data, etc.)
+        ...paymentData // Include method-specific data, addresses, shipping_method, items
       };
-      // If caller provided amount/shipping, pass them through to backend
-      if (typeof paymentData?.amount === 'number') requestBody.amount = paymentData.amount;
-      if (typeof paymentData?.shipping_amount === 'number') requestBody.shipping_amount = paymentData.shipping_amount;
+      // Never send client-side totals; let the server compute authoritative totals
+      delete requestBody.amount;
+      delete requestBody.shipping_amount;
       if (paymentData?.currency) requestBody.currency = paymentData.currency;
-      if (requestBody.amount != null) {
-        console.log('🧮 Initiating with explicit amount from UI:', requestBody.amount, requestBody.currency || 'MZN');
-      }
       
       const res = await fetch(url, {
         method: 'POST',
@@ -105,6 +121,11 @@ export function usePayments() {
           err.calculated = data.calculated;
           err.cart_total = data.cart_total;
           err.shipping = data.shipping;
+          throw err;
+        }
+        if (data && data.error === 'Invalid amount') {
+          const err: any = new Error('Seu carrinho está vazio ou contém itens indisponíveis. Atualize os itens antes de pagar.');
+          err.code = 'cart_empty_or_invalid';
           throw err;
         }
         throw new Error(data.error || `HTTP ${res.status}`);

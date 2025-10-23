@@ -168,7 +168,7 @@ export default function CheckoutDetails() {
       // Optionally save back to profile before initiating payment
       if (currentUser && saveToProfile) {
         try {
-          await customersApi.updateMe({ name, phone, address, city, province, email });
+          await customersApi.updateMe({ name, phone, address, city, province });
         } catch (e) {
           // Non-blocking: continue checkout even if saving profile fails
         }
@@ -225,6 +225,8 @@ export default function CheckoutDetails() {
         // Backend indicates cart or shipping changed
         const detail = e.message || 'O total no servidor mudou. Recarregue a página para atualizar.';
         toast({ title: 'Carrinho atualizado', description: detail, variant: 'destructive' });
+      } else if (e?.code === 'cart_empty_or_invalid') {
+        toast({ title: 'Itens indisponíveis', description: e.message || 'Seu carrinho está vazio ou contém itens indisponíveis.', variant: 'destructive' });
       } else {
         toast({ title: 'Erro', description: e?.message || 'Falha ao criar pedido', variant: 'destructive' });
       }
