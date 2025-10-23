@@ -31,9 +31,13 @@ export function usePayments() {
         body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error('Falha ao sincronizar carrinho');
-      console.log('🔄 Cart synced with server');
+      const json = await res.json().catch(() => ({} as any));
+      const warnings = Array.isArray(json?.warnings) ? json.warnings : [];
+      console.log('🔄 Cart synced with server', warnings.length ? { warnings } : '');
+      return { cart: json, warnings } as { cart: any; warnings: any[] };
     } catch (e) {
       console.warn('⚠️ Cart sync failed (continuing):', e);
+      return { cart: null, warnings: [] };
     }
   };
 
@@ -60,8 +64,9 @@ export function usePayments() {
     setError(null);
     try {
       // Sync UI cart first if caller provided items
+      let syncInfo: { cart: any; warnings: any[] } = { cart: null, warnings: [] };
       if (Array.isArray(paymentData?.items)) {
-        await syncCart(paymentData.items);
+        syncInfo = await syncCart(paymentData.items);
       }
       // After sync, fetch server cart to ensure it has valid items and a non-zero total
       try {
@@ -75,6 +80,7 @@ export function usePayments() {
             const err: any = new Error('Seu carrinho está vazio ou contém itens indisponíveis. Atualize os itens antes de pagar.');
             err.code = 'cart_empty_or_invalid';
             err.cart = cartJson;
+            err.warnings = Array.isArray(syncInfo?.warnings) ? syncInfo.warnings : [];
             throw err;
           }
         }

@@ -288,6 +288,7 @@ def sync_cart(request):
             )
 
         with transaction.atomic():
+            warnings = []
             # Clear existing items
             cart.items.all().delete()
 
@@ -306,9 +307,16 @@ def sync_cart(request):
                         product = Product.objects.get(id=product_id, status='active')
                     except Product.DoesNotExist:
                         logger.warning(f"Product {product_id} not found or inactive, skipping")
+                        warnings.append({'type': 'product_not_found', 'product_id': product_id})
                         continue
                         
                     if product.stock_quantity is not None and quantity > product.stock_quantity:
+                        warnings.append({
+                            'type': 'quantity_adjusted',
+                            'product_id': product.id,
+                            'sent_quantity': quantity,
+                            'adjusted_quantity': product.stock_quantity
+                        })
                         quantity = product.stock_quantity
 
                     color = None
@@ -316,6 +324,7 @@ def sync_cart(request):
                         try:
                             color = Color.objects.get(id=color_id, is_active=True)
                         except Color.DoesNotExist:
+                            warnings.append({'type': 'color_not_found', 'product_id': product.id, 'color_id': color_id})
                             color = None
 
                     cart_item = CartItem.objects.create(
@@ -336,7 +345,12 @@ def sync_cart(request):
 
         serializer = CartSerializer(cart)
         logger.info(f"Sync result: cart {cart.id} with {cart.items.count()} items, total {cart.total}")
-        return Response(serializer.data)
+        # Merge warnings into response while keeping cart shape compatible
+        cart_data = serializer.data
+        if isinstance(cart_data, dict):
+            cart_data = {**cart_data, 'warnings': warnings}
+            return Response(cart_data)
+        return Response({'warnings': warnings, 'cart': cart_data})
 
     except Exception:
         logger.exception('Error syncing cart')

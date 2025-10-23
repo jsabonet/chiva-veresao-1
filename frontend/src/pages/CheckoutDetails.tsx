@@ -226,7 +226,16 @@ export default function CheckoutDetails() {
         const detail = e.message || 'O total no servidor mudou. Recarregue a página para atualizar.';
         toast({ title: 'Carrinho atualizado', description: detail, variant: 'destructive' });
       } else if (e?.code === 'cart_empty_or_invalid') {
-        toast({ title: 'Itens indisponíveis', description: e.message || 'Seu carrinho está vazio ou contém itens indisponíveis.', variant: 'destructive' });
+        // Map warnings to short messages for the user
+        const warnings = Array.isArray(e?.warnings) ? e.warnings : [];
+        const messages = warnings.slice(0, 3).map((w: any) => {
+          if (w?.type === 'product_not_found') return `Produto #${w.product_id} indisponível`;
+          if (w?.type === 'color_not_found') return `Cor inválida para produto #${w.product_id}`;
+          if (w?.type === 'quantity_adjusted') return `Quantidade ajustada para produto #${w.product_id}`;
+          return null;
+        }).filter(Boolean);
+        const extra = messages.length ? ` — ${messages.join(' • ')}` : '';
+        toast({ title: 'Itens indisponíveis', description: (e.message || 'Seu carrinho está vazio ou contém itens indisponíveis.') + extra, variant: 'destructive' });
       } else {
         toast({ title: 'Erro', description: e?.message || 'Falha ao criar pedido', variant: 'destructive' });
       }

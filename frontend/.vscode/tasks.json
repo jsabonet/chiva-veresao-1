@@ -20,6 +20,20 @@
 				"$eslint - stylish"
 			],
 			"group": "build"
+		},
+		{
+			"label": "Build frontend",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"build"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$tsc"
+			],
+			"group": "build"
 		}
 	]
 }
