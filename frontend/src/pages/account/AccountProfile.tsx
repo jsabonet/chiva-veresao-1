@@ -13,6 +13,7 @@ const AccountProfile = () => {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<CustomerProfile | null>(null);
   const [displayName, setDisplayName] = useState('');
+  const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
@@ -30,6 +31,7 @@ const AccountProfile = () => {
         // derive display name fallback
         const derivedName = data?.name || currentUser?.displayName || '';
         setDisplayName(derivedName);
+  setEmail(data?.email || currentUser?.email || '');
         setPhone(data?.phone || '');
         setAddress(data?.address || '');
         setCity(data?.city || '');
@@ -48,9 +50,10 @@ const AccountProfile = () => {
     setSaving(true);
     setMessage('');
     try {
-      // Atualizar perfil no backend (nome/phone/address/city/province)
+      // Atualizar perfil no backend (nome/email/phone/address/city/province)
       const payload: Partial<CustomerProfile> = {
         name: displayName,
+        email,
         phone,
         address,
         city,
@@ -83,7 +86,10 @@ const AccountProfile = () => {
               <Label htmlFor="displayName">Nome</Label>
               <Input id="displayName" value={displayName} onChange={(e)=>setDisplayName(e.target.value)} placeholder="Seu nome" />
             </div>
-            {/* Email é gerenciado na página Emails (AccountAddresses). */}
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" type="email" value={email} onChange={(e)=>setEmail(e.target.value)} placeholder="seuemail@exemplo.com" />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="phone">Telefone</Label>
               <Input id="phone" value={phone} onChange={(e)=>setPhone(e.target.value)} placeholder="Seu telefone" />

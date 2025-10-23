@@ -198,7 +198,7 @@ export default function CheckoutDetails() {
       // Optionally save back to profile before initiating payment
       if (currentUser && saveToProfile) {
         try {
-          await customersApi.updateMe({ name, phone, address, city, province });
+          await customersApi.updateMe({ name, email, phone, address, city, province });
         } catch (e) {
           // Non-blocking: continue checkout even if saving profile fails
         }

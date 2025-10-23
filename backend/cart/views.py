@@ -966,6 +966,42 @@ def initiate_payment(request):
         # Reuse shipping_method from earlier (may be None)
         shipping_method = request.data.get('shipping_method') or None
 
+        # Persist contact details to CustomerProfile for authenticated users
+        try:
+            if request.user and request.user.is_authenticated and isinstance(shipping_address, dict):
+                from customers.models import CustomerProfile  # local import to avoid cycles
+                profile, _ = CustomerProfile.objects.get_or_create(user=request.user, defaults={'status': 'active'})
+                # Update profile fields if provided
+                updated = False
+                for field in ['phone', 'address', 'city', 'province']:
+                    if shipping_address.get(field) is not None and getattr(profile, field) != shipping_address.get(field):
+                        setattr(profile, field, shipping_address.get(field) or '')
+                        updated = True
+                if updated:
+                    profile.save()
+
+                # Update user first/last name from 'name'
+                full_name = shipping_address.get('name')
+                user_changed = False
+                if isinstance(full_name, str) and full_name.strip():
+                    parts = full_name.strip().split()
+                    first_name = parts[0] if len(parts) > 0 else ''
+                    last_name = ' '.join(parts[1:]) if len(parts) > 1 else ''
+                    if request.user.first_name != first_name or request.user.last_name != last_name:
+                        request.user.first_name = first_name
+                        request.user.last_name = last_name
+                        user_changed = True
+                # Update user email from shipping_address.email if present
+                email_val = shipping_address.get('email')
+                if isinstance(email_val, str) and email_val and email_val != request.user.email:
+                    request.user.email = email_val
+                    user_changed = True
+                if user_changed:
+                    request.user.save(update_fields=['first_name', 'last_name', 'email'])
+        except Exception:
+            # Do not block checkout on profile persistence errors
+            logger.warning('Failed to persist shipping address to CustomerProfile (non-fatal)')
+
         # Payment method and data requested
         method = request.data.get('method', 'mpesa')
         payment_data = request.data

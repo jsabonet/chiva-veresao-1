@@ -25,7 +25,6 @@ import AccountOverview from "./pages/account/AccountOverview";
 import AccountOrders from "./pages/account/AccountOrders";
 import AccountProfile from "./pages/account/AccountProfile";
 import ScrollToTop from "./components/scroll/ScrollToTop";
-import AccountAddresses from "./pages/account/AccountAddresses";
 import AccountFavorites from "./pages/account/AccountFavorites";
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const ProductForm = lazy(() => import("./pages/ProductForm"));
@@ -93,7 +92,8 @@ const App = () => (
               <Route index element={<AccountOverview />} />
               <Route path="orders" element={<AccountOrders />} />
               <Route path="profile" element={<AccountProfile />} />
-              <Route path="addresses" element={<AccountAddresses />} />
+              {/* Addresses page removed; redirect to profile for backwards compatibility */}
+              <Route path="addresses" element={<Navigate to="/account/profile" replace />} />
               <Route path="favorites" element={<AccountFavorites />} />
             </Route>
             
