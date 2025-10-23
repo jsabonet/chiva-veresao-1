@@ -18,6 +18,7 @@ const AccountProfile = () => {
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
   const [province, setProvince] = useState('');
+  const [postalCode, setPostalCode] = useState('');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -35,7 +36,8 @@ const AccountProfile = () => {
         setPhone(data?.phone || '');
         setAddress(data?.address || '');
         setCity(data?.city || '');
-        setProvince(data?.province || '');
+  setProvince(data?.province || '');
+  setPostalCode((data as any)?.postal_code || '');
       } catch (e) {
         // ignore if not logged in or endpoint unavailable
       } finally {
@@ -50,14 +52,15 @@ const AccountProfile = () => {
     setSaving(true);
     setMessage('');
     try {
-      // Atualizar perfil no backend (nome/email/phone/address/city/province)
-      const payload: Partial<CustomerProfile> = {
+      // Atualizar perfil no backend (nome/email/phone/address/city/province/postal_code)
+      const payload: Partial<CustomerProfile> & Record<string, unknown> = {
         name: displayName,
         email,
         phone,
         address,
         city,
         province,
+        postal_code: postalCode,
       };
       const updated = await customersApi.updateMe(payload);
       setProfile(updated);
@@ -107,6 +110,10 @@ const AccountProfile = () => {
                 <Label htmlFor="province">Província</Label>
                 <Input id="province" value={province} onChange={(e)=>setProvince(e.target.value)} placeholder="Província" />
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="postal_code">Código Postal</Label>
+              <Input id="postal_code" value={postalCode} onChange={(e)=>setPostalCode(e.target.value)} placeholder="1100" />
             </div>
             <Button type="submit" disabled={saving} className="w-full sm:w-auto">Salvar</Button>
             {message && <p className="text-xs text-muted-foreground">{message}</p>}

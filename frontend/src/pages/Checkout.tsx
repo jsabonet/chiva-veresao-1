@@ -149,7 +149,7 @@ export default function Checkout() {
       return null;
     }
   };
-  const writeStoredContact = (data: { name: string; phone: string; email: string; address: string; city: string; province: string; }) => {
+  const writeStoredContact = (data: { name: string; phone: string; email: string; address: string; city: string; province: string; postal_code?: string; }) => {
     try {
       if (typeof window === 'undefined') return;
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -188,6 +188,7 @@ export default function Checkout() {
             address: prev.address || me.address || prev.address,
             city: prev.city || me.city || prev.city,
             province: prev.province || me.province || prev.province,
+            postal_code: prev.postal_code || (me as any).postal_code || prev.postal_code,
           }));
         } else {
           const stored = readStoredContact();
@@ -200,6 +201,7 @@ export default function Checkout() {
             address: prev.address || stored.address || prev.address,
             city: prev.city || stored.city || prev.city,
             province: prev.province || stored.province || prev.province,
+            postal_code: prev.postal_code || stored.postal_code || prev.postal_code,
           }));
         }
       } catch (e) {
@@ -394,6 +396,7 @@ export default function Checkout() {
           address: shippingAddress.address,
           city: shippingAddress.city,
           province: shippingAddress.province,
+          postal_code: shippingAddress.postal_code,
         });
       }
 

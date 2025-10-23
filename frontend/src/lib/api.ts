@@ -724,6 +724,7 @@ export interface CustomerProfile {
   address?: string;
   city?: string;
   province?: string;
+  postal_code?: string;
   registrationDate: string;
   lastOrderDate?: string | null;
   totalOrders: number;

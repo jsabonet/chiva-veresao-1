@@ -973,7 +973,7 @@ def initiate_payment(request):
                 profile, _ = CustomerProfile.objects.get_or_create(user=request.user, defaults={'status': 'active'})
                 # Update profile fields if provided
                 updated = False
-                for field in ['phone', 'address', 'city', 'province']:
+                for field in ['phone', 'address', 'city', 'province', 'postal_code']:
                     if shipping_address.get(field) is not None and getattr(profile, field) != shipping_address.get(field):
                         setattr(profile, field, shipping_address.get(field) or '')
                         updated = True

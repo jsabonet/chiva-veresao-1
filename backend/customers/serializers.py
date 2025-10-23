@@ -24,7 +24,7 @@ class CustomerProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomerProfile
         fields = [
-            'id','name','email','phone','address','city','province','registrationDate',
+            'id','name','email','phone','address','city','province','postal_code','registrationDate',
             'lastOrderDate','totalOrders','totalSpent','status','notes','avatar','isStaff', 'isProtectedAdmin'
         ]
 
@@ -75,6 +75,7 @@ class AdminCustomerWriteSerializer(serializers.Serializer):
     address = serializers.CharField(required=False, allow_blank=True)
     city = serializers.CharField(required=False, allow_blank=True)
     province = serializers.CharField(required=False, allow_blank=True)
+    postal_code = serializers.CharField(required=False, allow_blank=True)
     status = serializers.ChoiceField(required=False, choices=[('active','Ativo'),('inactive','Inativo'),('blocked','Bloqueado')])
     notes = serializers.CharField(required=False, allow_blank=True)
     avatar = serializers.URLField(required=False, allow_blank=True)
@@ -113,6 +114,7 @@ class AdminCustomerWriteSerializer(serializers.Serializer):
             address=validated_data.get('address', ''),
             city=validated_data.get('city', ''),
             province=validated_data.get('province', ''),
+            postal_code=validated_data.get('postal_code', ''),
             notes=validated_data.get('notes', ''),
             avatar=validated_data.get('avatar', ''),
             status=validated_data.get('status', 'active'),
@@ -131,7 +133,7 @@ class AdminCustomerWriteSerializer(serializers.Serializer):
             user.last_name = last_name
         user.save()
 
-        for field in ['phone','address','city','province','status','notes','avatar']:
+        for field in ['phone','address','city','province','postal_code','status','notes','avatar']:
             if field in validated_data:
                 setattr(instance, field, validated_data[field])
         instance.save()

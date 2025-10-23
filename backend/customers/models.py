@@ -7,6 +7,7 @@ class CustomerProfile(models.Model):
     address = models.CharField(max_length=255, blank=True)
     city = models.CharField(max_length=100, blank=True)
     province = models.CharField(max_length=100, blank=True)
+    postal_code = models.CharField(max_length=20, blank=True)
     notes = models.TextField(blank=True)
     avatar = models.URLField(blank=True)
     registration_date = models.DateTimeField(auto_now_add=True)

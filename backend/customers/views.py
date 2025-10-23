@@ -342,7 +342,7 @@ def me_profile(request):
                 pass
 
             # Atualizar campos do perfil
-            updatable_fields = ['phone', 'address', 'city', 'province', 'avatar', 'notes']
+            updatable_fields = ['phone', 'address', 'city', 'province', 'postal_code', 'avatar', 'notes']
             profile_changed = False
             for field in updatable_fields:
                 if field in data and getattr(profile, field) != data.get(field):
