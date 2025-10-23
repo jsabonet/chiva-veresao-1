@@ -54,10 +54,16 @@ RUN if [ "$BUILD_FRONTEND" = "true" ]; then \
       echo "Skipping frontend build inside Docker (BUILD_FRONTEND=false)"; \
     fi
 
+# Precompress assets for nginx (gzip and brotli) - only if dist exists
+RUN if [ -d /app/dist ]; then \
+      apt-get update && apt-get install -y brotli && rm -rf /var/lib/apt/lists/* || true; \
+      find /app/dist -type f \( -iname "*.js" -o -iname "*.css" -o -iname "*.html" -o -iname "*.svg" \) -print0 | xargs -0 -n1 -P4 sh -c 'gzip -9 -c "$0" > "$0.gz" && brotli -q 11 -o "$0.br" "$0"' ; \
+    fi
+
 # ========================
 # Servidor Nginx
 # ========================
-FROM nginx:stable
+FROM nginx:stable-alpine
 
 # If a prebuilt `dist/` is provided in the build context, copy it first
 # (this supports the prebuild workflow: build locally/CI and then build the image
@@ -67,6 +73,10 @@ COPY dist /usr/share/nginx/html
 
 # Copiar build do frontend do estágio de build (se presente)
 COPY --from=build /app/dist /usr/share/nginx/html
+
+# Copy precompressed assets if build stage produced them
+COPY --from=build /app/dist.gz /usr/share/nginx/html
+COPY --from=build /app/dist.br /usr/share/nginx/html
 
 # Configuração personalizada do Nginx
 COPY deploy/nginx/default.conf /etc/nginx/conf.d/default.conf

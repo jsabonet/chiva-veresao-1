@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ShoppingCart, Heart, Eye } from 'lucide-react';
 import { formatPrice, getImageUrl, type Product, type ProductListItem } from '@/lib/api';
+import OptimizedImage from '@/components/ui/OptimizedImage';
 import { useCart } from '@/contexts/CartContext';
 import { toast } from '@/hooks/use-toast';
 
@@ -87,14 +88,11 @@ const ProductCard = ({ product, compactPrice = false }: ProductCardProps) => {
     >
       <Card className="h-full flex flex-col transition-all duration-300 hover:shadow-lg border-0 bg-white">
         <div className="relative overflow-hidden rounded-lg bg-gray-100 aspect-square">
-          <img
+          <OptimizedImage
             src={getImageUrl(getMainImage())}
             alt={product.name}
             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              target.src = '/placeholder.svg';
-            }}
+            sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 25vw"
           />
           
           {/* Discount badge */}

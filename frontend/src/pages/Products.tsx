@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useProducts } from '@/hooks/useApi';
 import { formatPrice } from '@/lib/formatPrice';
+import OptimizedImage from '@/components/ui/OptimizedImage';
 
 const useQuery = () => new URLSearchParams(useLocation().search);
 
@@ -42,7 +43,12 @@ const Products = () => {
             {products?.map((p) => (
               <Card key={p.id} className="overflow-hidden">
                 <Link to={`/products/${p.slug}`}>
-                  <img src={p.main_image_url || '/placeholder.svg'} alt={p.name} className="w-full h-48 object-cover" />
+                  <OptimizedImage
+                    src={p.main_image_url}
+                    alt={p.name}
+                    className="w-full h-48 object-cover"
+                    sizes="(max-width: 1024px) 50vw, 25vw"
+                  />
                 </Link>
                 <CardContent className="p-4 space-y-2">
                   <div className="flex items-center justify-between">
