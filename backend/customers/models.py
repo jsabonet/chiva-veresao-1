@@ -119,38 +119,3 @@ class ExternalAuthUser(models.Model):
             self.user.save()
         
         return True
-
-
-class CustomerAddress(models.Model):
-    """
-    Endereços salvos dos clientes para facilitar checkout
-    """
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='addresses')
-    label = models.CharField(max_length=50, blank=True, help_text="Ex: Casa, Trabalho, Apartamento")
-    name = models.CharField(max_length=255, help_text="Nome do destinatário")
-    phone = models.CharField(max_length=30, help_text="Telefone de contato")
-    address = models.CharField(max_length=255, help_text="Endereço completo")
-    city = models.CharField(max_length=100, help_text="Cidade")
-    province = models.CharField(max_length=100, help_text="Província")
-    postal_code = models.CharField(max_length=20, blank=True, help_text="Código postal")
-    is_default = models.BooleanField(default=False, help_text="Endereço padrão para checkout")
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        verbose_name = 'Endereço do Cliente'
-        verbose_name_plural = 'Endereços dos Clientes'
-        ordering = ['-is_default', '-created_at']
-
-    def __str__(self):
-        label = f" ({self.label})" if self.label else ""
-        return f"{self.name}{label} - {self.city}, {self.province}"
-
-    def save(self, *args, **kwargs):
-        # Se este endereço for marcado como padrão, remover padrão dos outros
-        if self.is_default:
-            CustomerAddress.objects.filter(user=self.user, is_default=True).exclude(pk=self.pk).update(is_default=False)
-        # Se for o primeiro endereço do usuário, torná-lo padrão automaticamente
-        elif not self.pk and not CustomerAddress.objects.filter(user=self.user).exists():
-            self.is_default = True
-        super().save(*args, **kwargs)

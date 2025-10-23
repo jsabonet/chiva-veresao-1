@@ -12,6 +12,8 @@ import { formatPrice } from '@/lib/formatPrice';
 import { usePayments } from '@/hooks/usePayments';
 import { useCart } from '@/contexts/CartContext';
 import { toast } from '@/hooks/use-toast';
+import { customersApi } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface NavState {
   method?: string;
@@ -26,6 +28,7 @@ export default function CheckoutDetails() {
   const navigate = useNavigate();
   const { clearCart, items: cartItems } = useCart();
   const { initiatePayment } = usePayments();
+  const { currentUser } = useAuth();
 
   const state = (location.state || {}) as NavState;
 
@@ -43,6 +46,7 @@ export default function CheckoutDetails() {
   const [city, setCity] = useState('');
   const [province, setProvince] = useState('');
   const [notes, setNotes] = useState('');
+  const [saveToProfile, setSaveToProfile] = useState<boolean>(true);
 
   const [step, setStep] = useState<number>(1);
   // microStep for the dedicated shipping selection page (micropaginas)
@@ -85,6 +89,28 @@ export default function CheckoutDetails() {
       if (state.amount) setAmount(state.amount);
     }
   }, [state, cartItems]);
+
+  // Prefill from profile when authenticated
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        if (!currentUser) return;
+        const me = await customersApi.me();
+        if (!mounted || !me) return;
+        // Only set fields if they are empty to not override existing state
+        if (!name && me.name) setName(me.name);
+        if (!phone && me.phone) setPhone(me.phone);
+        if (!email && me.email) setEmail(me.email);
+        if (!address && me.address) setAddress(me.address);
+        if (!city && me.city) setCity(me.city);
+        if (!province && me.province) setProvince(me.province);
+      } catch (e) {
+        // ignore if unauthenticated or endpoint unavailable
+      }
+    })();
+    return () => { mounted = false; };
+  }, [currentUser]);
 
   // Build previewItems: if route provided only ids/quantities, merge with cart details
   const previewItems = (state.items && state.items.length > 0)
@@ -139,6 +165,15 @@ export default function CheckoutDetails() {
     if (!validate()) return;
     setLoading(true);
     try {
+      // Optionally save back to profile before initiating payment
+      if (currentUser && saveToProfile) {
+        try {
+          await customersApi.updateMe({ name, phone, address, city, province, email });
+        } catch (e) {
+          // Non-blocking: continue checkout even if saving profile fails
+        }
+      }
+
       const payload: any = {
         method: method,
         amount: amount,
@@ -222,6 +257,14 @@ export default function CheckoutDetails() {
                       <CardTitle className="text-base">Dados do Cliente</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
+                      {currentUser && (
+                        <div className="flex items-center justify-between rounded border p-2 bg-muted/40">
+                          <label className="text-sm flex items-center gap-2">
+                            <input type="checkbox" className="accent-primary" checked={saveToProfile} onChange={(e)=>setSaveToProfile(e.target.checked)} />
+                            <span>Salvar estes dados no meu perfil</span>
+                          </label>
+                        </div>
+                      )}
                       <div className="grid md:grid-cols-2 gap-4">
                         <div>
                           <Label htmlFor="name">Nome *</Label>

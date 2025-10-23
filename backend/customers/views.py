@@ -288,14 +288,22 @@ class CustomerDetailAdminView(generics.RetrieveUpdateAPIView):
             return AdminCustomerWriteSerializer
         return CustomerProfileSerializer
 
-@api_view(['GET', 'PUT'])
+@api_view(['GET', 'PUT', 'PATCH'])
 @permission_classes([permissions.IsAuthenticated])
 def me_profile(request):
+    """Return or update the current authenticated user's profile.
+
+    GET: returns CustomerProfileSerializer data, creating a profile if missing.
+    PUT/PATCH: accepts a subset of fields to update the profile and basic User fields.
+      Accepted fields: name, email, phone, address, city, province, avatar, notes
+      - name will be split into first_name/last_name
+      - email updates Django user's email
+    """
     try:
         # Garantir que o usuário está autenticado
-        if not request.user.is_authenticated:
+        if not request.user or not request.user.is_authenticated:
             return Response({'detail': 'Authentication required'}, status=403)
-            
+
         # Tentar obter ou criar o perfil com tratamento de erro
         try:
             profile = CustomerProfile.objects.get(user=request.user)
@@ -305,61 +313,48 @@ def me_profile(request):
                 user=request.user,
                 status='active'
             )
-        
-        if request.method == 'GET':
-            # Serializar e incluir endereço padrão
-            serializer = CustomerProfileSerializer(profile)
-            data = serializer.data
-            
-            # Adicionar endereço padrão se existir
-            default_address = CustomerAddress.objects.filter(
-                user=request.user, 
-                is_default=True
-            ).first()
-            
-            if default_address:
-                data['defaultAddress'] = CustomerAddressSerializer(default_address).data
-            else:
-                data['defaultAddress'] = None
-            
-            return Response(data)
-        
-        elif request.method == 'PUT':
-            # Permitir atualização de campos específicos do perfil
-            allowed_fields = ['phone', 'address', 'city', 'province', 'notes', 'avatar']
-            
-            for field in allowed_fields:
-                if field in request.data:
-                    setattr(profile, field, request.data[field])
-            
-            # Atualizar displayName se fornecido
-            if 'displayName' in request.data or 'name' in request.data:
-                display_name = request.data.get('displayName') or request.data.get('name', '')
-                if display_name:
-                    parts = display_name.strip().split(maxsplit=1)
-                    profile.user.first_name = parts[0] if parts else ''
-                    profile.user.last_name = parts[1] if len(parts) > 1 else ''
-                    profile.user.save()
-            
-            profile.save()
-            
-            # Retornar dados atualizados
-            serializer = CustomerProfileSerializer(profile)
-            data = serializer.data
-            
-            # Adicionar endereço padrão
-            default_address = CustomerAddress.objects.filter(
-                user=request.user, 
-                is_default=True
-            ).first()
-            
-            if default_address:
-                data['defaultAddress'] = CustomerAddressSerializer(default_address).data
-            else:
-                data['defaultAddress'] = None
-            
-            return Response(data)
-        
+
+        if request.method in ['PUT', 'PATCH']:
+            data = request.data or {}
+
+            # Atualizar campos do User: email e nome
+            try:
+                user_changed = False
+                name = data.get('name')
+                if isinstance(name, str):
+                    parts = name.strip().split()
+                    first_name = parts[0] if len(parts) > 0 else ''
+                    last_name = ' '.join(parts[1:]) if len(parts) > 1 else ''
+                    if first_name != request.user.first_name or last_name != request.user.last_name:
+                        request.user.first_name = first_name
+                        request.user.last_name = last_name
+                        user_changed = True
+
+                email = data.get('email')
+                if isinstance(email, str) and email and email != request.user.email:
+                    request.user.email = email
+                    user_changed = True
+
+                if user_changed:
+                    request.user.save(update_fields=['first_name', 'last_name', 'email'])
+            except Exception:
+                # Não falhar a requisição se update do User der erro
+                pass
+
+            # Atualizar campos do perfil
+            updatable_fields = ['phone', 'address', 'city', 'province', 'avatar', 'notes']
+            profile_changed = False
+            for field in updatable_fields:
+                if field in data and getattr(profile, field) != data.get(field):
+                    setattr(profile, field, data.get(field) or '')
+                    profile_changed = True
+            if profile_changed:
+                profile.save()
+
+        # Serializar e retornar os dados atualizados
+        serializer = CustomerProfileSerializer(profile)
+        return Response(serializer.data)
+
     except Exception as e:
         import traceback
         print(f"Error in me_profile: {str(e)}")
@@ -757,98 +752,3 @@ def customer_sync_firebase(request, customer_id):
         return Response({'detail': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         return Response({'detail': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-# ========================================
-# Customer Address Management Views
-# ========================================
-
-from .models import CustomerAddress
-from .serializers import CustomerAddressSerializer
-
-
-@api_view(['GET', 'POST'])
-@permission_classes([permissions.IsAuthenticated])
-def list_addresses(request):
-    """
-    GET: Lista todos os endereços do usuário autenticado
-    POST: Cria um novo endereço para o usuário autenticado
-    """
-    if request.method == 'GET':
-        addresses = CustomerAddress.objects.filter(user=request.user)
-        serializer = CustomerAddressSerializer(addresses, many=True)
-        return Response(serializer.data)
-    
-    elif request.method == 'POST':
-        serializer = CustomerAddressSerializer(data=request.data)
-        if serializer.is_valid():
-            # Associar o endereço ao usuário autenticado
-            serializer.save(user=request.user)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-@api_view(['GET', 'PUT', 'DELETE'])
-@permission_classes([permissions.IsAuthenticated])
-def address_detail(request, address_id):
-    """
-    GET: Retorna detalhes de um endereço específico
-    PUT: Atualiza um endereço específico
-    DELETE: Remove um endereço específico
-    """
-    try:
-        address = CustomerAddress.objects.get(id=address_id, user=request.user)
-    except CustomerAddress.DoesNotExist:
-        return Response(
-            {'detail': 'Endereço não encontrado ou você não tem permissão para acessá-lo'},
-            status=status.HTTP_404_NOT_FOUND
-        )
-    
-    if request.method == 'GET':
-        serializer = CustomerAddressSerializer(address)
-        return Response(serializer.data)
-    
-    elif request.method == 'PUT':
-        serializer = CustomerAddressSerializer(address, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-    elif request.method == 'DELETE':
-        # Não permitir deletar o endereço padrão se houver outros endereços
-        if address.is_default:
-            other_addresses = CustomerAddress.objects.filter(user=request.user).exclude(id=address_id)
-            if other_addresses.exists():
-                # Marcar outro endereço como padrão antes de deletar
-                next_address = other_addresses.first()
-                next_address.is_default = True
-                next_address.save()
-        
-        address.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
-
-@api_view(['POST'])
-@permission_classes([permissions.IsAuthenticated])
-def set_default_address(request, address_id):
-    """
-    Marca um endereço como padrão para o usuário
-    """
-    try:
-        address = CustomerAddress.objects.get(id=address_id, user=request.user)
-    except CustomerAddress.DoesNotExist:
-        return Response(
-            {'detail': 'Endereço não encontrado ou você não tem permissão para acessá-lo'},
-            status=status.HTTP_404_NOT_FOUND
-        )
-    
-    # Remover padrão de todos os outros endereços
-    CustomerAddress.objects.filter(user=request.user).update(is_default=False)
-    
-    # Marcar este como padrão
-    address.is_default = True
-    address.save()
-    
-    serializer = CustomerAddressSerializer(address)
-    return Response(serializer.data)

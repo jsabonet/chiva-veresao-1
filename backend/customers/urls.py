@@ -6,10 +6,6 @@ urlpatterns = [
     path('admin/customers/create/', views.CustomerCreateAdminView.as_view(), name='admin-customer-create'),
     path('admin/customers/<str:user__username>/', views.CustomerDetailAdminView.as_view(), name='admin-customer-detail'),
     path('me/profile/', views.me_profile, name='me-profile'),
-    # Customer address management
-    path('me/addresses/', views.list_addresses, name='list-addresses'),
-    path('me/addresses/<int:address_id>/', views.address_detail, name='address-detail'),
-    path('me/addresses/<int:address_id>/set-default/', views.set_default_address, name='set-default-address'),
     # Roles and external user management
     path('admin/roles/', views.RoleListCreateAdminView.as_view(), name='admin_roles'),
     path('roles/', views.RoleListPublicView.as_view(), name='roles_list'),

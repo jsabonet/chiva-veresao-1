@@ -740,6 +740,7 @@ export const customersApi = {
   updateAdmin: (username: string, data: Partial<CustomerProfile>) => apiClient.put<CustomerProfile>(`/admin/customers/${username}/`, data),
   createAdmin: (data: Partial<CustomerProfile> & { email: string }) => apiClient.post<CustomerProfile>('/admin/customers/create/', data),
   me: () => apiClient.get<CustomerProfile>('/me/profile/'),
+  updateMe: (data: Partial<CustomerProfile>) => apiClient.patch<CustomerProfile>('/me/profile/', data),
 };
 
 // Promotions API
