@@ -27,8 +27,8 @@ const Products = () => {
     const first = Array.isArray(products) && products.length > 0 ? products[0] : undefined;
     const catName = first?.category_name;
     const subName = first?.subcategory_name;
-    if (subcategory && subName) return `Produtos: ${subName}`;
-    if (category && catName) return `Produtos: ${catName}`;
+    if (subcategory && subName) return `${subName}`;
+    if (category && catName) return `${catName}`;
     return 'Produtos';
   }, [category, subcategory, search, products]);
 

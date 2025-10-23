@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.parsers import MultiPartParser, FormParser
 from django_filters.rest_framework import DjangoFilterBackend
-from django.db.models import Q, F, Count, Avg, Sum
+from django.db.models import Q, F, Count, Avg, Sum, Value, IntegerField, Case, When
 from django.core.files.base import File
 import os
 from django.utils import timezone
@@ -372,42 +372,51 @@ def search_products(request):
     """
     Advanced product search
     """
-    query = request.query_params.get('q', '')
-    category_id = request.query_params.get('category')
-    min_price = request.query_params.get('min_price')
-    max_price = request.query_params.get('max_price')
-    
-    products = Product.objects.filter(status='active').select_related('category')
-    
-    if query:
-        products = products.filter(
-            Q(name__icontains=query) |
-            Q(description__icontains=query) |
-            Q(brand__icontains=query) |
-            Q(category__name__icontains=query)
-        )
-    
-    if category_id:
-        products = products.filter(category_id=category_id)
-    
-    if min_price:
-        products = products.filter(price__gte=min_price)
-    
-    if max_price:
-        products = products.filter(price__lte=max_price)
-    
-    # Order by relevance (products with query in name first)
-    if query:
-        products = products.extra(
-            select={
-                'name_match': f"CASE WHEN name ILIKE '%%{query}%%' THEN 1 ELSE 0 END"
-            }
-        ).order_by('-name_match', '-created_at')
-    else:
-        products = products.order_by('-created_at')
-    
-    serializer = ProductListSerializer(products, many=True, context={'request': request})
-    return Response(serializer.data)
+    try:
+        query = request.query_params.get('q', '')
+        category_id = request.query_params.get('category')
+        min_price = request.query_params.get('min_price')
+        max_price = request.query_params.get('max_price')
+
+        products = Product.objects.filter(status='active').select_related('category')
+
+        if query:
+            products = products.filter(
+                Q(name__icontains=query) |
+                Q(description__icontains=query) |
+                Q(brand__icontains=query) |
+                Q(category__name__icontains=query)
+            )
+
+        if category_id:
+            products = products.filter(category_id=category_id)
+
+        if min_price:
+            products = products.filter(price__gte=min_price)
+
+        if max_price:
+            products = products.filter(price__lte=max_price)
+
+        # Order by relevance (products with query in name first) without raw SQL
+        if query:
+            products = products.annotate(
+                name_match=Case(
+                    When(name__icontains=query, then=Value(1)),
+                    default=Value(0),
+                    output_field=IntegerField(),
+                )
+            ).order_by('-name_match', '-created_at')
+        else:
+            products = products.order_by('-created_at')
+
+        serializer = ProductListSerializer(products, many=True, context={'request': request})
+        return Response(serializer.data)
+    except Exception as e:
+        # Fail safe: never 500 on search; provide a structured error
+        return Response({
+            'error': 'search_failed',
+            'message': str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET'])
 @permission_classes([IsAdmin])
