@@ -31,9 +31,9 @@ def generate_webp_variants(image_path: str) -> None:
                 return
 
             for w in TARGET_WIDTHS:
-                if w >= orig_w:
-                    # No need to upscale; still generate a single variant at original width
-                    w = orig_w
+                # Keep the filename as requested width to match frontend URLs,
+                # but never upscale the actual image content beyond original width
+                target_w = min(w, orig_w)
                 variant = _variant_path(image_path, w, "webp")
                 try:
                     src_mtime = os.path.getmtime(image_path)
@@ -43,9 +43,9 @@ def generate_webp_variants(image_path: str) -> None:
                     pass
 
                 # Create resized copy preserving aspect ratio
-                ratio = w / float(orig_w)
+                ratio = target_w / float(orig_w)
                 h = int(orig_h * ratio)
-                resized = img.resize((w, h), Image.LANCZOS)
+                resized = img.resize((target_w, h), Image.LANCZOS)
 
                 # Save as WebP with reasonable quality
                 params = {"format": "WEBP", "quality": 80, "method": 6}
