@@ -48,6 +48,25 @@ export default function CheckoutDetails() {
   const [notes, setNotes] = useState('');
   const [saveToProfile, setSaveToProfile] = useState<boolean>(true);
 
+  // App-managed fallback storage for anonymous users (not browser autofill)
+  const STORAGE_KEY = 'chiva:checkout:user';
+  const readStoredContact = () => {
+    try {
+      const raw = typeof window !== 'undefined' ? window.localStorage.getItem(STORAGE_KEY) : null;
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  };
+  const writeStoredContact = (data: { name: string; phone: string; email: string; address: string; city: string; province: string; }) => {
+    try {
+      if (typeof window === 'undefined') return;
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch {
+      // ignore
+    }
+  };
+
   const [step, setStep] = useState<number>(1);
   // microStep for the dedicated shipping selection page (micropaginas)
   const [shippingMicroStep, setShippingMicroStep] = useState<'list' | 'confirm'>('list');
@@ -95,16 +114,27 @@ export default function CheckoutDetails() {
     let mounted = true;
     (async () => {
       try {
-        if (!currentUser) return;
-        const me = await customersApi.me();
-        if (!mounted || !me) return;
-        // Only set fields if they are empty to not override existing state
-        if (!name && me.name) setName(me.name);
-        if (!phone && me.phone) setPhone(me.phone);
-        if (!email && me.email) setEmail(me.email);
-        if (!address && me.address) setAddress(me.address);
-        if (!city && me.city) setCity(me.city);
-        if (!province && me.province) setProvince(me.province);
+        if (currentUser) {
+          const me = await customersApi.me();
+          if (!mounted || !me) return;
+          // Only set fields if they are empty to not override existing state
+          if (!name && me.name) setName(me.name);
+          if (!phone && me.phone) setPhone(me.phone);
+          if (!email && me.email) setEmail(me.email);
+          if (!address && me.address) setAddress(me.address);
+          if (!city && me.city) setCity(me.city);
+          if (!province && me.province) setProvince(me.province);
+        } else {
+          // Anonymous: prefill from app-managed storage instead of browser autofill
+          const stored = readStoredContact();
+          if (!stored) return;
+          if (!name && stored.name) setName(stored.name);
+          if (!phone && stored.phone) setPhone(stored.phone);
+          if (!email && stored.email) setEmail(stored.email);
+          if (!address && stored.address) setAddress(stored.address);
+          if (!city && stored.city) setCity(stored.city);
+          if (!province && stored.province) setProvince(stored.province);
+        }
       } catch (e) {
         // ignore if unauthenticated or endpoint unavailable
       }
@@ -172,6 +202,9 @@ export default function CheckoutDetails() {
         } catch (e) {
           // Non-blocking: continue checkout even if saving profile fails
         }
+      } else {
+        // Store contact details for anonymous users or when not saving to profile
+        writeStoredContact({ name, phone, email, address, city, province });
       }
 
       const payload: any = {
