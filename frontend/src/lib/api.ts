@@ -4,7 +4,7 @@
 // the API on a different host, set VITE_API_BASE_URL in your environment.
 const API_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE_URL)
   ? import.meta.env.VITE_API_BASE_URL
-  : 'http://127.0.0.1:8000/api';
+  : (typeof window !== 'undefined' ? '/api' : 'http://127.0.0.1:8000/api');
 
 // Types for our API responses
 export interface Category {
@@ -709,7 +709,15 @@ export const formatPrice = (price: string | number): string => {
 
 export const getImageUrl = (imagePath?: string): string => {
   if (!imagePath) return '/placeholder.svg';
-  if (imagePath.startsWith('http')) return imagePath;
+  // If backend returned an absolute URL, prefer HTTPS when page is HTTPS
+  if (imagePath.startsWith('http')) {
+    try {
+      if (typeof window !== 'undefined' && window.location.protocol === 'https:' && imagePath.startsWith('http://')) {
+        return imagePath.replace(/^http:\/\//i, 'https://');
+      }
+    } catch {}
+    return imagePath;
+  }
   // Use current origin (protocol + host + port) to build absolute URL so HTTPS and host are respected
   const origin = typeof window !== 'undefined' ? window.location.origin : 'http://127.0.0.1:8000';
   return `${origin}${imagePath}`;

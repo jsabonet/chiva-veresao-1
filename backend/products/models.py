@@ -6,11 +6,28 @@ import os
 import uuid
 
 def product_image_upload_path(instance, filename):
-    """Generate upload path for product images"""
-    # Create unique filename to avoid conflicts
-    ext = filename.split('.')[-1]
+    """Generate upload path for product images.
+
+    Avoids using 'None' in the path when the instance hasn't been saved yet.
+    For ProductImage, prefer the related product_id; for Product fallback to a temp bucket.
+    """
+    # Normalize extension and generate unique filename
+    ext = filename.split('.')[-1].lower() if '.' in filename else 'jpg'
     filename = f'{uuid.uuid4().hex}.{ext}'
-    return f'products/{instance.id}/{filename}'
+
+    # Prefer grouping by product id when available (for ProductImage instances)
+    product_id = getattr(instance, 'product_id', None)
+    if product_id:
+        return f'products/{product_id}/{filename}'
+
+    # Use instance pk when available (for Product instances updating images later)
+    owner_id = getattr(instance, 'id', None) or getattr(instance, 'pk', None)
+    if owner_id:
+        return f'products/{owner_id}/{filename}'
+
+    # Fallback: use a temporary bucket to avoid 'None' in path
+    tmp_bucket = uuid.uuid4().hex[:8]
+    return f'products/tmp/{tmp_bucket}/{filename}'
 
 def review_image_upload_path(instance, filename):
     """Generate upload path for review images"""

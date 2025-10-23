@@ -257,6 +257,19 @@ CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', default='https://chivacomp
 # Optional: session/cookie domain for production
 SESSION_COOKIE_DOMAIN = config('SESSION_COOKIE_DOMAIN', default=None)
 
+# ------------------------------------------
+# Reverse proxy / HTTPS settings (for Nginx)
+# Ensure Django knows when the original request was HTTPS so absolute URLs and
+# request.is_secure() reflect the correct scheme behind a proxy.
+# ------------------------------------------
+USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# Cookies and redirect security (enable in production)
+SESSION_COOKIE_SECURE = config('SESSION_COOKIE_SECURE', default=not DEBUG, cast=bool)
+CSRF_COOKIE_SECURE = config('CSRF_COOKIE_SECURE', default=not DEBUG, cast=bool)
+SECURE_SSL_REDIRECT = config('SECURE_SSL_REDIRECT', default=not DEBUG, cast=bool)
+
 # ==========================================
 # EMAIL CONFIGURATION (BREVO/SENDINBLUE)
 # ==========================================
