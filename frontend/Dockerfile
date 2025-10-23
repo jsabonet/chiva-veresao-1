@@ -75,8 +75,8 @@ COPY dist /usr/share/nginx/html
 COPY --from=build /app/dist /usr/share/nginx/html
 
 # Copy precompressed assets if build stage produced them
-COPY --from=build /app/dist.gz /usr/share/nginx/html
-COPY --from=build /app/dist.br /usr/share/nginx/html
+# Precompressed .gz files are stored alongside original files inside /app/dist
+# They are already included by the previous COPY and will be served by nginx when gzip_static is on
 
 # Configuração personalizada do Nginx
 COPY deploy/nginx/default.conf /etc/nginx/conf.d/default.conf
