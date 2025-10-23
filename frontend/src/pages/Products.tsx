@@ -1,13 +1,10 @@
 import { useMemo } from 'react';
-import { useLocation, Link } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { useProducts } from '@/hooks/useApi';
-import { formatPrice } from '@/lib/formatPrice';
-import OptimizedImage from '@/components/ui/OptimizedImage';
+import ProductCard from '@/components/ui/ProductCard';
+import Loading from '@/components/ui/Loading';
 
 const useQuery = () => new URLSearchParams(useLocation().search);
 
@@ -26,42 +23,26 @@ const Products = () => {
 
   const title = useMemo(() => {
     if (search) return `Resultados para: ${search}`;
-    if (subcategory) return 'Produtos por Subcategoria';
-    if (category) return 'Produtos por Categoria';
+    // Prefer names coming from API payload to reflect the exact names
+    const first = Array.isArray(products) && products.length > 0 ? products[0] : undefined;
+    const catName = first?.category_name;
+    const subName = first?.subcategory_name;
+    if (subcategory && subName) return `Produtos: ${subName}`;
+    if (category && catName) return `Produtos: ${catName}`;
     return 'Produtos';
-  }, [category, subcategory, search]);
+  }, [category, subcategory, search, products]);
 
   return (
     <div className="min-h-screen bg-background">
       <Header />
       <main className="container mx-auto px-4 py-8">
         <h1 className="text-2xl font-bold mb-6">{title}</h1>
-        {loading && <div>Carregando...</div>}
+        {loading && <Loading label="Carregando produtos..." />}
         {error && <div className="text-red-600">Erro: {error}</div>}
         {!loading && !error && (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {products?.map((p) => (
-              <Card key={p.id} className="overflow-hidden">
-                <Link to={`/products/${p.slug}`}>
-                  <OptimizedImage
-                    src={p.main_image_url}
-                    alt={p.name}
-                    className="w-full h-48 object-cover"
-                    sizes="(max-width: 1024px) 50vw, 25vw"
-                  />
-                </Link>
-                <CardContent className="p-4 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-medium line-clamp-1">{p.name}</h3>
-                    {p.is_on_sale && <Badge variant="destructive">Promoção</Badge>}
-                  </div>
-                  <div className="text-sm text-muted-foreground">{p.category_name}{p.subcategory_name ? ` • ${p.subcategory_name}` : ''}</div>
-                  <div className="font-bold">{formatPrice(parseFloat(p.price))}</div>
-                  <Button asChild className="w-full mt-2">
-                    <Link to={`/products/${p.slug}`}>Ver detalhes</Link>
-                  </Button>
-                </CardContent>
-              </Card>
+              <ProductCard key={p.id} product={p} />
             ))}
           </div>
         )}

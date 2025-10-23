@@ -1,6 +1,8 @@
 import { Phone, Mail, MapPin, Clock, Facebook, Instagram, Linkedin, MessageCircle, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Link } from 'react-router-dom';
+import { useCategories, useSubcategories } from '@/hooks/useApi';
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
@@ -14,14 +16,31 @@ const Footer = () => {
     { name: 'FAQ', href: '#' }
   ];
 
-  const categories = [
-    { name: 'Laptops & Notebooks', href: '#' },
-    { name: 'Desktops Gaming', href: '#' },
-    { name: 'Monitores', href: '#' },
-    { name: 'Periféricos', href: '#' },
-    { name: 'Acessórios', href: '#' },
-    { name: 'Componentes', href: '#' }
-  ];
+  // Dynamic categories: only those that have products linked
+  const { categories, loading: categoriesLoading } = useCategories();
+  const { subcategories } = useSubcategories();
+  const dynamicCategories = (() => {
+    if (!categories || categories.length === 0) return [] as { id: number; name: string }[];
+    // If backend provides product_count on category, use it
+    const withProducts = categories.filter((c: any) =>
+      typeof c.product_count === 'number' ? c.product_count > 0 : true
+    );
+    if (withProducts.length > 0 && withProducts.length !== categories.length) {
+      return withProducts.map(c => ({ id: c.id, name: c.name }));
+    }
+    // Otherwise infer from subcategories' product_count
+    const countByCat: Record<number, number> = {};
+    for (const s of subcategories || []) {
+      const cnt = (s as any).product_count ?? 0;
+      if (!cnt || cnt <= 0) continue;
+      countByCat[s.category] = (countByCat[s.category] || 0) + cnt;
+    }
+    const inferred = categories
+      .filter(c => (countByCat[c.id] || 0) > 0)
+      .map(c => ({ id: c.id, name: c.name }));
+    // Fallback: if we still have none, show all to avoid empty UI
+    return inferred.length > 0 ? inferred : categories.map(c => ({ id: c.id, name: c.name }));
+  })();
 
   const paymentMethods = [
     'M-Pesa',
@@ -76,14 +95,17 @@ const Footer = () => {
           <div>
             <h4 className="font-semibold mb-4">Categorias</h4>
             <ul className="space-y-2">
-              {categories.map((category) => (
-                <li key={category.name}>
-                  <a 
-                    href={category.href} 
+              {categoriesLoading && (
+                <li className="text-muted-foreground text-sm">Carregando...</li>
+              )}
+              {!categoriesLoading && dynamicCategories.map((c) => (
+                <li key={c.id}>
+                  <Link
+                    to={`/products?category=${c.id}`}
                     className="text-white text-muted-foreground hover:text-primary transition-colors"
                   >
-                    {category.name}
-                  </a>
+                    {c.name}
+                  </Link>
                 </li>
               ))}
             </ul>

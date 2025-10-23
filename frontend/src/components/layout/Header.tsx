@@ -1,12 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Search, ShoppingCart, User, Menu, X, Settings, ChevronDown, ChevronUp, Heart, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NavigationMenu, NavigationMenuContent, NavigationMenuItem, NavigationMenuList, NavigationMenuTrigger } from '@/components/ui/navigation-menu';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useCategories, useSubcategories } from '@/hooks/useApi';
-import { apiClient } from '@/lib/api';
+import { apiClient, productApi, type Product, type ProductListItem, type Category, type Subcategory, formatPrice, getImageUrl } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import { useFavoritesContext } from '@/contexts/FavoritesContext';
@@ -262,23 +261,8 @@ const Header = () => {
             />
           </div>
 
-          {/* Search Bar - Desktop */}
-          <div className="hidden md:flex flex-1 max-w-md mx-8">
-            <div className="relative w-full">
-              <Input
-                type="search"
-                placeholder="Buscar produtos..."
-                className="pl-4 pr-10 w-full"
-              />
-              <Button 
-                size="sm" 
-                variant="ghost" 
-                className="absolute right-1 top-1/2 transform -translate-y-1/2"
-              >
-                <Search className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
+          {/* Search Bar - Desktop with suggestions */}
+          <SearchBox />
 
           {/* Actions */}
           <div className="flex items-center space-x-2">
@@ -332,20 +316,7 @@ const Header = () => {
 
         {/* Search Bar - Mobile */}
         <div className="md:hidden mt-4">
-          <div className="relative">
-            <Input
-              type="search"
-              placeholder="Buscar produtos..."
-              className="pl-4 pr-10 w-full"
-            />
-            <Button 
-              size="sm" 
-              variant="ghost" 
-              className="absolute right-1 top-1/2 transform -translate-y-1/2"
-            >
-              <Search className="h-4 w-4" />
-            </Button>
-          </div>
+          <SearchBox fullWidth />
         </div>
       </div>
 
@@ -484,3 +455,302 @@ const Header = () => {
 };
 
 export default Header;
+
+// --- SearchBox component ---
+const SearchBox: React.FC<{ fullWidth?: boolean }> = ({ fullWidth = false }) => {
+  const [term, setTerm] = useState('');
+  const [focused, setFocused] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [results, setResults] = useState<Product[]>([]);
+  const [recomms, setRecomms] = useState<ProductListItem[]>([]);
+  const [sales, setSales] = useState<ProductListItem[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const boxRef = useRef<HTMLDivElement | null>(null);
+  const navigate = useNavigate();
+  const { categories } = useCategories();
+  const { subcategories } = useSubcategories();
+
+  const normalize = (s: string) => s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '');
+
+  // Close on outside click
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => {
+      if (!boxRef.current) return;
+      if (!boxRef.current.contains(e.target as Node)) setFocused(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, []);
+
+  // Debounced search
+  useEffect(() => {
+    let active = true;
+    const handler = setTimeout(async () => {
+      const q = term.trim();
+      if (!active) return;
+      if (q.length < 2) {
+        setResults([]);
+        setError(null);
+        // Prefetch strategic recommendations: bestsellers and on-sale
+        try {
+          const [b, s] = await Promise.all([
+            productApi.getBestsellerProducts(),
+            productApi.getSaleProducts(),
+          ]);
+          if (!active) return;
+          setRecomms(Array.isArray(b) ? b.slice(0, 5) : []);
+          setSales(Array.isArray(s) ? s.slice(0, 5) : []);
+        } catch {
+          // ignore
+        }
+        return;
+      }
+      setLoading(true);
+      setError(null);
+      try {
+        const found = await productApi.searchProducts({ q });
+        if (!active) return;
+        setResults(Array.isArray(found) ? found.slice(0, 8) : []);
+      } catch (e) {
+        if (!active) return;
+        setError(e instanceof Error ? e.message : 'Erro na pesquisa');
+        setResults([]);
+      } finally {
+        if (active) setLoading(false);
+      }
+    }, 300);
+    return () => { active = false; clearTimeout(handler); };
+  }, [term]);
+
+  const onSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const q = term.trim();
+    if (q.length === 0) return;
+    setFocused(false);
+    navigate(`/products?q=${encodeURIComponent(q)}`);
+  };
+
+  const containerClass = fullWidth ? 'w-full' : 'hidden md:flex flex-1 max-w-md mx-8';
+
+  return (
+    <div className={containerClass}>
+      <div ref={boxRef} className="relative w-full">
+      <form onSubmit={onSubmit} className="w-full">
+        <Input
+          type="search"
+          value={term}
+          onChange={(e) => setTerm(e.target.value)}
+          onFocus={() => setFocused(true)}
+          placeholder="Buscar produtos..."
+          className="pl-4 pr-10 w-full"
+          aria-label="Buscar produtos"
+        />
+        <Button
+          size="sm"
+          variant="ghost"
+          type="submit"
+          aria-label="Pesquisar"
+          className="absolute right-1 top-1/2 transform -translate-y-1/2"
+        >
+          <Search className="h-4 w-4" />
+        </Button>
+
+        {/* Suggestions dropdown */}
+        {focused && (
+          <div className="absolute z-50 mt-2 w-full rounded-md border bg-popover text-popover-foreground shadow-md">
+            <div className="max-h-[70vh] overflow-y-auto">
+              {term.trim().length < 2 ? (
+                <div className="p-3 space-y-4">
+                  <div className="text-xs text-muted-foreground">Sugestões</div>
+                  {/* Bestsellers */}
+                  {recomms.length > 0 && (
+                    <div>
+                      <div className="text-sm font-semibold mb-2">Mais vendidos</div>
+                      <ul className="divide-y">
+                        {recomms.map((p) => (
+                          <li key={p.id}>
+                            <Link
+                              to={`/products/${p.slug}`}
+                              onClick={() => setFocused(false)}
+                              className="flex items-center gap-3 p-2 hover:bg-accent rounded"
+                            >
+                              <img src={getImageUrl(p.main_image_url)} alt="" className="h-10 w-10 object-cover rounded" />
+                              <div className="min-w-0 flex-1">
+                                <div className="truncate text-sm">{p.name}</div>
+                                {p.is_bestseller && (
+                                  <div className="text-[10px] inline-flex px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-800 mt-0.5">TOP</div>
+                                )}
+                              </div>
+                              <div className="text-xs font-medium text-foreground whitespace-nowrap">{formatPrice(p.price)}</div>
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {/* On sale */}
+                  {sales.length > 0 && (
+                    <div>
+                      <div className="text-sm font-semibold mb-2">Em promoção</div>
+                      <ul className="divide-y">
+                        {sales.map((p) => (
+                          <li key={p.id}>
+                            <Link
+                              to={`/products/${p.slug}`}
+                              onClick={() => setFocused(false)}
+                              className="flex items-center gap-3 p-2 hover:bg-accent rounded"
+                            >
+                              <img src={getImageUrl(p.main_image_url)} alt="" className="h-10 w-10 object-cover rounded" />
+                              <div className="min-w-0 flex-1">
+                                <div className="truncate text-sm">{p.name}</div>
+                                {p.is_on_sale && (
+                                  <div className="text-[10px] inline-flex px-1.5 py-0.5 rounded bg-red-100 text-red-700 mt-0.5">SALE</div>
+                                )}
+                              </div>
+                              <div className="text-xs font-medium text-foreground whitespace-nowrap">{formatPrice(p.price)}</div>
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {recomms.length === 0 && sales.length === 0 && (
+                    <div className="text-sm text-muted-foreground">Digite pelo menos 2 letras para pesquisar.</div>
+                  )}
+                </div>
+              ) : (
+                <div className="p-3 space-y-4">
+                  {/* Category/Subcategory matches */}
+                  {(() => {
+                    const qn = normalize(term.trim());
+                    const catMatches = (categories || [])
+                      .filter((c: Category) => normalize(c.name).includes(qn))
+                      .slice(0, 5);
+                    const subMatches = (subcategories || [])
+                      .filter((s: Subcategory) => normalize(s.name).includes(qn))
+                      .slice(0, 5);
+                    return (
+                      <>
+                        {catMatches.length > 0 && (
+                          <div>
+                            <div className="text-xs font-semibold mb-2 text-muted-foreground">Categorias</div>
+                            <div className="grid grid-cols-1 gap-1">
+                              {catMatches.map((c) => (
+                                <Link
+                                  key={c.id}
+                                  to={`/products?category=${c.id}`}
+                                  onClick={() => setFocused(false)}
+                                  className="block rounded p-2 text-sm hover:bg-accent"
+                                >
+                                  {c.name}
+                                </Link>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {subMatches.length > 0 && (
+                          <div>
+                            <div className="text-xs font-semibold mb-2 text-muted-foreground">Subcategorias</div>
+                            <div className="grid grid-cols-1 gap-1">
+                              {subMatches.map((s) => (
+                                <Link
+                                  key={s.id}
+                                  to={`/products?category=${s.category}&subcategory=${s.id}`}
+                                  onClick={() => setFocused(false)}
+                                  className="block rounded p-2 text-sm hover:bg-accent"
+                                >
+                                  {s.name}
+                                </Link>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+
+                  {/* Product results with image and price */}
+                  {loading && <div className="p-2 text-sm text-muted-foreground">Pesquisando...</div>}
+                  {error && <div className="p-2 text-sm text-red-600">{error}</div>}
+                  {!loading && !error && results.length === 0 && (
+                    <div className="p-2 text-sm text-muted-foreground">Sem resultados.</div>
+                  )}
+                  {!loading && !error && results.length > 0 && (
+                    <ul className="divide-y">
+                      {results.map((p) => {
+                        const img = (p as any).main_image_url || (p as any).main_image;
+                        const price = (p as any).price;
+                        return (
+                          <li key={p.id}>
+                            <Link
+                              to={`/products/${p.slug}`}
+                              onClick={() => setFocused(false)}
+                              className="flex items-center gap-3 p-2 hover:bg-accent rounded"
+                            >
+                              <img src={getImageUrl(img)} alt="" className="h-10 w-10 object-cover rounded" />
+                              <div className="min-w-0 flex-1">
+                                <div className="truncate text-sm">{p.name}</div>
+                                <div className="text-xs text-muted-foreground truncate">{p.subcategory_name || ''}</div>
+                              </div>
+                              {price && (
+                                <div className="text-xs font-medium text-foreground whitespace-nowrap">{formatPrice(price)}</div>
+                              )}
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+
+                  {/* CTA: See more in dominant category */}
+                  {(() => {
+                    if (!results || results.length < 3 || !categories || categories.length === 0) return null;
+                    const counts = new Map<number, number>();
+                    for (const p of results) {
+                      const c = (p as any).category;
+                      let cid: number | undefined;
+                      if (typeof c === 'number') cid = c;
+                      else if (c && typeof c === 'object' && 'id' in c) cid = (c as any).id as number;
+                      if (cid) counts.set(cid, (counts.get(cid) || 0) + 1);
+                    }
+                    if (counts.size === 0) return null;
+                    // Find top category
+                    let topId: number | null = null;
+                    let topCount = 0;
+                    counts.forEach((v, k) => { if (v > topCount) { topCount = v; topId = k; } });
+                    if (!topId) return null;
+                    const ratio = topCount / results.length;
+                    if (ratio < 0.6) return null; // require 60% concentration
+                    const catObj = (categories as Category[]).find(c => c.id === topId);
+                    if (!catObj) return null;
+                    return (
+                      <div className="pt-2">
+                        <Link
+                          to={`/products?category=${topId}`}
+                          onClick={() => setFocused(false)}
+                          className="block w-full text-center rounded border px-3 py-2 text-sm hover:bg-accent"
+                        >
+                          Ver mais em {catObj.name}
+                        </Link>
+                      </div>
+                    );
+                  })()}
+
+                  <div className="pt-2">
+                    <Button size="sm" variant="outline" className="w-full" onClick={() => onSubmit()}>
+                      Ver todos resultados
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </form>
+      </div>
+    </div>
+  );
+};
