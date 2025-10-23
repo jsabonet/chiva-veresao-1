@@ -4,7 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePayments } from '@/hooks/usePayments';
-import { apiClient } from '@/lib/api';
+import { apiClient, customersApi } from '@/lib/api';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
@@ -139,6 +139,25 @@ export default function Checkout() {
   const [useAsShippingAddress, setUseAsShippingAddress] = useState(true);
   const [paymentPhone, setPaymentPhone] = useState('');
   
+  // Anonymous users fallback storage for contact data
+  const STORAGE_KEY = 'chiva:checkout:user';
+  const readStoredContact = () => {
+    try {
+      const raw = typeof window !== 'undefined' ? window.localStorage.getItem(STORAGE_KEY) : null;
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  };
+  const writeStoredContact = (data: { name: string; phone: string; email: string; address: string; city: string; province: string; }) => {
+    try {
+      if (typeof window === 'undefined') return;
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch {
+      // ignore
+    }
+  };
+  
   // Coupon state from Cart navigation
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount: number } | null>(null);
 
@@ -151,6 +170,43 @@ export default function Checkout() {
         email: currentUser.email || '',
       }));
     }
+  }, [currentUser]);
+
+  // Prefill from profile (authenticated) or app storage (anonymous)
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        if (currentUser) {
+          const me = await customersApi.me();
+          if (!mounted || !me) return;
+          setShippingAddress(prev => ({
+            ...prev,
+            name: prev.name || me.name || prev.name,
+            phone: prev.phone || me.phone || prev.phone,
+            email: prev.email || me.email || prev.email,
+            address: prev.address || me.address || prev.address,
+            city: prev.city || me.city || prev.city,
+            province: prev.province || me.province || prev.province,
+          }));
+        } else {
+          const stored = readStoredContact();
+          if (!stored) return;
+          setShippingAddress(prev => ({
+            ...prev,
+            name: prev.name || stored.name || prev.name,
+            phone: prev.phone || stored.phone || prev.phone,
+            email: prev.email || stored.email || prev.email,
+            address: prev.address || stored.address || prev.address,
+            city: prev.city || stored.city || prev.city,
+            province: prev.province || stored.province || prev.province,
+          }));
+        }
+      } catch (e) {
+        // ignore
+      }
+    })();
+    return () => { mounted = false; };
   }, [currentUser]);
 
   // If user navigated from Cart with a selected method, prefill
@@ -316,8 +372,6 @@ export default function Checkout() {
       const orderData = {
         method: paymentMethod,
         phone: paymentPhone || shippingAddress.phone,
-        amount: total,
-        shipping_amount: shippingCost,
         currency: 'MZN',
         shipping_method: selectedShippingMethod,
         shipping_address: shippingAddress,
@@ -331,6 +385,17 @@ export default function Checkout() {
           color_id: item.color_id || null
         }))
       };
+      // For anonymous users, persist contact locally for next checkout
+      if (!currentUser) {
+        writeStoredContact({
+          name: shippingAddress.name,
+          phone: shippingAddress.phone,
+          email: shippingAddress.email,
+          address: shippingAddress.address,
+          city: shippingAddress.city,
+          province: shippingAddress.province,
+        });
+      }
 
       const { order_id, payment_id, payment } = await initiatePayment(paymentMethod as "mpesa" | "emola" | "card" | "transfer", orderData);
 
