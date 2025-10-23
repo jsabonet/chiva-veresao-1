@@ -38,6 +38,7 @@ import {
 import { useProductStats, useProducts, useCategories, useDeleteProduct } from '@/hooks/useApi';
 import { formatPrice, getImageUrl } from '@/lib/api';
 import { useExport, generateFilename } from '@/hooks/useExport';
+import Loading from '@/components/ui/Loading';
 
 // Statistics Card Component
 const StatCard = ({ 
@@ -448,9 +449,8 @@ const AdminDashboard = () => {
                         <div>Ações</div>
                       </div>
                       {productsLoading ? (
-                        <div className="p-8 text-center">
-                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-                          <p className="mt-2 text-sm text-muted-foreground">Carregando produtos...</p>
+                        <div className="p-8">
+                          <Loading label="Carregando produtos..." />
                         </div>
                       ) : products.length > 0 ? (
                         products.slice(0, 10).map((product) => (
@@ -533,9 +533,8 @@ const AdminDashboard = () => {
                     {/* Card/list view for mobile */}
                     <div className="sm:hidden">
                       {productsLoading ? (
-                        <div className="p-6 text-center">
-                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-                          <p className="mt-2 text-sm text-muted-foreground">Carregando produtos...</p>
+                        <div className="p-6">
+                          <Loading label="Carregando produtos..." />
                         </div>
                       ) : products.length > 0 ? (
                         <div className="space-y-3 p-2">

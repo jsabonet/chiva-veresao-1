@@ -15,6 +15,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import Loading from '@/components/ui/Loading';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -314,10 +315,7 @@ const ProductsManagement = () => {
       <Card>
         <CardContent className="pt-6">
           {productsLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin" />
-              <span className="ml-2">Carregando produtos...</span>
-            </div>
+            <Loading label="Carregando produtos..." />
           ) : (
             <>
               <div className="rounded-md border">

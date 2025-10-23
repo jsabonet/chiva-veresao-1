@@ -14,6 +14,7 @@ import {
   Calendar
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import Loading from '@/components/ui/Loading';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -439,10 +440,7 @@ const CategoriesManagement = () => {
             {/* Desktop: keep existing accordion */}
             <div className="hidden md:block">
               {categoriesLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin" />
-                  <span className="ml-2">Carregando categorias...</span>
-                </div>
+                <Loading label="Carregando categorias..." />
               ) : filteredCategories.length === 0 ? (
                 <div className="text-center py-8">
                   <FolderOpen className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -510,7 +508,7 @@ const CategoriesManagement = () => {
                         </div>
                         <AccordionContent>
                           {allSubsLoading ? (
-                            <div className="flex items-center gap-2 text-sm py-2"><Loader2 className="h-4 w-4 animate-spin"/> Carregando subcategorias...</div>
+                            <Loading label="Carregando subcategorias..." size="sm" center={false} />
                           ) : subs.length === 0 ? (
                             <div className="flex items-center justify-between p-3 border rounded-md bg-muted/30">
                               <div className="text-sm text-muted-foreground">Sem subcategorias</div>
@@ -549,9 +547,7 @@ const CategoriesManagement = () => {
             {/* Mobile: show cards for each category */}
             <div className="md:hidden space-y-3 p-2">
               {categoriesLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin" />
-                </div>
+                <Loading label="Carregando categorias..." />
               ) : filteredCategories.length === 0 ? (
                 <div className="text-center py-8">
                   <FolderOpen className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -669,7 +665,7 @@ const CategoriesManagement = () => {
                 </div>
 
                 {subsLoading ? (
-                  <div className="flex items-center gap-2 text-sm py-4"><Loader2 className="h-4 w-4 animate-spin"/> Carregando subcategorias...</div>
+                  <Loading label="Carregando subcategorias..." size="sm" center={false} />
                 ) : !selectedCategoryId ? (
                   <div className="text-sm text-muted-foreground py-4">Selecione uma categoria para ver as subcategorias.</div>
                 ) : (subcategories?.length ?? 0) === 0 ? (

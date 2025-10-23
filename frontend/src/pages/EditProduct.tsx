@@ -8,8 +8,8 @@ import {
   X,
   Eye,
   Plus,
-  Loader2,
-  AlertTriangle
+  AlertTriangle,
+  Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,6 +29,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useUpdateProduct, useCategories, useSubcategoriesByCategory } from '@/hooks/useApi';
 import { productApi, productImageApi, type Product, type ProductCreateUpdate, type ProductImage } from '@/lib/api';
+import Loading from '@/components/ui/Loading';
 
 const EditProduct = () => {
   const navigate = useNavigate();
@@ -339,10 +340,7 @@ const EditProduct = () => {
   if (loading) {
     return (
       <AdminLayout>
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin mr-2" />
-          <span>Carregando produto...</span>
-        </div>
+        <Loading label="Carregando produto..." />
       </AdminLayout>
     );
   }

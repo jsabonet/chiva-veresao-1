@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { promotionsApi, type Promotion } from '@/lib/api';
 import { Button } from '@/components/ui/button';
+import Loading from '@/components/ui/Loading';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -43,7 +44,7 @@ const PromotionsManagement = () => {
         <CardContent>
           {error && <div className="text-red-600 mb-4">{error}</div>}
           {loading ? (
-            <div className="py-12 text-center text-muted-foreground">Carregando...</div>
+            <Loading label="Carregando promoções..." />
           ) : promotions.length === 0 ? (
             <div className="py-12 text-center text-muted-foreground">Nenhuma promoção cadastrada.</div>
           ) : (

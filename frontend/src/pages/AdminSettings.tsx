@@ -1,3 +1,4 @@
+import Loading from '@/components/ui/Loading';
 import { useState, useEffect } from 'react';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { 
@@ -486,7 +487,7 @@ const AdminSettings = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               {isCouponsLoading ? (
-                <div className="text-center py-8 text-muted-foreground">Carregando cupons...</div>
+                <Loading label="Carregando cupons..." />
               ) : editingCoupon ? (
                 <div className="border rounded-lg p-6 space-y-4">
                   <h3 className="text-lg font-semibold">

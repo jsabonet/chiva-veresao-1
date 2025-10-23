@@ -1,3 +1,4 @@
+import Loading from '@/components/ui/Loading';
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import AdminLayout from '@/components/layout/AdminLayout';
 import {
@@ -639,9 +640,7 @@ const CustomersManagement = () => {
           )}
           
           {loading ? (
-            <div className="py-12 text-center text-muted-foreground">
-              Carregando clientes...
-            </div>
+            <Loading label="Carregando clientes..." />
           ) : (
             <div className="rounded-md border">
               <div className="hidden md:block overflow-x-auto">

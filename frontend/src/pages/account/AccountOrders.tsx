@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
+import Loading from '@/components/ui/Loading';
 import {
   Dialog,
   DialogContent,
@@ -533,10 +534,7 @@ const AccountOrders = () => {
       {/* Orders List */}
       <div className="space-y-4">
         {loading ? (
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-            <p className="mt-2 text-sm text-muted-foreground">Carregando pedidos...</p>
-          </div>
+          <Loading label="Carregando pedidos..." />
         ) : filteredOrders.length === 0 ? (
           <Card>
             <CardContent className="pt-6">

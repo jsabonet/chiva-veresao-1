@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAdminStatus } from '@/hooks/useAdminStatus';
 import AdminLayout from '@/components/layout/AdminLayout';
+import Loading from '@/components/ui/Loading';
 import { 
   Search, 
   Filter, 
@@ -1018,11 +1019,8 @@ const OrdersManagement = () => {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={6} className="p-8 text-center text-muted-foreground">
-                      <div className="flex items-center justify-center gap-2">
-                        <Package className="h-4 w-4 animate-spin" />
-                        Carregando pedidos...
-                      </div>
+                    <td colSpan={6} className="p-8">
+                      <Loading label="Carregando pedidos..." />
                     </td>
                   </tr>
                 ) : (
@@ -1148,11 +1146,8 @@ const OrdersManagement = () => {
             {/* Mobile - card list */}
             <div className="md:hidden p-2 space-y-3">
               {loading ? (
-                <div className="p-4 text-center text-muted-foreground">
-                  <div className="flex items-center justify-center gap-2">
-                    <Package className="h-4 w-4 animate-spin" />
-                    Carregando pedidos...
-                  </div>
+                <div className="p-4">
+                  <Loading label="Carregando pedidos..." />
                 </div>
               ) : (
                 filteredOrders.map((order) => {

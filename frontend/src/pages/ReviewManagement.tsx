@@ -1,5 +1,6 @@
 import React from 'react';
 import AdminLayout from '@/components/layout/AdminLayout';
+import Loading from '@/components/ui/Loading';
 import { RefreshCw } from 'lucide-react';
 import { Card, CardHeader, CardContent, CardDescription, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -126,8 +127,8 @@ const ReviewManagement = () => {
                     <TableBody>
                       {loading ? (
                         <TableRow>
-                          <TableCell colSpan={6} className="text-center py-4">
-                            Carregando...
+                          <TableCell colSpan={6}>
+                            <Loading label="Carregando avaliações..." />
                           </TableCell>
                         </TableRow>
                       ) : reviews.length === 0 ? (
@@ -203,7 +204,9 @@ const ReviewManagement = () => {
                   {/* Mobile - card list */}
                   <div className="md:hidden p-2 space-y-3">
                     {loading ? (
-                      <div className="p-4 text-center">Carregando...</div>
+                      <div className="p-4">
+                        <Loading label="Carregando avaliações..." />
+                      </div>
                     ) : reviews.length === 0 ? (
                       <div className="p-4 text-center text-muted-foreground">Nenhuma avaliação {status === 'pending' ? 'pendente' : status === 'approved' ? 'aprovada' : 'rejeitada'}</div>
                     ) : (

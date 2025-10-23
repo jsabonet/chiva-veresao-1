@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { User } from 'lucide-react';
 import { customersApi, type CustomerProfile } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
+import Loading from '@/components/ui/Loading';
 
 const AccountProfile = () => {
   const { currentUser } = useAuth();
@@ -82,7 +83,7 @@ const AccountProfile = () => {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <p className="text-sm text-muted-foreground">Carregando…</p>
+            <Loading label="Carregando perfil..." />
           ) : (
           <form onSubmit={handleSave} className="space-y-4 max-w-full sm:max-w-md">
             <div className="space-y-2">
