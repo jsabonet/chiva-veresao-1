@@ -176,13 +176,13 @@ export default function CheckoutDetails() {
 
       const payload: any = {
         method: method,
-        amount: amount,
-        shipping_amount: shippingAmount,
+        // Do NOT send amount/shipping_amount to avoid mismatch; let server compute from cart and shipping_method
         shipping_method: selectedShippingMethodId,
         currency: currency,
         shipping_address: { name, phone, email, address, city, province },
         billing_address: { name, phone, email, address, city, province },
         customer_notes: notes,
+        // Keep items only to trigger cart sync on the client hook
         items: state.items || cartItems.map(it => ({ id: it.id, quantity: it.quantity, color_id: it.color_id || null }))
       };
 
