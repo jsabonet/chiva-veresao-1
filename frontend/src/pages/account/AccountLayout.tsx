@@ -10,7 +10,6 @@ const nav = [
   { to: '/account/orders', label: 'Pedidos', icon: Package },
   { to: '/account/favorites', label: 'Favoritos', icon: Heart },
   { to: '/account/profile', label: 'Perfil', icon: User },
-  { to: '/account/addresses', label: 'Endereços', icon: MapPin }
 ];
 
 const AccountLayout = () => {

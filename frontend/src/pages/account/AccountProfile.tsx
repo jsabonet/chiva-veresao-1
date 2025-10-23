@@ -84,7 +84,10 @@ const AccountProfile = () => {
               <Label htmlFor="displayName">Nome</Label>
               <Input id="displayName" value={displayName} onChange={(e)=>setDisplayName(e.target.value)} placeholder="Seu nome" />
             </div>
-            {/* Email is managed in AccountAddresses. Omit here to avoid duplication. */}
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input value={profile?.email || currentUser?.email || ''} disabled />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="phone">Telefone</Label>
               <Input id="phone" value={phone} onChange={(e)=>setPhone(e.target.value)} placeholder="Seu telefone" />
