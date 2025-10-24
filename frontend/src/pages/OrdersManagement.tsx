@@ -495,7 +495,13 @@ const OrdersManagement = () => {
           Make dialog full-screen on small devices while keeping centered max-width on desktop.
           Use utility classes: w-screen h-screen p-4 for mobile; revert to max-w-4xl on md+
         */}
-  <DialogContent className="w-screen h-screen p-4 md:w-auto md:h-auto md:p-0 max-w-4xl md:max-h-[80vh] md:overflow-y-auto">
+  <DialogContent className="w-screen h-screen p-4 overflow-y-auto md:w-auto md:h-auto md:p-0 max-w-4xl md:max-h-[80vh] md:overflow-y-auto rounded-none md:rounded-lg">
+          {/* Close button on mobile */}
+          <div className="md:hidden flex justify-end mb-2">
+            <Button variant="ghost" size="icon" onClick={() => setIsOrderDialogOpen(false)} aria-label="Fechar detalhes">
+              <XCircle className="h-5 w-5" />
+            </Button>
+          </div>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3">
               Detalhes do Pedido {selectedOrder.order_number}
@@ -523,7 +529,7 @@ const OrdersManagement = () => {
                     value={selectedOrder.status}
                     onValueChange={handleStatusChange}
                   >
-                    <SelectTrigger className="w-[200px]">
+                    <SelectTrigger className="w-full sm:w-[200px]">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -847,8 +853,8 @@ const OrdersManagement = () => {
         </div>
       </div>
 
-      {/* Stats Cards */}
-  <div className="grid gap-4 md:grid-cols-6">
+    {/* Stats Cards */}
+  <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-7">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center">

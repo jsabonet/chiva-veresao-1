@@ -1,4 +1,5 @@
 from rest_framework import generics, permissions
+from rest_framework.exceptions import NotFound
 from django.conf import settings
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -420,6 +421,85 @@ class CustomerDetailAdminView(generics.RetrieveUpdateAPIView):
         if self.request.method in ['PUT','PATCH']:
             return AdminCustomerWriteSerializer
         return CustomerProfileSerializer
+
+    def get_object(self):
+        """
+        Resolve a customer by username OR Firebase UID. If the CustomerProfile
+        doesn't exist yet but there is an ExternalAuthUser (optionally with a
+        linked Django User), create the missing CustomerProfile (and User if
+        needed) so that admin edits (PATCH/PUT) can proceed.
+        """
+        identifier = self.kwargs.get(self.lookup_field) or self.kwargs.get('user__username')
+        if not identifier:
+            raise NotFound()
+
+        # 1) Try by CustomerProfile using username
+        profile = CustomerProfile.objects.select_related('user').filter(user__username=identifier).first()
+        if profile:
+            return profile
+
+        # 2) Try ExternalAuthUser by firebase_uid or by linked user username
+        ext = ExternalAuthUser.objects.select_related('user').filter(firebase_uid=identifier).first()
+        if not ext:
+            ext = ExternalAuthUser.objects.select_related('user').filter(user__username=identifier).first()
+
+        # If we have an external auth user, ensure a Django User exists
+        user = None
+        if ext:
+            user = ext.user
+            if not user:
+                # Create a Django user using the identifier as username and ext.email/display_name for details
+                try:
+                    email = (getattr(ext, 'email', '') or '')
+                    display_name = (getattr(ext, 'display_name', '') or '')
+                except Exception:
+                    email = ''
+                    display_name = ''
+
+                first_name = ''
+                last_name = ''
+                if display_name:
+                    parts = display_name.strip().split()
+                    first_name = parts[0] if parts else ''
+                    last_name = ' '.join(parts[1:]) if len(parts) > 1 else ''
+
+                try:
+                    user = User.objects.create_user(username=identifier, email=email, first_name=first_name, last_name=last_name)
+                except Exception:
+                    # Fallback to a unique username if collision
+                    base = identifier[:30] or 'user'
+                    idx = 1
+                    cand = base
+                    while User.objects.filter(username=cand).exists():
+                        sfx = f"{idx}"
+                        cand = (base[: max(1, 30 - len(sfx))] + sfx)
+                        idx += 1
+                    user = User.objects.create_user(username=cand, email=email, first_name=first_name, last_name=last_name)
+                # Link back to ExternalAuthUser
+                ext.user = user
+                try:
+                    ext.save(update_fields=['user'])
+                except Exception:
+                    ext.save()
+
+        # 3) Ensure a CustomerProfile exists for the resolved user
+        if not profile and user:
+            profile = CustomerProfile.objects.filter(user=user).first()
+            if not profile:
+                profile = CustomerProfile.objects.create(user=user, status='active')
+            return profile
+
+        # 4) Try by direct Django User if exists
+        if not profile:
+            user = User.objects.filter(username=identifier).first()
+            if user:
+                profile = CustomerProfile.objects.filter(user=user).first()
+                if not profile:
+                    profile = CustomerProfile.objects.create(user=user, status='active')
+                return profile
+
+        # If everything failed
+        raise NotFound()
 
 @api_view(['GET', 'PUT', 'PATCH'])
 @permission_classes([permissions.IsAuthenticated])

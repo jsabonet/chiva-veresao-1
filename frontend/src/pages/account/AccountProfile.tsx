@@ -67,6 +67,10 @@ const AccountProfile = () => {
       setProfile(updated);
       setMessage('Alterações salvas.');
       toast({ title: 'Perfil atualizado', description: 'Suas informações foram salvas com sucesso.' });
+      // Broadcast profile update to other admin/client views
+      try {
+        window.localStorage.setItem('chiva:profileUpdated', String(Date.now()));
+      } catch {}
     } catch (err) {
       setMessage('Erro ao salvar.');
       toast({ title: 'Erro', description: 'Não foi possível salvar seu perfil.', variant: 'destructive' });

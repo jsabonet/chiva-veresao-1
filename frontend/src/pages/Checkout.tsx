@@ -402,6 +402,26 @@ export default function Checkout() {
 
       const { order_id, payment_id, payment } = await initiatePayment(paymentMethod as "mpesa" | "emola" | "card" | "transfer", orderData);
 
+      // If authenticated, persist shipping info to profile for future use and admin visibility
+      try {
+        if (currentUser) {
+          await customersApi.updateMe({
+            name: shippingAddress.name,
+            email: shippingAddress.email,
+            phone: shippingAddress.phone,
+            address: shippingAddress.address,
+            city: shippingAddress.city,
+            province: shippingAddress.province,
+            postal_code: shippingAddress.postal_code,
+          } as any);
+          // Notify other tabs/views to refresh data
+          try { window.localStorage.setItem('chiva:profileUpdated', String(Date.now())); } catch {}
+        }
+      } catch (e) {
+        // Do not block checkout on profile save failure
+        console.warn('Failed to persist profile during checkout', e);
+      }
+
   // NOTE: do NOT clear the cart here — cart should only be cleared after the payment
   // is actually approved by the payment gateway (webhook). The backend will clear
   // server-side cart snapshot when payment is confirmed; frontend will clear local

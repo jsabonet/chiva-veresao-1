@@ -92,7 +92,7 @@ const Modal = ({ isOpen, onClose, children, className = '' }) => {
     >
       <div
         ref={modalRef}
-        className={`relative bg-white rounded-lg shadow-lg max-h-[90vh] overflow-y-auto w-full max-w-2xl ${className}`}
+        className={`relative bg-white rounded-lg shadow-lg max-h-[90vh] overflow-y-auto w-full max-w-[95vw] sm:max-w-2xl ${className}`}
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -235,6 +235,32 @@ const CustomersManagement = () => {
     }
   }, [page, pageSize, statusFilter, provinceFilter, searchTerm]);
 
+  // Initialize filters from URL query on first mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get('q');
+    const status = params.get('status');
+    const prov = params.get('province');
+    const p = params.get('page');
+    if (q) setSearchTerm(q);
+    if (status) setStatusFilter(status);
+    if (prov) setProvinceFilter(prov);
+    if (p) setPage(Math.max(1, parseInt(p, 10) || 1));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Keep URL query string in sync with filters and pagination
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (searchTerm) params.set('q', searchTerm);
+    if (statusFilter && statusFilter !== 'all') params.set('status', statusFilter);
+    if (provinceFilter && provinceFilter !== 'all') params.set('province', provinceFilter);
+    if (page && page !== 1) params.set('page', String(page));
+    const query = params.toString();
+    const newUrl = `${window.location.pathname}${query ? `?${query}` : ''}`;
+    window.history.replaceState(null, '', newUrl);
+  }, [searchTerm, statusFilter, provinceFilter, page]);
+
   // Estados para ações de admin
   const [isAdminConfirmOpen, setIsAdminConfirmOpen] = useState(false);
   const [adminActionTarget, setAdminActionTarget] = useState<CustomerProfile | null>(null);
@@ -274,6 +300,33 @@ const CustomersManagement = () => {
 
     return () => {
       if (unsub) unsub();
+    };
+  }, [loadCustomers, page]);
+
+  // Reload when filters or search change
+  useEffect(() => {
+    loadCustomers(page);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, provinceFilter, searchTerm]);
+
+  // Auto-refresh when user profile is updated in other views (AccountProfile/Checkout)
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'chiva:profileUpdated') {
+        // Refresh current page to reflect updated customer info
+        loadCustomers(page);
+      }
+    };
+    const onFocus = () => loadCustomers(page);
+    try {
+      window.addEventListener('storage', onStorage);
+      window.addEventListener('focus', onFocus);
+    } catch {}
+    return () => {
+      try {
+        window.removeEventListener('storage', onStorage);
+        window.removeEventListener('focus', onFocus);
+      } catch {}
     };
   }, [loadCustomers, page]);
 
@@ -630,6 +683,30 @@ const CustomersManagement = () => {
                   ))}
                 </SelectContent>
               </Select>
+              {/* Quick admin filter shortcuts */}
+              <div className="hidden sm:flex items-center gap-1">
+                <Button
+                  variant={statusFilter === 'all' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setStatusFilter('all')}
+                >
+                  Todos
+                </Button>
+                <Button
+                  variant={statusFilter === 'active' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setStatusFilter('active')}
+                >
+                  Ativos
+                </Button>
+                <Button
+                  variant={statusFilter === 'inactive' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setStatusFilter('inactive')}
+                >
+                  Inativos
+                </Button>
+              </div>
               <Select value={provinceFilter} onValueChange={setProvinceFilter}>
                 <SelectTrigger className="w-full sm:w-[140px]">
                   <SelectValue placeholder="Província" />

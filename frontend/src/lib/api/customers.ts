@@ -27,4 +27,11 @@ export const customersApi = {
 
   syncFirebaseUser: async (id: string): Promise<CustomerProfile> =>
     apiClient.post<CustomerProfile>(`/admin/customers/${id}/sync-firebase/`, {}),
+
+  // Current user profile endpoints (used by AccountProfile & Checkout)
+  me: async (): Promise<CustomerProfile> =>
+    apiClient.get<CustomerProfile>('/me/profile/'),
+
+  updateMe: async (data: Partial<CustomerProfile> & { postal_code?: string }): Promise<CustomerProfile> =>
+    apiClient.patch<CustomerProfile>('/me/profile/', data),
 };
