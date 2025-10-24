@@ -42,6 +42,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import type { CustomerProfile, PermissionChangeLog } from '@/lib/api/types';
 import { useAdminStatus } from '@/hooks/useAdminStatus';
 import { useExport, generateFilename } from '@/hooks/useExport';
+import { toast } from '@/hooks/use-toast';
 
 // Modal base ultra-estável
 const Modal = ({ isOpen, onClose, children, className = '' }) => {
@@ -240,6 +241,11 @@ const CustomersManagement = () => {
   const [adminActionNotes, setAdminActionNotes] = useState('');
   const [adminActionLoading, setAdminActionLoading] = useState(false);
 
+  // Delete state
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<CustomerProfile | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
   // Initial load once auth state resolves (so apiClient can attach token), then
   // reload whenever page / filters / search change
   useEffect(() => {
@@ -332,33 +338,44 @@ const CustomersManagement = () => {
 
               {/* Pagination controls */}
               <div className="flex items-center justify-between p-4">
-                <div className="text-sm text-muted-foreground">Mostrando página {page}</div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={async () => {
-                      if (page <= 1) return;
-                      const nextPage = page - 1;
-                      setPage(nextPage);
-                      await loadCustomers(nextPage);
-                    }}
-                    disabled={page <= 1}
-                  >
-                    Anterior
-                  </Button>
-                  <Button
-                    onClick={async () => {
-                      // Simple next page; disable only when we've loaded all items
-                      const nextPage = page + 1;
-                      setPage(nextPage);
-                      await loadCustomers(nextPage);
-                    }}
-                    variant="outline"
-                    disabled={customers.length === 0 || customers.length < pageSize}
-                  >
-                    Próxima
-                  </Button>
-                </div>
+                {(() => {
+                  const totalPages = Math.max(1, Math.ceil((totalCustomers || 0) / pageSize));
+                  const isFirstPage = page <= 1;
+                  const isLastPage = page >= totalPages;
+                  return (
+                    <>
+                      <div className="text-sm text-muted-foreground">
+                        Página {page} de {totalPages} · Total: {totalCustomers}
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={async () => {
+                            if (isFirstPage) return;
+                            const prevPage = page - 1;
+                            setPage(prevPage);
+                            await loadCustomers(prevPage);
+                          }}
+                          disabled={isFirstPage}
+                        >
+                          Anterior
+                        </Button>
+                        <Button
+                          onClick={async () => {
+                            if (isLastPage) return;
+                            const nextPage = page + 1;
+                            setPage(nextPage);
+                            await loadCustomers(nextPage);
+                          }}
+                          variant="outline"
+                          disabled={isLastPage}
+                        >
+                          Próxima
+                        </Button>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
   const handleEditCustomer = useCallback(async (e) => {
     e.preventDefault();
@@ -484,9 +501,14 @@ const CustomersManagement = () => {
       setIsAdminConfirmOpen(false);
       setAdminActionTarget(null);
       setAdminActionNotes('');
+      // Toast success
+      toast({
+        title: 'Permissões atualizadas',
+        description: updated.isAdmin ? 'Usuário promovido a administrador.' : 'Acesso de administrador removido.',
+      });
     } catch (err: any) {
       console.error('Erro ao alterar permissões de admin:', err);
-      alert(err.response?.data?.detail || 'Erro ao alterar permissões do usuário');
+      toast({ title: 'Erro', description: err.response?.data?.detail || 'Erro ao alterar permissões do usuário', variant: 'destructive' });
     } finally {
       setAdminActionLoading(false);
     }
@@ -732,7 +754,7 @@ const CustomersManagement = () => {
                                     </DropdownMenuItem>
                                   )}
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-red-600">
+                              <DropdownMenuItem className="text-red-600" onClick={() => { setDeleteTarget(customer); setIsDeleteConfirmOpen(true); }}>
                               <Trash2 className="h-4 w-4 mr-2" />
                               Excluir
                             </DropdownMenuItem>
@@ -932,6 +954,46 @@ const CustomersManagement = () => {
             <Button variant="outline" onClick={() => { setIsAdminConfirmOpen(false); setAdminActionTarget(null); }}>Cancelar</Button>
             <Button onClick={performAdminAction} disabled={adminActionLoading}>
               {adminActionLoading ? 'Processando...' : (adminActionTarget?.isAdmin ? 'Remover Admin' : 'Tornar Admin')}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete confirm modal */}
+      <Modal isOpen={isDeleteConfirmOpen} onClose={() => { if (!deleteLoading) { setIsDeleteConfirmOpen(false); setDeleteTarget(null); } }}>
+        <div className="p-6">
+          <h2 className="text-lg font-semibold mb-2">Excluir Cliente</h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            {deleteTarget ? `Tem certeza que deseja excluir ${deleteTarget.name || deleteTarget.email}? Esta ação não pode ser desfeita.` : ''}
+          </p>
+          {deleteTarget?.isProtectedAdmin && (
+            <p className="text-sm text-yellow-700 mb-4">Este usuário é um administrador protegido e não pode ser excluído.</p>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => { setIsDeleteConfirmOpen(false); setDeleteTarget(null); }} disabled={deleteLoading}>Cancelar</Button>
+            <Button
+              variant="destructive"
+              disabled={deleteLoading || !!deleteTarget?.isProtectedAdmin}
+              onClick={async () => {
+                if (!deleteTarget) return;
+                try {
+                  setDeleteLoading(true);
+                  await customersApi.deleteAdmin(deleteTarget.id);
+                  // Remove locally
+                  setCustomers(prev => prev.filter(c => c.id !== deleteTarget.id));
+                  setTotalCustomers(prev => Math.max(0, (prev || 0) - 1));
+                  setIsDeleteConfirmOpen(false);
+                  setDeleteTarget(null);
+                  toast({ title: 'Cliente excluído', description: 'O cliente foi removido com sucesso.' });
+                } catch (err: any) {
+                  console.error('Erro ao excluir cliente:', err);
+                  toast({ title: 'Erro', description: err?.message || 'Erro ao excluir cliente', variant: 'destructive' });
+                } finally {
+                  setDeleteLoading(false);
+                }
+              }}
+            >
+              {deleteLoading ? 'Excluindo...' : 'Excluir'}
             </Button>
           </div>
         </div>
@@ -1265,10 +1327,13 @@ const CustomersManagement = () => {
                                     setCustomers(prev => 
                                       prev.map(c => c.id === updated.id ? updated : c)
                                     );
+                                    toast({
+                                      title: 'Permissões atualizadas',
+                                      description: updated.isAdmin ? 'Usuário promovido a administrador.' : 'Acesso de administrador removido.',
+                                    });
                                   } catch (err: any) {
                                     console.error('Erro ao alterar permissões:', err);
-                                    // Mostrar mensagem de erro
-                                    alert(err.response?.data?.detail || 'Erro ao alterar permissões do usuário');
+                                    toast({ title: 'Erro', description: err.response?.data?.detail || 'Erro ao alterar permissões do usuário', variant: 'destructive' });
                                   }
                                 }}
                               >

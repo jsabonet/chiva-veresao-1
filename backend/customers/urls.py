@@ -5,6 +5,7 @@ urlpatterns = [
     path('admin/customers/', views.CustomerListAdminView.as_view(), name='admin-customers'),
     path('admin/customers/create/', views.CustomerCreateAdminView.as_view(), name='admin-customer-create'),
     path('admin/customers/<str:user__username>/', views.CustomerDetailAdminView.as_view(), name='admin-customer-detail'),
+    path('admin/customers/<str:customer_id>/delete/', views.customer_delete_admin, name='admin-customer-delete'),
     path('me/profile/', views.me_profile, name='me-profile'),
     # Roles and external user management
     path('admin/roles/', views.RoleListCreateAdminView.as_view(), name='admin_roles'),

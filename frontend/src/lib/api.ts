@@ -723,34 +723,9 @@ export const getImageUrl = (imagePath?: string): string => {
   return `${origin}${imagePath}`;
 };
 
-// Customers API (Admin + Me)
-export interface CustomerProfile {
-  id: string;
-  name: string;
-  email: string;
-  phone?: string;
-  address?: string;
-  city?: string;
-  province?: string;
-  postal_code?: string;
-  registrationDate: string;
-  lastOrderDate?: string | null;
-  totalOrders: number;
-  totalSpent: number | string;
-  status: 'active' | 'inactive' | 'blocked';
-  notes?: string;
-  avatar?: string;
-  isStaff?: boolean;
-}
-
-export const customersApi = {
-  listAdmin: (params?: Record<string, string>) => apiClient.get<ApiResponse<CustomerProfile>>('/admin/customers/', params),
-  getAdmin: (username: string) => apiClient.get<CustomerProfile>(`/admin/customers/${username}/`),
-  updateAdmin: (username: string, data: Partial<CustomerProfile>) => apiClient.put<CustomerProfile>(`/admin/customers/${username}/`, data),
-  createAdmin: (data: Partial<CustomerProfile> & { email: string }) => apiClient.post<CustomerProfile>('/admin/customers/create/', data),
-  me: () => apiClient.get<CustomerProfile>('/me/profile/'),
-  updateMe: (data: Partial<CustomerProfile>) => apiClient.patch<CustomerProfile>('/me/profile/', data),
-};
+// Customers API — consolidated: re-export the dedicated module to avoid drift
+export type { CustomerProfile, ApiResponse as CustomersApiResponse, PermissionChangeLog, AdminPermissionRequest } from './api/types';
+export { customersApi } from './api/customers';
 
 // Promotions API
 export interface Promotion {

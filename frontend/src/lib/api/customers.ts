@@ -12,6 +12,8 @@ export const customersApi = {
 
   updateAdmin: async (id: string, data: Partial<CustomerProfile>): Promise<CustomerProfile> =>
     apiClient.patch<CustomerProfile>(`/admin/customers/${id}/`, data),
+  deleteAdmin: async (id: string): Promise<void> =>
+    apiClient.delete<void>(`/admin/customers/${id}/delete/`),
 
   // Permission management endpoints - backend may expose different routes; keep these helpers
   grantAdmin: async (id: string, notes?: string): Promise<CustomerProfile> =>

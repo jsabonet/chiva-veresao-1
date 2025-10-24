@@ -273,6 +273,139 @@ class CustomerListAdminView(generics.ListAPIView):
     ordering_fields = ['registration_date','total_orders','total_spent']
     ordering = ['-registration_date']
 
+    def list(self, request, *args, **kwargs):
+        """
+        Return a combined list of customers that includes:
+          - Regular CustomerProfile entries (default DRF filtering/search/pagination)
+          - ExternalAuthUser entries that do NOT yet have a CustomerProfile
+
+        This ensures newly authenticated users (who have not visited the profile
+        page yet) still appear in the admin customers list.
+
+        We preserve the existing response shape (count/results) used by the
+        frontend. next/previous links are not required by the SPA.
+        """
+        # First, get the filtered CustomerProfile queryset and serialize it
+        queryset = self.filter_queryset(self.get_queryset())
+
+        # We can't easily paginate yet because we'll add external-only users
+        base_items = list(queryset)
+
+        # Serialize base items using the configured serializer
+        serializer = self.get_serializer(base_items, many=True)
+        base_data = list(serializer.data)
+
+        # Collect ExternalAuthUser entries linked to a Django user but missing a CustomerProfile
+        # These represent "new accesses" that haven't created a profile yet
+        try:
+            from customers.models import ExternalAuthUser
+            ext_qs = ExternalAuthUser.objects.select_related('user') \
+                .filter(user__isnull=False, user__profile__isnull=True)
+        except Exception:
+            ext_qs = []
+
+        # Read filters/search from query params to apply to external-only items
+        status_filter = (request.query_params.get('status') or '').strip()
+        province_filter = (request.query_params.get('province') or '').strip()
+        search_term = (request.query_params.get('search') or '').strip().lower()
+
+        # Helper to check if an external item matches the active filters
+        def _matches_filters(ext):
+            # Status: treat external users as 'active' by default
+            if status_filter and status_filter not in ['all', '']:
+                if status_filter != 'active':
+                    return False
+            # Province filter: external users don't have province info; only match when not filtering
+            if province_filter and province_filter not in ['all', '']:
+                return False
+            # Search: match by display_name or email
+            if search_term:
+                disp = (getattr(ext, 'display_name', '') or '').lower()
+                email = (getattr(ext, 'email', '') or '').lower()
+                uid = (getattr(ext, 'firebase_uid', '') or '').lower()
+                if search_term not in disp and search_term not in email and search_term not in uid:
+                    return False
+            return True
+
+        # Transform external users into the frontend customer shape with sensible defaults
+        ext_items = []
+        if ext_qs:
+            for ext in ext_qs:
+                if not _matches_filters(ext):
+                    continue
+                data = _to_frontend_customer(profile=None, ext=ext)
+                # Fill required/default fields expected by the SPA
+                try:
+                    reg_dt = getattr(ext, 'created_at', None)
+                    if not reg_dt and getattr(ext, 'user', None):
+                        reg_dt = getattr(ext.user, 'date_joined', None)
+                except Exception:
+                    reg_dt = None
+
+                data.setdefault('registrationDate', (reg_dt.isoformat() if reg_dt else None))
+                data.setdefault('lastOrderDate', None)
+                data.setdefault('totalOrders', 0)
+                data.setdefault('totalSpent', '0')
+                data.setdefault('status', 'active')
+                data.setdefault('notes', '')
+                data.setdefault('phone', '')
+                data.setdefault('address', '')
+                data.setdefault('city', '')
+                data.setdefault('province', '')
+                data.setdefault('postal_code', '')
+                data.setdefault('avatar', '')
+                # Ensure 'id' exists (use firebase UID or fallback to email)
+                if not data.get('id'):
+                    data['id'] = getattr(ext, 'firebase_uid', None) or getattr(ext, 'email', None) or 'external'
+
+                ext_items.append(data)
+
+        # Combine base data with external-only items
+        combined = base_data + ext_items
+
+        # Ordering: support ?ordering= like DRF. Default by registrationDate desc.
+        ordering = request.query_params.get('ordering') or '-registration_date'
+        # Map serializer field name to our combined dict keys
+        key_map = {
+            'registration_date': 'registrationDate',
+            'total_orders': 'totalOrders',
+            'total_spent': 'totalSpent',
+        }
+        order_field = ordering.lstrip('-')
+        combined_key = key_map.get(order_field, 'registrationDate')
+        reverse = ordering.startswith('-')
+
+        def _sort_key(item):
+            val = item.get(combined_key)
+            return (val is None, val)  # None-safe: Nones at end
+
+        try:
+            combined.sort(key=_sort_key, reverse=reverse)
+        except Exception:
+            # If sort fails for any reason, keep original order
+            pass
+
+        # Pagination: honor page/page_size query params; fallback to DRF defaults
+        try:
+            page_number = int(request.query_params.get('page', '1'))
+        except Exception:
+            page_number = 1
+        try:
+            page_size = int(request.query_params.get('page_size') or 20)
+        except Exception:
+            page_size = 20
+
+        total_count = len(combined)
+        start = (page_number - 1) * page_size
+        end = start + page_size
+        page_results = combined[start:end]
+
+        return Response({
+            'count': total_count,
+            'results': page_results,
+            # Keep keys minimal; frontend only uses count/results
+        })
+
 class CustomerCreateAdminView(generics.CreateAPIView):
     queryset = CustomerProfile.objects.select_related('user').all()
     serializer_class = AdminCustomerWriteSerializer
@@ -750,5 +883,71 @@ def customer_sync_firebase(request, customer_id):
         if profile or ext:
             return Response(_to_frontend_customer(profile, ext))
         return Response({'detail': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({'detail': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAdmin])
+def customer_delete_admin(request, customer_id):
+    """
+    Delete a customer. Supports both users with a CustomerProfile and external-only users.
+    - If a CustomerProfile exists, delete the linked Django User (cascade removes profile).
+    - Otherwise, if an ExternalAuthUser exists, delete its linked Django User (if any) and the external record.
+    Safety: Prevent deletion of protected admins (emails listed in FIREBASE_ADMIN_EMAILS).
+    Returns 204 on success, 404 if not found.
+    """
+    try:
+        from decouple import config as _config
+        protected_emails = []
+        try:
+            protected_emails = [e.strip().lower() for e in (_config('FIREBASE_ADMIN_EMAILS', default='').split(',')) if e.strip()]
+        except Exception:
+            protected_emails = []
+
+        profile = CustomerProfile.objects.select_related('user').filter(user__username=customer_id).first()
+        ext = None
+        if not profile:
+            ext = ExternalAuthUser.objects.select_related('user').filter(firebase_uid=customer_id).first()
+            if not ext:
+                ext = ExternalAuthUser.objects.select_related('user').filter(user__username=customer_id).first()
+        else:
+            ext = ExternalAuthUser.objects.select_related('user').filter(user=profile.user).first()
+
+        # Determine email to check protected list
+        email = ''
+        if profile and profile.user:
+            email = (profile.user.email or '').lower()
+        elif ext:
+            email = (getattr(ext, 'email', '') or '').lower()
+
+        if email and email in protected_emails:
+            return Response({'detail': 'Cannot delete a protected admin user'}, status=status.HTTP_403_FORBIDDEN)
+
+        # Perform deletion
+        deleted_any = False
+        if profile and getattr(profile, 'user', None):
+            user = profile.user
+            user.delete()  # cascades to CustomerProfile
+            deleted_any = True
+
+        # If still present or external-only, clean up ExternalAuthUser (and its user if any still exists)
+        if ext:
+            # If a different user object is linked and still exists, delete it too
+            if getattr(ext, 'user', None):
+                try:
+                    ext.user.delete()
+                except Exception:
+                    pass
+            try:
+                ext.delete()
+            except Exception:
+                pass
+            deleted_any = True
+
+        if not deleted_any:
+            return Response({'detail': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
     except Exception as e:
         return Response({'detail': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
